@@ -1,0 +1,7 @@
+[package]
+name = "fhttp"
+version = "0.1.0"
+authors = ["René Perschon <rene.perschon@akelius.de>"]
+edition = "2018"
+
+[dependencies]
