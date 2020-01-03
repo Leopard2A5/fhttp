@@ -1,7 +1,7 @@
 [package]
 name = "fhttp"
 version = "0.1.0"
-authors = ["René Perschon <rene.perschon@akelius.de>"]
+authors = ["René Perschon <rperschon85@gmail.com>"]
 edition = "2018"
 
 [dependencies]
@@ -11,3 +11,4 @@ lazy_static = "1.4.0"
 indoc = "0.3.4"
 jsonpath_lib = "0.2.3"
 serde_json = "1.0.44"
+clap = "2.33.0"
