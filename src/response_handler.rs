@@ -29,7 +29,7 @@ impl ResponseHandler for JsonPathResponseHandler {
         let value: Value = serde_json::from_str(body).unwrap();
 
         let mut selector = Selector::new();
-        let mut json_path_results = selector
+        let json_path_results = selector
             .str_path(&self.json_path).unwrap()
             .value(&value)
             .select()

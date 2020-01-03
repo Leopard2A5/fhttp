@@ -7,7 +7,8 @@ use reqwest::Method;
 
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
 
-struct Request {
+#[derive(Debug)]
+pub struct Request {
     pub method: Method,
     pub url: String,
     pub headers: HeaderMap,
