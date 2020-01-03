@@ -139,7 +139,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_parse_request() {
+    fn should_parse_full_request() {
         let input = indoc!("
             GET https://google.com
             x-request-id: abc
@@ -165,6 +165,30 @@ mod test {
         assert_eq!(result.url, "https://google.com");
         assert_eq!(result.headers, expected_headers);
         assert_eq!(result.body, "body1\nbody2");
+        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        if let Some(_) = result.response_handler {
+            // TODO check the actual response handler impl
+        } else {
+            panic!("expected a response handler");
+        }
+    }
+
+    #[test]
+    fn should_parse_request_with_headers_and_handler() {
+        let input = indoc!("
+            GET https://google.com
+
+            > {%
+                json $.foo
+            %}
+
+        ").to_owned();
+
+        let result = Request::parse(input, &std::env::current_dir().unwrap());
+        assert_eq!(result.method, Method::GET);
+        assert_eq!(result.url, "https://google.com");
+        assert_eq!(result.headers, HeaderMap::new());
+        assert_eq!(result.body, "");
         assert_eq!(result.source_path, std::env::current_dir().unwrap());
         if let Some(_) = result.response_handler {
             // TODO check the actual response handler impl
