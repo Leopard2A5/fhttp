@@ -5,3 +5,7 @@ authors = ["René Perschon <rene.perschon@akelius.de>"]
 edition = "2018"
 
 [dependencies]
+reqwest = "0.10.0"
+regex = "1"
+lazy_static = "1.4.0"
+indoc = "0.3.4"
