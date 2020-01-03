@@ -7,3 +7,5 @@ extern crate serde_json;
 
 mod request;
 mod response_handler;
+
+pub use request::Request;
