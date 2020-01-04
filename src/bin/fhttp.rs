@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::process;
 use std::str::FromStr;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request};
+use fhttp::{Client, Request, RequestPreprocessor};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -20,12 +20,20 @@ fn main() {
         .get_matches();
 
     let requests = validate_and_parse_files(matches.values_of("files").unwrap());
-
+    let mut preprocessor = RequestPreprocessor::new(requests);
     let client = Client::new();
-    for req in requests {
+
+    while !preprocessor.is_empty() {
+        let req = preprocessor.next().unwrap();
+
         println!("{:#?}", req);
         client.exec(req);
+        preprocessor.notify_response(
+            Path::new("/"),
+            "foo"
+        )
     }
+
 }
 
 fn validate_and_parse_files(values: Values) -> Vec<Request> {

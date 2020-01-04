@@ -88,15 +88,8 @@ fn parse_header_part(lines: &Vec<String>) -> (Method, String, HeaderMap) {
         let split: Vec<&str> = line.splitn(2, ':').collect();
         let key = HeaderName::from_bytes(split[0].as_bytes())
             .expect("couldn't create HeaderName");
-        let value_text = split[1];
-        let values: Vec<HeaderValue> = value_text
-            .split(',')
-            .map(|it| it.trim())
-            .map(|it| HeaderValue::from_str(it).expect("couldn't create HeaderValue"))
-            .collect();
-        for value in values {
-            headers.insert(key.clone(), value);
-        }
+        let value_text = split[1].trim();
+        headers.insert(key, HeaderValue::from_str(value_text).unwrap());
     }
 
     return (
@@ -158,8 +151,7 @@ mod test {
         let mut expected_headers = HeaderMap::new();
         expected_headers.insert(HeaderName::from_str("x-request-id").unwrap(), HeaderValue::from_str("abc").unwrap());
         expected_headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json; charset=UTF-8").unwrap());
-        expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
-        expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/xml").unwrap());
+        expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json, application/xml").unwrap());
 
         let result = Request::parse(input, &std::env::current_dir().unwrap());
         assert_eq!(result.method, Method::GET);
