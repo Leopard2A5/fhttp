@@ -1,6 +1,8 @@
 use std::path::{Path, PathBuf};
 use std::str::{FromStr, Lines};
 use std::fs;
+use std::cmp::PartialEq;
+use std::hash::{Hash, Hasher};
 
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -48,6 +50,20 @@ impl Request {
         }
     }
 
+}
+
+impl PartialEq for Request {
+    fn eq(&self, other: &Self) -> bool {
+        self.source_path == other.source_path
+    }
+}
+
+impl Eq for Request {}
+
+impl Hash for Request {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.source_path.hash(state);
+    }
 }
 
 fn split_body_parts(lines: Lines) -> Vec<Vec<String>> {

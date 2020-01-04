@@ -1,0 +1,3 @@
+GET http://localhost:55555/resources/find
+Authorization: Bearer ${request("token.http")}
+x-process-id: ${request("../process_id.http")}

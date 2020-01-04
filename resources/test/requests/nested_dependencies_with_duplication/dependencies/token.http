@@ -1,0 +1,2 @@
+POST http://localhost:55555/authenticate
+x-api-key: ${request("get_api_key.http")}

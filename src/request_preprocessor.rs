@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use regex::Regex;
 use std::env;
 use reqwest::header::HeaderValue;
+use linked_hash_set::LinkedHashSet;
 
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
@@ -13,14 +14,14 @@ pub struct RequestPreprocessor {
 
 impl RequestPreprocessor {
     pub fn new(requests: Vec<Request>) -> Self {
-        let mut requests_with_dependencies = vec![];
+        let mut requests_with_dependencies = LinkedHashSet::new();
 
         for req in requests {
             preprocess_request(req, &mut requests_with_dependencies);
         }
 
         RequestPreprocessor {
-            requests: requests_with_dependencies,
+            requests: requests_with_dependencies.into_iter().collect(),
             response_data: HashMap::new()
         }
     }
@@ -74,10 +75,69 @@ fn eval(text: &str) -> String {
 
 fn preprocess_request(
     mut req: Request,
-    list: &mut Vec<Request>
+    mut list: &mut LinkedHashSet<Request>
 ) {
     replace_env_vars(&mut req);
-    list.push(req);
+
+    for dep in get_dependencies(&req) {
+        preprocess_request(dep, &mut list);
+    }
+
+    list.insert(req);
+}
+
+fn get_dependencies(req: &Request) -> Vec<Request> {
+    let mut ret = vec![];
+
+    let url_deps = get_dependencies_from_str(&req.source_path, &req.url);
+    let header_deps = req.headers.values().flat_map(|header_value| {
+        let text = header_value.to_str().unwrap();
+        get_dependencies_from_str(&req.source_path, &text)
+    }).collect::<Vec<_>>();
+    let body_deps = get_dependencies_from_str(&req.source_path, &req.body);
+
+    ret.extend(url_deps);
+    ret.extend(header_deps);
+    ret.extend(body_deps);
+
+    ret
+}
+
+fn get_dependencies_from_str(
+    origin_path: &Path,
+    text: &str
+) -> Vec<Request> {
+    lazy_static!{
+        static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
+    };
+
+    let mut ret = vec![];
+    for capture in RE_REQUEST.captures_iter(&text) {
+        let group = capture.get(1).unwrap().as_str();
+        let path = get_dependency_path(&origin_path, group);
+        ret.push(Request::parse(
+            std::fs::read_to_string(&path).unwrap(),
+            &path
+        ));
+    }
+
+    ret
+}
+
+fn get_dependency_path(
+    origin_path: &Path,
+    path: &str
+) -> PathBuf {
+    let path = Path::new(path);
+    let ret = if path.is_absolute() {
+        path.to_path_buf()
+    } else if origin_path.is_dir() {
+        origin_path.join(path).to_path_buf()
+    } else {
+        origin_path.parent().unwrap().join(path).to_path_buf()
+    };
+
+    std::fs::canonicalize(ret).unwrap()
 }
 
 impl Iterator for RequestPreprocessor {
@@ -166,5 +226,28 @@ mod replace_env_vars {
         replace_env_vars(&mut req);
         assert_eq!(req.body, "E1=e1 + E2=e2");
     }
+}
 
+#[cfg(test)]
+mod dependencies {
+    use super::*;
+    use crate::Request;
+    use std::fs;
+    use std::path::PathBuf;
+
+    #[test]
+    fn should_resolve_nested_dependencies() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/nested_dependencies_with_duplication");
+        let init_path = root.join("init.http");
+
+        let init_request = Request::parse(
+            fs::read_to_string(&init_path).unwrap(),
+            &init_path
+        );
+
+        let mut coll = LinkedHashSet::new();
+        preprocess_request(init_request, &mut coll);
+        assert_eq!(coll.len(), 5);
+    }
 }
