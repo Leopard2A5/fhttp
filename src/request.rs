@@ -109,17 +109,20 @@ fn parse_response_handler_script(lines: &Vec<String>) -> Option<Box<dyn Response
         static ref RE_TRIM_LINES: Regex = Regex::new(r"\s*\n\s*").unwrap();
     };
     let text = lines.join("\n");
-    let captures = RE_RESPONSE_HANDLER.captures(&text).unwrap();
 
-    if let Some(group) = captures.get(1) {
-        let group = group.as_str().trim();
-        let parts: Vec<&str> = group.splitn(2, ' ').collect();
-        let kind = parts[0];
-        let content = parts[1];
+    if let Some(captures) = RE_RESPONSE_HANDLER.captures(&text) {
+        if let Some(group) = captures.get(1) {
+            let group = group.as_str().trim();
+            let parts: Vec<&str> = group.splitn(2, ' ').collect();
+            let kind = parts[0];
+            let content = parts[1];
 
-        match kind {
-            "json" => Some(Box::new(JsonPathResponseHandler::new(content))),
-            _ => None
+            match kind {
+                "json" => Some(Box::new(JsonPathResponseHandler::new(content))),
+                _ => None
+            }
+        } else {
+            None
         }
     } else {
         None
