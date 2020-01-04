@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::str::{FromStr, Lines};
+use std::fs;
 
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -42,7 +43,7 @@ impl Request {
             url,
             headers,
             body,
-            source_path: path.to_path_buf(),
+            source_path: fs::canonicalize(path).unwrap(),
             response_handler
         }
     }
@@ -132,7 +133,6 @@ fn parse_response_handler_script(lines: &Vec<String>) -> Option<Box<dyn Response
 #[cfg(test)]
 mod test {
     use indoc::indoc;
-
     use super::*;
 
     #[test]
@@ -167,6 +167,15 @@ mod test {
         } else {
             panic!("expected a response handler");
         }
+    }
+
+    #[test]
+    fn should_canonicalize_path() {
+        let original_path = PathBuf::from_str("./src/../.").unwrap();
+        let req = Request::parse("GET http://localhost".into(), &original_path);
+        let canonicalized_path = std::fs::canonicalize(&original_path).unwrap();
+
+        assert_eq!(req.source_path, canonicalized_path);
     }
 
     #[test]
