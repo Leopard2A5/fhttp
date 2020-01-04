@@ -12,13 +12,15 @@ pub struct RequestPreprocessor {
 }
 
 impl RequestPreprocessor {
-    pub fn new(mut requests: Vec<Request>) -> Self {
-        for req in &mut requests {
-            replace_env_vars(req);
+    pub fn new(requests: Vec<Request>) -> Self {
+        let mut requests_with_dependencies = vec![];
+
+        for req in requests {
+            preprocess_request(req, &mut requests_with_dependencies);
         }
 
         RequestPreprocessor {
-            requests,
+            requests: requests_with_dependencies,
             response_data: HashMap::new()
         }
     }
@@ -68,6 +70,14 @@ fn eval(text: &str) -> String {
     }
 
     buffer
+}
+
+fn preprocess_request(
+    mut req: Request,
+    list: &mut Vec<Request>
+) {
+    replace_env_vars(&mut req);
+    list.push(req);
 }
 
 impl Iterator for RequestPreprocessor {
