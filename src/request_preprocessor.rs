@@ -42,6 +42,8 @@ fn replace_env_vars(mut req: Request) -> Request {
         *value = HeaderValue::from_str(&eval(&value.to_str().unwrap())).unwrap();
     }
 
+    req.body = eval(&req.body);
+
     req
 }
 
@@ -134,6 +136,23 @@ mod replace_env_vars {
 
         let result = replace_env_vars(req);
         assert_eq!(result.headers, headers);
+    }
+
+    #[test]
+    fn should_replace_in_body() {
+        env::set_var("E1", "e1");
+        env::set_var("E2", "e2");
+        let req = Request::parse(
+            indoc!("
+                GET http://localhost/
+
+                E1=${env(E1)} + E2=${env(E2)}
+            ").into(),
+            &env::current_dir().unwrap()
+        );
+
+        let result = replace_env_vars(req);
+        assert_eq!(result.body, "E1=e1 + E2=e2");
     }
 
 }
