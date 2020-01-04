@@ -1,8 +1,10 @@
-use clap::{App, Arg, crate_version, crate_authors};
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::process;
-use fhttp::Request;
+use std::str::FromStr;
+
+use clap::{App, Arg, crate_authors, crate_version, Values};
+
+use fhttp::{Client, Request};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -17,7 +19,17 @@ fn main() {
             .help("the request files to execute"))
         .get_matches();
 
-    let files = matches.values_of("files").unwrap()
+    let requests = validate_and_parse_files(matches.values_of("files").unwrap());
+
+    let client = Client::new();
+    for req in requests {
+        println!("{:#?}", req);
+        client.exec(req);
+    }
+}
+
+fn validate_and_parse_files(values: Values) -> Vec<Request> {
+    let files = values
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
 
@@ -43,14 +55,10 @@ fn main() {
         process::exit(1);
     }
 
-    let requests = files.into_iter()
-        .map(|it| {
-            let content = std::fs::read_to_string(&it).unwrap();
-            Request::parse(content, &it)
+    files.into_iter()
+        .map(|file| {
+            let content = std::fs::read_to_string(&file).unwrap();
+            Request::parse(content, &file)
         })
-        .collect::<Vec<_>>();
-
-    for req in requests {
-        println!("{:#?}", req);
-    }
+        .collect()
 }

@@ -8,5 +8,7 @@ extern crate clap;
 
 mod request;
 mod response_handler;
+mod client;
 
 pub use request::Request;
+pub use client::Client;
