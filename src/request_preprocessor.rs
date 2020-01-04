@@ -12,7 +12,11 @@ pub struct RequestPreprocessor {
 }
 
 impl RequestPreprocessor {
-    pub fn new(requests: Vec<Request>) -> Self {
+    pub fn new(mut requests: Vec<Request>) -> Self {
+        for req in &mut requests {
+            replace_env_vars(req);
+        }
+
         RequestPreprocessor {
             requests,
             response_data: HashMap::new()
@@ -35,7 +39,7 @@ impl RequestPreprocessor {
     }
 }
 
-fn replace_env_vars(mut req: Request) -> Request {
+fn replace_env_vars(req: &mut Request) {
     req.url = eval(&req.url);
 
     for (_, value) in req.headers.iter_mut() {
@@ -43,8 +47,6 @@ fn replace_env_vars(mut req: Request) -> Request {
     }
 
     req.body = eval(&req.body);
-
-    req
 }
 
 fn eval(text: &str) -> String {
@@ -107,13 +109,13 @@ mod replace_env_vars {
     fn should_replace_in_url() {
         env::set_var("SERVER", "localhost");
         env::set_var("PORT", "8080");
-        let req = Request::parse(
+        let mut req = Request::parse(
             "GET http://${env(SERVER)}:${env(PORT)}/".into(),
             &env::current_dir().unwrap()
         );
 
-        let result = replace_env_vars(req);
-        assert_eq!(result.url, "http://localhost:8080/");
+        replace_env_vars(&mut req);
+        assert_eq!(req.url, "http://localhost:8080/");
     }
 
     #[test]
@@ -121,7 +123,7 @@ mod replace_env_vars {
         env::set_var("E1", "e1");
         env::set_var("E2", "e2");
         env::set_var("E3", "e3");
-        let req = Request::parse(
+        let mut req = Request::parse(
             indoc!("
                 GET http://localhost/
                 H1: ${env(E1)}
@@ -134,15 +136,15 @@ mod replace_env_vars {
         headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
         headers.insert(HeaderName::from_str("H23").unwrap(), HeaderValue::from_str("e2, e3").unwrap());
 
-        let result = replace_env_vars(req);
-        assert_eq!(result.headers, headers);
+        replace_env_vars(&mut req);
+        assert_eq!(req.headers, headers);
     }
 
     #[test]
     fn should_replace_in_body() {
         env::set_var("E1", "e1");
         env::set_var("E2", "e2");
-        let req = Request::parse(
+        let mut req = Request::parse(
             indoc!("
                 GET http://localhost/
 
@@ -151,8 +153,8 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        let result = replace_env_vars(req);
-        assert_eq!(result.body, "E1=e1 + E2=e2");
+        replace_env_vars(&mut req);
+        assert_eq!(req.body, "E1=e1 + E2=e2");
     }
 
 }
