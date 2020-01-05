@@ -1,5 +1,0 @@
-GET http://localhost:55555/resources/${request("dependencies/get_id.http")}
-Authorization: Bearer ${request("dependencies/token.http")}
-x-process-id: ${request("./process_id.http")}
-
-process-id: ${request("./process_id.http")}

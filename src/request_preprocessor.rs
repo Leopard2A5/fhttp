@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use regex::Regex;
 use std::env;
 use reqwest::header::HeaderValue;
-use linked_hash_set::LinkedHashSet;
 
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
@@ -14,7 +13,7 @@ pub struct RequestPreprocessor {
 
 impl RequestPreprocessor {
     pub fn new(requests: Vec<Request>) -> Self {
-        let mut requests_with_dependencies = LinkedHashSet::new();
+        let mut requests_with_dependencies = vec![];
 
         for req in requests {
             preprocess_request(req, &mut requests_with_dependencies);
@@ -75,15 +74,19 @@ fn eval(text: &str) -> String {
 
 fn preprocess_request(
     mut req: Request,
-    mut list: &mut LinkedHashSet<Request>
+    mut list: &mut Vec<Request>
 ) {
+    if list.contains(&req) {
+        return;
+    }
+
     replace_env_vars(&mut req);
 
     for dep in get_dependencies(&req) {
         preprocess_request(dep, &mut list);
     }
 
-    list.insert(req);
+    list.push(req);
 }
 
 fn get_dependencies(req: &Request) -> Vec<Request> {
@@ -238,16 +241,49 @@ mod dependencies {
     #[test]
     fn should_resolve_nested_dependencies() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/test/requests/nested_dependencies_with_duplication");
-        let init_path = root.join("init.http");
+            .join("resources/test/requests/nested_dependencies");
+        let init_path = root.join("1.http");
 
         let init_request = Request::parse(
             fs::read_to_string(&init_path).unwrap(),
             &init_path
         );
 
-        let mut coll = LinkedHashSet::new();
+        let mut coll = Vec::new();
         preprocess_request(init_request, &mut coll);
-        assert_eq!(coll.len(), 5);
+
+        let coll = coll.into_iter()
+            .map(|it| it.source_path)
+            .collect::<Vec<_>>();
+
+        let foo = (1..=5).into_iter()
+            .rev()
+            .map(|i| root.join(format!("{}.http", i)))
+            .collect::<Vec<_>>();
+        assert_eq!(&coll, &foo);
+    }
+
+    #[test]
+    fn should_not_resolve_duplicate_dependencies() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/duplicate_dependencies");
+        let path1 = root.join("1.http");
+        let path2 = root.join("2.http");
+        let dep_path = root.join("dependency.http");
+
+        let req1 = Request::parse(
+            fs::read_to_string(&path1).unwrap(),
+            &path1
+        );
+        let req2 = Request::parse(
+            fs::read_to_string(&path2).unwrap(),
+            &path2
+        );
+
+        let preprocessor = RequestPreprocessor::new(vec![req1, req2]);
+        let coll = preprocessor.into_iter()
+            .map(|it| it.source_path)
+            .collect::<Vec<_>>();
+        assert_eq!(&coll, &[dep_path, path1, path2]);
     }
 }
