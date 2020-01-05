@@ -13,10 +13,11 @@ pub struct RequestPreprocessor {
 
 impl RequestPreprocessor {
     pub fn new(requests: Vec<Request>) -> Self {
+        let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
         for req in requests {
-            preprocess_request(req, &mut requests_with_dependencies);
+            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack);
         }
 
         RequestPreprocessor {
@@ -74,18 +75,24 @@ fn eval(text: &str) -> String {
 
 fn preprocess_request(
     mut req: Request,
-    mut list: &mut Vec<Request>
+    mut list: &mut Vec<Request>,
+    mut preprocessor_stack: &mut Vec<PathBuf>
 ) {
     if list.contains(&req) {
         return;
     }
+    if preprocessor_stack.contains(&req.source_path) {
+        panic!("cyclic dependency detected!");
+    }
+    preprocessor_stack.push(req.source_path.clone());
 
     replace_env_vars(&mut req);
 
     for dep in get_dependencies(&req) {
-        preprocess_request(dep, &mut list);
+        preprocess_request(dep, &mut list, &mut preprocessor_stack);
     }
 
+    preprocessor_stack.pop();
     list.push(req);
 }
 
@@ -249,10 +256,8 @@ mod dependencies {
             &init_path
         );
 
-        let mut coll = Vec::new();
-        preprocess_request(init_request, &mut coll);
-
-        let coll = coll.into_iter()
+        let preprocessor = RequestPreprocessor::new(vec![init_request]);
+        let coll = preprocessor.into_iter()
             .map(|it| it.source_path)
             .collect::<Vec<_>>();
 
@@ -285,5 +290,19 @@ mod dependencies {
             .map(|it| it.source_path)
             .collect::<Vec<_>>();
         assert_eq!(&coll, &[dep_path, path1, path2]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_panic_on_cyclic_dependency() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/cyclic_dependencies");
+        let path1 = root.join("1.http");
+        let req1 = Request::parse(
+            fs::read_to_string(&path1).unwrap(),
+            &path1
+        );
+
+        RequestPreprocessor::new(vec![req1]);
     }
 }
