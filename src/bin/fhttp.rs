@@ -4,8 +4,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, RequestPreprocessor};
-use fhttp::FhttpError;
+use fhttp::{Client, Request, RequestPreprocessor, Result};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -27,7 +26,7 @@ fn main() {
     };
 }
 
-fn do_it(file_values: Values) -> Result<(), FhttpError> {
+fn do_it(file_values: Values) -> Result<()> {
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
     let mut preprocessor = RequestPreprocessor::new(requests)?;
     let client = Client::new();
@@ -44,7 +43,7 @@ fn do_it(file_values: Values) -> Result<(), FhttpError> {
     Ok(())
 }
 
-fn validate_and_parse_files(values: Values) -> Result<Vec<Request>, FhttpError> {
+fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
     let files = values
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
