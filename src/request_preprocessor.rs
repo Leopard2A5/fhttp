@@ -5,6 +5,11 @@ use std::collections::HashMap;
 use regex::Regex;
 use std::env;
 use reqwest::header::HeaderValue;
+use std::fs;
+
+lazy_static!{
+    static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
+}
 
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
@@ -35,8 +40,10 @@ impl RequestPreprocessor {
         path: &Path,
         response: &str
     ) {
+        let path = fs::canonicalize(&path).unwrap();
+
         self.response_data.insert(
-            path.to_path_buf(),
+            path,
             response.to_owned()
         );
     }
@@ -117,10 +124,6 @@ fn get_dependencies_from_str(
     origin_path: &Path,
     text: &str
 ) -> Vec<Request> {
-    lazy_static!{
-        static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
-    };
-
     let mut ret = vec![];
     for capture in RE_REQUEST.captures_iter(&text) {
         let group = capture.get(1).unwrap().as_str();
@@ -155,11 +158,54 @@ impl Iterator for RequestPreprocessor {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.len() > 0 {
-            Some(self.requests.remove(0))
+            let mut req = self.requests.remove(0);
+            replace_dependency_values(&mut req, &self.response_data);
+            Some(req)
         } else {
             None
         }
     }
+}
+
+fn replace_dependency_values(
+    req: &mut Request,
+    response_data: &HashMap<PathBuf, String>
+) {
+    req.url = replace_dependency_values_in_str(&req.source_path, &req.url, &response_data);
+
+    for (_, value) in req.headers.iter_mut() {
+        let replaced = &replace_dependency_values_in_str(&req.source_path, value.to_str().unwrap(), &response_data);
+        let new_value = HeaderValue::from_str(replaced).unwrap();
+        *value = new_value;
+    }
+
+    req.body = replace_dependency_values_in_str(&req.source_path, &req.body, &response_data);
+}
+
+fn replace_dependency_values_in_str(
+    source_path: &Path,
+    text: &str,
+    response_data: &HashMap<PathBuf, String>
+) -> String {
+    let reversed_captures = RE_REQUEST.captures_iter(&text)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
+
+    let mut ret = text.to_owned();
+    for capture in reversed_captures {
+        let whole_match = capture.get(0).unwrap();
+        let range = whole_match.start()..whole_match.end();
+
+        let group = capture.get(1).unwrap();
+        let path = get_dependency_path(&source_path, &group.as_str());
+
+        let replacement = response_data.get(&path).unwrap();
+        ret.replace_range(range, &replacement);
+    }
+
+    ret
 }
 
 #[cfg(test)]
@@ -256,7 +302,12 @@ mod dependencies {
             &init_path
         );
 
-        let preprocessor = RequestPreprocessor::new(vec![init_request]);
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        for i in 2..=5 {
+            let path = root.join(format!("{}.http", i));
+            preprocessor.notify_response(&path, &format!("{}", i));
+        }
+
         let coll = preprocessor.into_iter()
             .map(|it| it.source_path)
             .collect::<Vec<_>>();
@@ -285,7 +336,8 @@ mod dependencies {
             &path2
         );
 
-        let preprocessor = RequestPreprocessor::new(vec![req1, req2]);
+        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2]);
+        preprocessor.notify_response(&dep_path, "");
         let coll = preprocessor.into_iter()
             .map(|it| it.source_path)
             .collect::<Vec<_>>();
@@ -304,5 +356,103 @@ mod dependencies {
         );
 
         RequestPreprocessor::new(vec![req1]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_panic_on_missing_dependency_response() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/nested_dependencies");
+        let init_path = root.join("4.http");
+
+        let init_request = Request::parse(
+            fs::read_to_string(&init_path).unwrap(),
+            &init_path
+        );
+
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        preprocessor.next();
+        preprocessor.next();
+    }
+
+    #[test]
+    fn should_replace_dependencies_on_next_calls() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/nested_dependencies");
+        let init_path = root.join("4.http");
+        let dep_path = root.join("5.http");
+
+        let init_request = Request::parse(
+            fs::read_to_string(&init_path).unwrap(),
+            &init_path
+        );
+
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        preprocessor.next();
+        preprocessor.notify_response(&dep_path, "dependency");
+        let result = preprocessor.next().unwrap();
+        assert_eq!(result.url, "dependency");
+    }
+}
+
+#[cfg(test)]
+mod replace_dependency_values_in_str {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn should_replace_dependencies_in_str() {
+        let source_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/nested_dependencies");
+        let path1 = source_path.join("1.http");
+        let path2 = source_path.join("2.http");
+
+        let mut dependency_values = HashMap::new();
+        dependency_values.insert(path1.clone(), "dep1".to_owned());
+        dependency_values.insert(path2.clone(), "dep2".to_owned());
+
+        let input = r#"X${request("1.http")}-${request("2.http")}X"#.to_owned();
+        let result = replace_dependency_values_in_str(&source_path, &input, &dependency_values);
+
+        assert_eq!(result, "Xdep1-dep2X");
+    }
+}
+
+#[cfg(test)]
+mod replace_dependency_values {
+    use super::*;
+    use std::path::PathBuf;
+    use std::str::FromStr;
+    use crate::Request;
+    use reqwest::header::{HeaderMap, HeaderName};
+
+    #[test]
+    fn should_replace_dependencies() {
+        let source_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/nested_dependencies");
+        let path1 = source_path.join("1.http");
+
+        let mut headers = HeaderMap::new();
+        let header_name = HeaderName::from_str("key").unwrap();
+        headers.insert(
+            header_name.clone(),
+            HeaderValue::from_str(r#"${request("1.http")}"#).unwrap()
+        );
+        let mut request = Request {
+            method: Default::default(),
+            url: r#"${request("1.http")}"#.to_string(),
+            headers: headers.clone(),
+            body: r#"${request("1.http")}"#.to_string(),
+            source_path: source_path.clone(),
+            response_handler: None
+        };
+
+        let mut dependency_values = HashMap::new();
+        dependency_values.insert(path1.clone(), "dep1".to_owned());
+
+        replace_dependency_values(&mut request, &dependency_values);
+        assert_eq!(request.url, "dep1");
+        assert_eq!(request.body, "dep1");
+        assert_eq!(request.headers.get(&header_name), Some(&HeaderValue::from_str("dep1").unwrap()));
     }
 }
