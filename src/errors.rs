@@ -1,6 +1,5 @@
 use std::io;
-use std::fmt::Formatter;
-use std::io::Error;
+use std::fmt::{self, Display, Formatter};
 use std::convert::From;
 use reqwest::header::{ToStrError, InvalidHeaderValue};
 
@@ -25,16 +24,16 @@ impl FhttpError {
     }
 }
 
-impl std::fmt::Display for FhttpError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Display for FhttpError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "FHTTPerror: {:?}", self.kind)
     }
 }
 
 impl std::error::Error for FhttpError {}
 
-impl From<std::io::Error> for FhttpError {
-    fn from(err: Error) -> Self {
+impl From<io::Error> for FhttpError {
+    fn from(err: io::Error) -> Self {
         FhttpError {
             kind: ErrorKind::IO(err)
         }
