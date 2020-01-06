@@ -20,11 +20,21 @@ impl Client {
             .headers(request.headers)
             .body(request.body);
         let response = req.send().unwrap();
+        let status = response.status();
+        let headers = response.headers().clone();
+        let text = response.text().unwrap();
+
+        let body = match request.response_handler {
+            Some(handler) => {
+                handler.process_body(&text)
+            },
+            None => text
+        };
 
         Response::new(
-            response.status(),
-            response.headers().clone(),
-            response.text().unwrap()
+            status,
+            headers,
+            body
         )
     }
 }
