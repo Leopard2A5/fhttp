@@ -1,6 +1,6 @@
 use reqwest::blocking::Client as InnerClient;
 use reqwest::Url;
-use crate::Request;
+use crate::{Request, Response};
 
 pub struct Client;
 
@@ -12,7 +12,7 @@ impl Client {
     pub fn exec(
         &self,
         request: Request
-    ) {
+    ) -> Response {
         let client: InnerClient = InnerClient::new();
         let url = Url::parse(&request.url).unwrap();
         let req = client
@@ -20,7 +20,11 @@ impl Client {
             .headers(request.headers)
             .body(request.body);
         let response = req.send().unwrap();
-        println!("{:?}", response.status());
-        println!("{:?}", response.text().unwrap());
+
+        Response::new(
+            response.status(),
+            response.headers().clone(),
+            response.text().unwrap()
+        )
     }
 }

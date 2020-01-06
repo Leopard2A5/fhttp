@@ -1,4 +1,4 @@
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 
@@ -26,12 +26,10 @@ fn main() {
     while !preprocessor.is_empty() {
         let req = preprocessor.next().unwrap();
 
-        println!("{:#?}", req);
-        client.exec(req);
-        preprocessor.notify_response(
-            Path::new("/"),
-            "foo"
-        )
+        let path = req.source_path.clone();
+        let resp = client.exec(req);
+        preprocessor.notify_response(&path, resp.body());
+        println!("{:?}\n##################\n{}", &path, resp.body());
     }
 
 }
