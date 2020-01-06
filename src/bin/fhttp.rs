@@ -22,14 +22,14 @@ fn main() {
 
     let result= do_it(matches.values_of("files").unwrap());
     if let Err(error) = result {
-        println!("Error {}", error);
+        println!("{}", error);
         process::exit(1);
     };
 }
 
 fn do_it(file_values: Values) -> Result<(), FhttpError> {
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
-    let mut preprocessor = RequestPreprocessor::new(requests);
+    let mut preprocessor = RequestPreprocessor::new(requests)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {

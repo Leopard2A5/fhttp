@@ -1,4 +1,5 @@
 use crate::Request;
+use crate::FhttpError;
 use core::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -6,6 +7,7 @@ use regex::Regex;
 use std::env;
 use reqwest::header::HeaderValue;
 use std::fs;
+use crate::errors::ErrorKind;
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -17,18 +19,21 @@ pub struct RequestPreprocessor {
 }
 
 impl RequestPreprocessor {
-    pub fn new(requests: Vec<Request>) -> Self {
+    pub fn new(requests: Vec<Request>) -> Result<Self, FhttpError> {
         let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
         for req in requests {
-            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack);
+            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack)?;
         }
 
-        RequestPreprocessor {
-            requests: requests_with_dependencies.into_iter().collect(),
-            response_data: HashMap::new()
-        }
+
+        Ok(
+            RequestPreprocessor {
+                requests: requests_with_dependencies.into_iter().collect(),
+                response_data: HashMap::new()
+            }
+        )
     }
 
     pub fn is_empty(&self) -> bool {
@@ -49,17 +54,19 @@ impl RequestPreprocessor {
     }
 }
 
-fn replace_env_vars(req: &mut Request) {
-    req.url = eval(&req.url);
+fn replace_env_vars(req: &mut Request) -> Result<(), FhttpError> {
+    req.url = eval(&req.url)?;
 
     for (_, value) in req.headers.iter_mut() {
-        *value = HeaderValue::from_str(&eval(&value.to_str().unwrap())).unwrap();
+        *value = HeaderValue::from_str(&eval(&value.to_str().unwrap())?).unwrap();
     }
 
-    req.body = eval(&req.body);
+    req.body = eval(&req.body)?;
+
+    Ok(())
 }
 
-fn eval(text: &str) -> String {
+fn eval(text: &str) -> Result<String, FhttpError> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
     };
@@ -74,33 +81,37 @@ fn eval(text: &str) -> String {
         let group = capture.get(0).unwrap();
         let key = capture.get(1).unwrap().as_str();
         let range = group.start()..group.end();
-        buffer.replace_range(range, &env::var(key).unwrap());
+        let value = env::var(key)
+            .map_err(|_| FhttpError::new(ErrorKind::MissingEnvVar(key.into())))?;
+        buffer.replace_range(range, &value);
     }
 
-    buffer
+    Ok(buffer)
 }
 
 fn preprocess_request(
     mut req: Request,
     mut list: &mut Vec<Request>,
     mut preprocessor_stack: &mut Vec<PathBuf>
-) {
+) -> Result<(), FhttpError> {
     if list.contains(&req) {
-        return;
+        return Ok(());
     }
     if preprocessor_stack.contains(&req.source_path) {
         panic!("cyclic dependency detected!");
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    replace_env_vars(&mut req);
+    replace_env_vars(&mut req)?;
 
     for dep in get_dependencies(&req) {
-        preprocess_request(dep, &mut list, &mut preprocessor_stack);
+        preprocess_request(dep, &mut list, &mut preprocessor_stack)?;
     }
 
     preprocessor_stack.pop();
     list.push(req);
+
+    Ok(())
 }
 
 fn get_dependencies(req: &Request) -> Vec<Request> {
