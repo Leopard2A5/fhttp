@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, RequestPreprocessor};
+use fhttp::{Client, Request, RequestPreprocessor, Result};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -19,8 +19,16 @@ fn main() {
             .help("the request files to execute"))
         .get_matches();
 
-    let requests = validate_and_parse_files(matches.values_of("files").unwrap());
-    let mut preprocessor = RequestPreprocessor::new(requests);
+    let result= do_it(matches.values_of("files").unwrap());
+    if let Err(error) = result {
+        println!("{}", error);
+        process::exit(1);
+    };
+}
+
+fn do_it(file_values: Values) -> Result<()> {
+    let requests: Vec<Request> = validate_and_parse_files(file_values)?;
+    let mut preprocessor = RequestPreprocessor::new(requests)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {
@@ -32,9 +40,10 @@ fn main() {
         println!("{:?}\n##################\n{}", &path, resp.body());
     }
 
+    Ok(())
 }
 
-fn validate_and_parse_files(values: Values) -> Vec<Request> {
+fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
     let files = values
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
@@ -61,10 +70,11 @@ fn validate_and_parse_files(values: Values) -> Vec<Request> {
         process::exit(1);
     }
 
-    files.into_iter()
-        .map(|file| {
-            let content = std::fs::read_to_string(&file).unwrap();
-            Request::parse(content, &file)
-        })
-        .collect()
+    let mut ret = vec![];
+    for file in files {
+        let content = std::fs::read_to_string(&file)?;
+        ret.push(Request::parse(content, &file));
+    }
+
+    Ok(ret)
 }

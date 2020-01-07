@@ -1,4 +1,5 @@
 use crate::Request;
+use crate::FhttpError;
 use core::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -6,6 +7,8 @@ use regex::Regex;
 use std::env;
 use reqwest::header::HeaderValue;
 use std::fs;
+use crate::errors::ErrorKind;
+use crate::Result;
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -17,18 +20,21 @@ pub struct RequestPreprocessor {
 }
 
 impl RequestPreprocessor {
-    pub fn new(requests: Vec<Request>) -> Self {
+    pub fn new(requests: Vec<Request>) -> Result<Self> {
         let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
         for req in requests {
-            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack);
+            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack)?;
         }
 
-        RequestPreprocessor {
-            requests: requests_with_dependencies.into_iter().collect(),
-            response_data: HashMap::new()
-        }
+
+        Ok(
+            RequestPreprocessor {
+                requests: requests_with_dependencies.into_iter().collect(),
+                response_data: HashMap::new()
+            }
+        )
     }
 
     pub fn is_empty(&self) -> bool {
@@ -49,17 +55,19 @@ impl RequestPreprocessor {
     }
 }
 
-fn replace_env_vars(req: &mut Request) {
-    req.url = eval(&req.url);
+fn replace_env_vars(req: &mut Request) -> Result<()> {
+    req.url = eval(&req.url)?;
 
     for (_, value) in req.headers.iter_mut() {
-        *value = HeaderValue::from_str(&eval(&value.to_str().unwrap())).unwrap();
+        *value = HeaderValue::from_str(&eval(&value.to_str()?)?)?;
     }
 
-    req.body = eval(&req.body);
+    req.body = eval(&req.body)?;
+
+    Ok(())
 }
 
-fn eval(text: &str) -> String {
+fn eval(text: &str) -> Result<String> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
     };
@@ -74,67 +82,74 @@ fn eval(text: &str) -> String {
         let group = capture.get(0).unwrap();
         let key = capture.get(1).unwrap().as_str();
         let range = group.start()..group.end();
-        buffer.replace_range(range, &env::var(key).unwrap());
+        let value = env::var(key)
+            .map_err(|_| FhttpError::new(ErrorKind::MissingEnvVar(key.into())))?;
+        buffer.replace_range(range, &value);
     }
 
-    buffer
+    Ok(buffer)
 }
 
 fn preprocess_request(
     mut req: Request,
     mut list: &mut Vec<Request>,
     mut preprocessor_stack: &mut Vec<PathBuf>
-) {
+) -> Result<()> {
     if list.contains(&req) {
-        return;
+        return Ok(());
     }
     if preprocessor_stack.contains(&req.source_path) {
         panic!("cyclic dependency detected!");
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    replace_env_vars(&mut req);
+    replace_env_vars(&mut req)?;
 
-    for dep in get_dependencies(&req) {
-        preprocess_request(dep, &mut list, &mut preprocessor_stack);
+    for dep in get_dependencies(&req)? {
+        preprocess_request(dep, &mut list, &mut preprocessor_stack)?;
     }
 
     preprocessor_stack.pop();
     list.push(req);
+
+    Ok(())
 }
 
-fn get_dependencies(req: &Request) -> Vec<Request> {
-    let mut ret = vec![];
+fn get_dependencies(req: &Request) -> Result<Vec<Request>> {
+    let mut ret: Vec<Request> = vec![];
 
-    let url_deps = get_dependencies_from_str(&req.source_path, &req.url);
-    let header_deps = req.headers.values().flat_map(|header_value| {
-        let text = header_value.to_str().unwrap();
-        get_dependencies_from_str(&req.source_path, &text)
-    }).collect::<Vec<_>>();
-    let body_deps = get_dependencies_from_str(&req.source_path, &req.body);
+    let url_deps = get_dependencies_from_str(&req.source_path, &req.url)?;
+    let body_deps = get_dependencies_from_str(&req.source_path, &req.body)?;
+
+    let mut header_deps = vec![];
+    for header in req.headers.values() {
+        let text = header.to_str()?;
+        let deps = get_dependencies_from_str(&req.source_path, &text)?;
+        header_deps.extend(deps);
+    }
 
     ret.extend(url_deps);
     ret.extend(header_deps);
     ret.extend(body_deps);
 
-    ret
+    Ok(ret)
 }
 
 fn get_dependencies_from_str(
     origin_path: &Path,
     text: &str
-) -> Vec<Request> {
+) -> Result<Vec<Request>> {
     let mut ret = vec![];
     for capture in RE_REQUEST.captures_iter(&text) {
         let group = capture.get(1).unwrap().as_str();
         let path = get_dependency_path(&origin_path, group);
         ret.push(Request::parse(
-            std::fs::read_to_string(&path).unwrap(),
+            std::fs::read_to_string(&path)?,
             &path
         ));
     }
 
-    ret
+    Ok(ret)
 }
 
 fn get_dependency_path(
@@ -159,7 +174,7 @@ impl Iterator for RequestPreprocessor {
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.len() > 0 {
             let mut req = self.requests.remove(0);
-            replace_dependency_values(&mut req, &self.response_data);
+            replace_dependency_values(&mut req, &self.response_data).unwrap();
             Some(req)
         } else {
             None
@@ -170,16 +185,18 @@ impl Iterator for RequestPreprocessor {
 fn replace_dependency_values(
     req: &mut Request,
     response_data: &HashMap<PathBuf, String>
-) {
+) -> Result<()> {
     req.url = replace_dependency_values_in_str(&req.source_path, &req.url, &response_data);
 
     for (_, value) in req.headers.iter_mut() {
-        let replaced = &replace_dependency_values_in_str(&req.source_path, value.to_str().unwrap(), &response_data);
-        let new_value = HeaderValue::from_str(replaced).unwrap();
+        let replaced = &replace_dependency_values_in_str(&req.source_path, value.to_str()?, &response_data);
+        let new_value = HeaderValue::from_str(replaced)?;
         *value = new_value;
     }
 
     req.body = replace_dependency_values_in_str(&req.source_path, &req.body, &response_data);
+
+    Ok(())
 }
 
 fn replace_dependency_values_in_str(
