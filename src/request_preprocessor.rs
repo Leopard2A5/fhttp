@@ -143,7 +143,7 @@ fn get_dependencies_from_str(
     for capture in RE_REQUEST.captures_iter(&text) {
         let group = capture.get(1).unwrap().as_str();
         let path = get_dependency_path(&origin_path, group);
-        ret.push(Request::parse(
+        ret.push(Request::parse_dependency(
             std::fs::read_to_string(&path)?,
             &path
         ));

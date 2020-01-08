@@ -17,7 +17,8 @@ pub struct Request {
     pub headers: HeaderMap,
     pub body: String,
     pub source_path: PathBuf,
-    pub response_handler: Option<Box<dyn ResponseHandler>>
+    pub response_handler: Option<Box<dyn ResponseHandler>>,
+    pub dependency: bool,
 }
 
 impl Request {
@@ -25,6 +26,21 @@ impl Request {
     pub fn parse(
         input: String,
         path: &Path
+    ) -> Request {
+        Self::_parse(input, path, false)
+    }
+
+    pub fn parse_dependency(
+        input: String,
+        path: &Path
+    ) -> Self {
+        Self::_parse(input, path, true)
+    }
+
+    fn _parse(
+        input: String,
+        path: &Path,
+        dependency: bool
     ) -> Request {
         let parts = split_body_parts(input.lines());
         let (method, url, headers) = parse_header_part(&parts[0]);
@@ -46,7 +62,8 @@ impl Request {
             headers,
             body,
             source_path: fs::canonicalize(path).unwrap(),
-            response_handler
+            response_handler,
+            dependency
         }
     }
 

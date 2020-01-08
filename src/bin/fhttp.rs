@@ -33,11 +33,15 @@ fn do_it(file_values: Values) -> Result<()> {
 
     while !preprocessor.is_empty() {
         let req = preprocessor.next().unwrap();
+        let dependency = req.dependency;
 
         let path = req.source_path.clone();
         let resp = client.exec(req);
         preprocessor.notify_response(&path, resp.body());
-        println!("{:?}\n##################\n{}", &path, resp.body());
+
+        if !dependency {
+            println!("{}", resp.body());
+        }
     }
 
     Ok(())
