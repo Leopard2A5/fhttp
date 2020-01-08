@@ -235,7 +235,7 @@ mod eval {
         env::set_var("FOO", "foo");
         env::set_var("BAR", "bar");
         let input = "X${env(FOO)}X${env(BAR)}X";
-        assert_eq!(eval(input), "XfooXbarX");
+        assert_eq!(eval(input).unwrap(), "XfooXbarX");
     }
 }
 
@@ -257,7 +257,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req);
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.url, "http://localhost:8080/");
     }
 
@@ -279,7 +279,7 @@ mod replace_env_vars {
         headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
         headers.insert(HeaderName::from_str("H23").unwrap(), HeaderValue::from_str("e2, e3").unwrap());
 
-        replace_env_vars(&mut req);
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.headers, headers);
     }
 
@@ -296,7 +296,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req);
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.body, "E1=e1 + E2=e2");
     }
 }
@@ -319,7 +319,8 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+            .unwrap();
         for i in 2..=5 {
             let path = root.join(format!("{}.http", i));
             preprocessor.notify_response(&path, &format!("{}", i));
@@ -353,9 +354,10 @@ mod dependencies {
             &path2
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2]);
+        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2])
+            .unwrap();
         preprocessor.notify_response(&dep_path, "");
-        let coll = preprocessor.into_iter()
+        let coll = preprocessor
             .map(|it| it.source_path)
             .collect::<Vec<_>>();
         assert_eq!(&coll, &[dep_path, path1, path2]);
@@ -372,7 +374,7 @@ mod dependencies {
             &path1
         );
 
-        RequestPreprocessor::new(vec![req1]);
+        RequestPreprocessor::new(vec![req1]).unwrap();
     }
 
     #[test]
@@ -387,7 +389,8 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+            .unwrap();
         preprocessor.next();
         preprocessor.next();
     }
@@ -404,7 +407,8 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request]);
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+            .unwrap();
         preprocessor.next();
         preprocessor.notify_response(&dep_path, "dependency");
         let result = preprocessor.next().unwrap();
@@ -461,13 +465,14 @@ mod replace_dependency_values {
             headers: headers.clone(),
             body: r#"${request("1.http")}"#.to_string(),
             source_path: source_path.clone(),
-            response_handler: None
+            response_handler: None,
+            dependency: false
         };
 
         let mut dependency_values = HashMap::new();
         dependency_values.insert(path1.clone(), "dep1".to_owned());
 
-        replace_dependency_values(&mut request, &dependency_values);
+        replace_dependency_values(&mut request, &dependency_values).unwrap();
         assert_eq!(request.url, "dep1");
         assert_eq!(request.body, "dep1");
         assert_eq!(request.headers.get(&header_name), Some(&HeaderValue::from_str("dep1").unwrap()));
