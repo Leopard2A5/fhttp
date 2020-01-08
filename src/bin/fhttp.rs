@@ -36,7 +36,9 @@ fn do_it(file_values: Values) -> Result<()> {
         let dependency = req.dependency;
 
         let path = req.source_path.clone();
+        eprint!("calling '{}'... ", path.to_str().unwrap());
         let resp = client.exec(req);
+        eprintln!("{}", resp.status());
         preprocessor.notify_response(&path, resp.body());
 
         if !dependency {
