@@ -17,7 +17,6 @@ lazy_static!{
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
     response_data: HashMap<PathBuf, String>,
-    config: Config
 }
 
 impl RequestPreprocessor {
@@ -41,7 +40,6 @@ impl RequestPreprocessor {
             RequestPreprocessor {
                 requests: requests_with_dependencies.into_iter().collect(),
                 response_data: HashMap::new(),
-                config
             }
         )
     }
@@ -264,7 +262,7 @@ mod eval {
         env::set_var("FOO", "foo");
         env::set_var("BAR", "bar");
         let input = "X${env(FOO)}X${env(BAR)}X";
-        assert_eq!(eval(input).unwrap(), "XfooXbarX");
+        assert_eq!(eval(input, false).unwrap(), "XfooXbarX");
     }
 }
 
@@ -286,7 +284,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req).unwrap();
+        replace_env_vars(&mut req, false).unwrap();
         assert_eq!(req.url, "http://localhost:8080/");
     }
 
@@ -308,7 +306,7 @@ mod replace_env_vars {
         headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
         headers.insert(HeaderName::from_str("H23").unwrap(), HeaderValue::from_str("e2, e3").unwrap());
 
-        replace_env_vars(&mut req).unwrap();
+        replace_env_vars(&mut req, false).unwrap();
         assert_eq!(req.headers, headers);
     }
 
@@ -325,7 +323,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req).unwrap();
+        replace_env_vars(&mut req, false).unwrap();
         assert_eq!(req.body, "E1=e1 + E2=e2");
     }
 }
