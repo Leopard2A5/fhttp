@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, RequestPreprocessor, Result};
+use fhttp::{Client, Request, RequestPreprocessor, Result, Config};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -17,18 +17,31 @@ fn main() {
             .min_values(1)
             .value_name("FILES")
             .help("the request files to execute"))
+        .arg(Arg::with_name("no-prompt")
+            .long("no-prompt")
+            .help("don't prompt for missing environment variables"))
         .get_matches();
 
-    let result= do_it(matches.values_of("files").unwrap());
+    let config = Config {
+        prompt_missing_env_vars: !matches.is_present("no-prompt"),
+    };
+
+    let result= do_it(
+        matches.values_of("files").unwrap(),
+        config
+    );
     if let Err(error) = result {
         println!("{}", error);
         process::exit(1);
     };
 }
 
-fn do_it(file_values: Values) -> Result<()> {
+fn do_it(
+    file_values: Values,
+    config: Config
+) -> Result<()> {
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
-    let mut preprocessor = RequestPreprocessor::new(requests)?;
+    let mut preprocessor = RequestPreprocessor::new(requests, config)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {
