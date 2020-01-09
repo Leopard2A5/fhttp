@@ -1,14 +1,14 @@
-use crate::{Request, FhttpError, Config};
+use crate::Request;
+use crate::FhttpError;
 use core::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use regex::Regex;
-use std::env::{self, VarError};
+use std::env;
 use reqwest::header::HeaderValue;
 use std::fs;
 use crate::errors::ErrorKind;
 use crate::Result;
-use promptly::{prompt};
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -16,30 +16,23 @@ lazy_static!{
 
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
-    response_data: HashMap<PathBuf, String>,
+    response_data: HashMap<PathBuf, String>
 }
 
 impl RequestPreprocessor {
-    pub fn new(
-        requests: Vec<Request>,
-        config: Config
-    ) -> Result<Self> {
+    pub fn new(requests: Vec<Request>) -> Result<Self> {
         let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
         for req in requests {
-            preprocess_request(
-                req,
-                &mut requests_with_dependencies,
-                &mut preprocessor_stack,
-                &config
-            )?;
+            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack)?;
         }
+
 
         Ok(
             RequestPreprocessor {
                 requests: requests_with_dependencies.into_iter().collect(),
-                response_data: HashMap::new(),
+                response_data: HashMap::new()
             }
         )
     }
@@ -62,25 +55,19 @@ impl RequestPreprocessor {
     }
 }
 
-fn replace_env_vars(
-    req: &mut Request,
-    prompt_for_missing: bool,
-) -> Result<()> {
-    req.url = eval(&req.url, prompt_for_missing)?;
+fn replace_env_vars(req: &mut Request) -> Result<()> {
+    req.url = eval(&req.url)?;
 
     for (_, value) in req.headers.iter_mut() {
-        *value = HeaderValue::from_str(&eval(&value.to_str()?, prompt_for_missing)?)?;
+        *value = HeaderValue::from_str(&eval(&value.to_str()?)?)?;
     }
 
-    req.body = eval(&req.body, prompt_for_missing)?;
+    req.body = eval(&req.body)?;
 
     Ok(())
 }
 
-fn eval(
-    text: &str,
-    prompt_for_missing: bool
-) -> Result<String> {
+fn eval(text: &str) -> Result<String> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
     };
@@ -95,21 +82,8 @@ fn eval(
         let group = capture.get(0).unwrap();
         let key = capture.get(1).unwrap().as_str();
         let range = group.start()..group.end();
-
-        let value = match env::var(key) {
-            Ok(value) => Ok(value),
-            Err(err) => match err {
-                VarError::NotPresent => {
-                    if prompt_for_missing {
-                        Ok(prompt::<String, _>(key))
-                    } else {
-                        Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
-                    }
-                },
-                VarError::NotUnicode(_) => Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
-            }
-        }?;
-
+        let value = env::var(key)
+            .map_err(|_| FhttpError::new(ErrorKind::MissingEnvVar(key.into())))?;
         buffer.replace_range(range, &value);
     }
 
@@ -119,8 +93,7 @@ fn eval(
 fn preprocess_request(
     mut req: Request,
     mut list: &mut Vec<Request>,
-    mut preprocessor_stack: &mut Vec<PathBuf>,
-    config: &Config
+    mut preprocessor_stack: &mut Vec<PathBuf>
 ) -> Result<()> {
     if list.contains(&req) {
         return Ok(());
@@ -130,10 +103,10 @@ fn preprocess_request(
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    replace_env_vars(&mut req, config.prompt_missing_env_vars)?;
+    replace_env_vars(&mut req)?;
 
     for dep in get_dependencies(&req)? {
-        preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
+        preprocess_request(dep, &mut list, &mut preprocessor_stack)?;
     }
 
     preprocessor_stack.pop();
@@ -262,7 +235,7 @@ mod eval {
         env::set_var("FOO", "foo");
         env::set_var("BAR", "bar");
         let input = "X${env(FOO)}X${env(BAR)}X";
-        assert_eq!(eval(input, false).unwrap(), "XfooXbarX");
+        assert_eq!(eval(input).unwrap(), "XfooXbarX");
     }
 }
 
@@ -284,7 +257,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req, false).unwrap();
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.url, "http://localhost:8080/");
     }
 
@@ -306,7 +279,7 @@ mod replace_env_vars {
         headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
         headers.insert(HeaderName::from_str("H23").unwrap(), HeaderValue::from_str("e2, e3").unwrap());
 
-        replace_env_vars(&mut req, false).unwrap();
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.headers, headers);
     }
 
@@ -323,7 +296,7 @@ mod replace_env_vars {
             &env::current_dir().unwrap()
         );
 
-        replace_env_vars(&mut req, false).unwrap();
+        replace_env_vars(&mut req).unwrap();
         assert_eq!(req.body, "E1=e1 + E2=e2");
     }
 }
@@ -346,7 +319,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
             .unwrap();
         for i in 2..=5 {
             let path = root.join(format!("{}.http", i));
@@ -381,7 +354,7 @@ mod dependencies {
             &path2
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2], Config::default())
+        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2])
             .unwrap();
         preprocessor.notify_response(&dep_path, "");
         let coll = preprocessor
@@ -401,7 +374,7 @@ mod dependencies {
             &path1
         );
 
-        RequestPreprocessor::new(vec![req1], Config::default()).unwrap();
+        RequestPreprocessor::new(vec![req1]).unwrap();
     }
 
     #[test]
@@ -416,7 +389,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
             .unwrap();
         preprocessor.next();
         preprocessor.next();
@@ -434,7 +407,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
             .unwrap();
         preprocessor.next();
         preprocessor.notify_response(&dep_path, "dependency");
