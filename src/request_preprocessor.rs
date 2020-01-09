@@ -1,14 +1,14 @@
-use crate::Request;
-use crate::FhttpError;
+use crate::{Request, FhttpError, Config};
 use core::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use regex::Regex;
-use std::env;
+use std::env::{self, VarError};
 use reqwest::header::HeaderValue;
 use std::fs;
 use crate::errors::ErrorKind;
 use crate::Result;
+use promptly::{prompt};
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -16,23 +16,32 @@ lazy_static!{
 
 pub struct RequestPreprocessor {
     requests: Vec<Request>,
-    response_data: HashMap<PathBuf, String>
+    response_data: HashMap<PathBuf, String>,
+    config: Config
 }
 
 impl RequestPreprocessor {
-    pub fn new(requests: Vec<Request>) -> Result<Self> {
+    pub fn new(
+        requests: Vec<Request>,
+        config: Config
+    ) -> Result<Self> {
         let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
         for req in requests {
-            preprocess_request(req, &mut requests_with_dependencies, &mut preprocessor_stack)?;
+            preprocess_request(
+                req,
+                &mut requests_with_dependencies,
+                &mut preprocessor_stack,
+                &config
+            )?;
         }
-
 
         Ok(
             RequestPreprocessor {
                 requests: requests_with_dependencies.into_iter().collect(),
-                response_data: HashMap::new()
+                response_data: HashMap::new(),
+                config
             }
         )
     }
@@ -55,19 +64,25 @@ impl RequestPreprocessor {
     }
 }
 
-fn replace_env_vars(req: &mut Request) -> Result<()> {
-    req.url = eval(&req.url)?;
+fn replace_env_vars(
+    req: &mut Request,
+    prompt_for_missing: bool,
+) -> Result<()> {
+    req.url = eval(&req.url, prompt_for_missing)?;
 
     for (_, value) in req.headers.iter_mut() {
-        *value = HeaderValue::from_str(&eval(&value.to_str()?)?)?;
+        *value = HeaderValue::from_str(&eval(&value.to_str()?, prompt_for_missing)?)?;
     }
 
-    req.body = eval(&req.body)?;
+    req.body = eval(&req.body, prompt_for_missing)?;
 
     Ok(())
 }
 
-fn eval(text: &str) -> Result<String> {
+fn eval(
+    text: &str,
+    prompt_for_missing: bool
+) -> Result<String> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
     };
@@ -82,8 +97,21 @@ fn eval(text: &str) -> Result<String> {
         let group = capture.get(0).unwrap();
         let key = capture.get(1).unwrap().as_str();
         let range = group.start()..group.end();
-        let value = env::var(key)
-            .map_err(|_| FhttpError::new(ErrorKind::MissingEnvVar(key.into())))?;
+
+        let value = match env::var(key) {
+            Ok(value) => Ok(value),
+            Err(err) => match err {
+                VarError::NotPresent => {
+                    if prompt_for_missing {
+                        Ok(prompt::<String, _>(key))
+                    } else {
+                        Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
+                    }
+                },
+                VarError::NotUnicode(_) => Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
+            }
+        }?;
+
         buffer.replace_range(range, &value);
     }
 
@@ -93,7 +121,8 @@ fn eval(text: &str) -> Result<String> {
 fn preprocess_request(
     mut req: Request,
     mut list: &mut Vec<Request>,
-    mut preprocessor_stack: &mut Vec<PathBuf>
+    mut preprocessor_stack: &mut Vec<PathBuf>,
+    config: &Config
 ) -> Result<()> {
     if list.contains(&req) {
         return Ok(());
@@ -103,10 +132,10 @@ fn preprocess_request(
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    replace_env_vars(&mut req)?;
+    replace_env_vars(&mut req, config.prompt_missing_env_vars)?;
 
     for dep in get_dependencies(&req)? {
-        preprocess_request(dep, &mut list, &mut preprocessor_stack)?;
+        preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
     }
 
     preprocessor_stack.pop();
@@ -319,7 +348,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
         for i in 2..=5 {
             let path = root.join(format!("{}.http", i));
@@ -354,7 +383,7 @@ mod dependencies {
             &path2
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2])
+        let mut preprocessor = RequestPreprocessor::new(vec![req1, req2], Config::default())
             .unwrap();
         preprocessor.notify_response(&dep_path, "");
         let coll = preprocessor
@@ -374,7 +403,7 @@ mod dependencies {
             &path1
         );
 
-        RequestPreprocessor::new(vec![req1]).unwrap();
+        RequestPreprocessor::new(vec![req1], Config::default()).unwrap();
     }
 
     #[test]
@@ -389,7 +418,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
         preprocessor.next();
         preprocessor.next();
@@ -407,7 +436,7 @@ mod dependencies {
             &init_path
         );
 
-        let mut preprocessor = RequestPreprocessor::new(vec![init_request])
+        let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
         preprocessor.next();
         preprocessor.notify_response(&dep_path, "dependency");
