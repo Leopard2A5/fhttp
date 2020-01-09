@@ -101,7 +101,9 @@ fn eval(
             Err(err) => match err {
                 VarError::NotPresent => {
                     if prompt_for_missing {
-                        Ok(prompt::<String, _>(key))
+                        let value = prompt::<String, _>(key);
+                        env::set_var(key, &value);
+                        Ok(value)
                     } else {
                         Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
                     }
