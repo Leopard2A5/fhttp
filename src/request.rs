@@ -8,7 +8,11 @@ use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
+use crate::{Result, FhttpError};
+use crate::errors::ErrorKind;
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
+
+use serde_json::{Value, Map};
 
 #[derive(Debug)]
 pub struct Request {
@@ -65,6 +69,49 @@ impl Request {
             response_handler,
             dependency
         }
+    }
+
+    fn parse_gql(
+        input: String,
+        path: &Path,
+        dependency: bool
+    ) -> Result<Request> {
+        let parts = split_body_parts(input.lines());
+        let (method, url, headers) = parse_header_part(&parts[0]);
+
+        let (query, variables, response_handler) = match parts.len() {
+            1 => return Err(FhttpError::new(ErrorKind::RequestParseException("graphql requests need a body".into()))),
+            2 => (parse_body(&parts[1]), Value::Object(Map::new()), None),
+            3 => {
+                if let Some(resp_handler) = parse_response_handler_script(&parts[2]) {
+                    (parse_body(&parts[1]), Value::Object(Map::new()), Some(resp_handler))
+                } else {
+                    (parse_body(&parts[1]), parse_variables(&parts[2]), None)
+                }
+            },
+            4 => {
+                (parse_body(&parts[1]), parse_variables(&parts[2]), parse_response_handler_script(&parts[3]))
+            },
+            _ => return Err(FhttpError::new(ErrorKind::RequestParseException("graphql requests don't support multipart".into())))
+        };
+
+        let query = Value::String(query.clone());
+        let mut map = Map::new();
+        map.insert("query".into(), query);
+        map.insert("variables".into(), variables);
+        let body = Value::Object(map);
+
+        Ok(
+            Request {
+                method,
+                url,
+                headers,
+                body: serde_json::to_string_pretty(&body).unwrap(),
+                source_path: fs::canonicalize(path).unwrap(),
+                response_handler,
+                dependency
+            }
+        )
     }
 
 }
@@ -163,6 +210,13 @@ fn parse_response_handler_script(lines: &Vec<String>) -> Option<Box<dyn Response
     }
 }
 
+fn parse_variables(lines: &Vec<String>) -> Value {
+    let text = lines.join("\n");
+    serde_json::from_str::<Value>(&text)
+        .or_else::<FhttpError, _>(|_| Ok(Value::Object(Map::new())))
+        .unwrap()
+}
+
 #[cfg(test)]
 mod test {
     use indoc::indoc;
@@ -235,4 +289,173 @@ mod test {
         }
     }
 
+}
+
+#[cfg(test)]
+mod parse_gql {
+    use super::*;
+    use reqwest::Method;
+    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+    use indoc::indoc;
+    use serde_json::json;
+
+    #[test]
+    fn parse_gql_with_query_variables_response_handler() {
+        let input = indoc!(r##"
+            POST http://server:8080/graphql
+            Authorization: Bearer token
+
+            query($var: String!) {
+                entity(id: $var, foo: "bar") {
+                    field1
+                    field2
+                }
+            }
+
+            {
+                "var": "entity-id"
+            }
+
+            > {%
+                json $
+            %}
+        "##).to_owned();
+
+        let result = Request::parse_gql(input, &std::env::current_dir().unwrap(), false).unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+
+        let body = serde_json::to_string_pretty(
+            &json!({
+                "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
+                "variables": {
+                    "var": "entity-id"
+                }
+            })
+        ).unwrap();
+
+        assert_eq!(result.method, Method::POST);
+        assert_eq!(result.url, "http://server:8080/graphql");
+        assert_eq!(result.headers, headers);
+        assert_eq!(result.body, body);
+        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        assert_eq!(result.dependency, false);
+        assert!(result.response_handler.is_some());
+    }
+
+    #[test]
+    fn parse_gql_with_query_variables() {
+        let input = indoc!(r##"
+            POST http://server:8080/graphql
+            Authorization: Bearer token
+
+            query($var: String!) {
+                entity(id: $var, foo: "bar") {
+                    field1
+                    field2
+                }
+            }
+
+            {
+                "var": "entity-id"
+            }
+        "##).to_owned();
+
+        let result = Request::parse_gql(input, &std::env::current_dir().unwrap(), false).unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+
+        let body = serde_json::to_string_pretty(
+            &json!({
+                "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
+                "variables": {
+                    "var": "entity-id"
+                }
+            })
+        ).unwrap();
+
+        assert_eq!(result.method, Method::POST);
+        assert_eq!(result.url, "http://server:8080/graphql");
+        assert_eq!(result.headers, headers);
+        assert_eq!(result.body, body);
+        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        assert_eq!(result.dependency, false);
+        assert!(result.response_handler.is_none());
+    }
+
+    #[test]
+    fn parse_gql_with_query_response_handler() {
+        let input = indoc!(r##"
+            POST http://server:8080/graphql
+            Authorization: Bearer token
+
+            query($var: String!) {
+                entity(id: $var, foo: "bar") {
+                    field1
+                    field2
+                }
+            }
+
+            > {%
+                json $
+            %}
+        "##).to_owned();
+
+        let result = Request::parse_gql(input, &std::env::current_dir().unwrap(), false).unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+
+        let body = serde_json::to_string_pretty(
+            &json!({
+                "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
+                "variables": {}
+            })
+        ).unwrap();
+
+        assert_eq!(result.method, Method::POST);
+        assert_eq!(result.url, "http://server:8080/graphql");
+        assert_eq!(result.headers, headers);
+        assert_eq!(result.body, body);
+        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        assert_eq!(result.dependency, false);
+        assert!(result.response_handler.is_some());
+    }
+
+    #[test]
+    fn parse_gql_with_query() {
+        let input = indoc!(r##"
+            POST http://server:8080/graphql
+            Authorization: Bearer token
+
+            query($var: String!) {
+                entity(id: $var, foo: "bar") {
+                    field1
+                    field2
+                }
+            }
+        "##).to_owned();
+
+        let result = Request::parse_gql(input, &std::env::current_dir().unwrap(), false).unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+
+        let body = serde_json::to_string_pretty(
+            &json!({
+                "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
+                "variables": {}
+            })
+        ).unwrap();
+
+        assert_eq!(result.method, Method::POST);
+        assert_eq!(result.url, "http://server:8080/graphql");
+        assert_eq!(result.headers, headers);
+        assert_eq!(result.body, body);
+        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        assert_eq!(result.dependency, false);
+        assert!(result.response_handler.is_none());
+    }
 }
