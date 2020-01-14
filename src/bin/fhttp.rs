@@ -48,12 +48,12 @@ fn do_it(
     config: Config,
     profile_name: Option<&str>
 ) -> Result<()> {
-    let _profile = match profile_name {
-        Some(p) => Some(parse_profile(p)?),
-        None => None
+    let profile = match profile_name {
+        Some(p) => parse_profile(p)?,
+        None => Profile::new()
     };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
-    let mut preprocessor = RequestPreprocessor::new(requests, config)?;
+    let mut preprocessor = RequestPreprocessor::new(profile, requests, config)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {

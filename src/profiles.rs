@@ -40,20 +40,23 @@ impl Profile {
         &self,
         key: K,
         prompt_for_missing: bool
-    ) -> Result<Option<String>> {
+    ) -> Result<String> {
         let key = key.into();
 
         if self.variables.contains_key(&key) {
-            Ok(self.variables.get(&key).map(|v| v.clone()))
+            self.variables
+                .get(&key)
+                .map(|v| v.clone())
+                .ok_or(FhttpError::new(ErrorKind::MissingEnvVar(key)))
         } else {
             match env::var(&key) {
-                Ok(value) => Ok(Some(value)),
+                Ok(value) => Ok(value),
                 Err(err) => match err {
                     VarError::NotPresent => match prompt_for_missing {
                         true => {
                             let value = prompt::<String, _>(&key);
                             env::set_var(&key, &value);
-                            Ok(Some(value))
+                            Ok(value)
                         },
                         false => Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
                     },
@@ -101,7 +104,7 @@ mod test {
             },
         };
 
-        assert_eq!(profile.get("a", false)?, Some("b".into()));
+        assert_eq!(profile.get("a", false)?, String::from("b"));
 
         Ok(())
     }
@@ -114,7 +117,7 @@ mod test {
             variables: HashMap::new(),
         };
 
-        assert_eq!(profile.get("a", false)?, Some("A".into()));
+        assert_eq!(profile.get("a", false)?, String::from("A"));
 
         Ok(())
     }
