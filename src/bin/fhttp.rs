@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
+use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, RequestPreprocessor, Result, Config};
+use fhttp::{Client, Request, RequestPreprocessor, Result, Config, Profiles, Profile, FhttpError, ErrorKind};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -20,6 +21,11 @@ fn main() {
         .arg(Arg::with_name("no-prompt")
             .long("no-prompt")
             .help("don't prompt for missing environment variables"))
+        .arg(Arg::with_name("profile")
+            .long("profile")
+            .short("p")
+            .takes_value(true)
+            .help("profile file to use"))
         .get_matches();
 
     let config = Config {
@@ -28,7 +34,8 @@ fn main() {
 
     let result= do_it(
         matches.values_of("files").unwrap(),
-        config
+        config,
+        matches.value_of("profile")
     );
     if let Err(error) = result {
         println!("{}", error);
@@ -38,10 +45,15 @@ fn main() {
 
 fn do_it(
     file_values: Values,
-    config: Config
+    config: Config,
+    profile_name: Option<&str>
 ) -> Result<()> {
+    let profile = match profile_name {
+        Some(p) => parse_profile(p)?,
+        None => Profile::new()
+    };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
-    let mut preprocessor = RequestPreprocessor::new(requests, config)?;
+    let mut preprocessor = RequestPreprocessor::new(profile, requests, config)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {
@@ -96,4 +108,12 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
     }
 
     Ok(ret)
+}
+
+fn parse_profile(profile: &str) -> Result<Profile> {
+    let path = env::current_dir()?.join("fhttp-config.json");
+    Profiles::parse(&path)?
+        .get(profile)
+        .map(|p| p.clone())
+        .ok_or(FhttpError::new(ErrorKind::ProfileNotFound))
 }
