@@ -2,7 +2,6 @@ use std::io;
 use std::fmt::{self, Display, Formatter};
 use std::convert::From;
 use reqwest::header::{ToStrError, InvalidHeaderValue};
-use serde_json::Error;
 
 #[derive(Debug)]
 pub enum ErrorKind {
@@ -11,6 +10,7 @@ pub enum ErrorKind {
     StringEncodingError,
     RequestParseException(String),
     JsonDeserializationError(String),
+    ProfileNotFound,
 }
 
 #[derive(Debug)]

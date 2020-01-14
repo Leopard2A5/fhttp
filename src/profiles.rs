@@ -13,9 +13,16 @@ impl Profiles {
 
         Ok(profiles)
     }
+
+    pub fn get(
+        &self,
+        key: &str
+    ) -> Option<&Profile> {
+        self.0.get(key)
+    }
 }
 
-#[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Profile {
     variables: HashMap<String, String>,
 }
