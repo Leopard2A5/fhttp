@@ -8,7 +8,7 @@ pub enum ErrorKind {
     IO(io::Error),
     MissingEnvVar(String),
     StringEncodingError,
-    RequestParseException
+    RequestParseException(String)
 }
 
 #[derive(Debug)]
@@ -48,6 +48,6 @@ impl From<ToStrError> for FhttpError {
 
 impl From<InvalidHeaderValue> for FhttpError {
     fn from(_: InvalidHeaderValue) -> Self {
-        FhttpError::new(ErrorKind::RequestParseException)
+        FhttpError::new(ErrorKind::RequestParseException("Invalid header value".to_string()))
     }
 }

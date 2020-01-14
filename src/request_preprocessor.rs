@@ -175,7 +175,7 @@ fn get_dependencies_from_str(
         ret.push(Request::parse_dependency(
             std::fs::read_to_string(&path)?,
             &path
-        ));
+        )?);
     }
 
     Ok(ret)
@@ -284,7 +284,7 @@ mod replace_env_vars {
         let mut req = Request::parse(
             "GET http://${env(SERVER)}:${env(PORT)}/".into(),
             &env::current_dir().unwrap()
-        );
+        ).unwrap();
 
         replace_env_vars(&mut req, false).unwrap();
         assert_eq!(req.url, "http://localhost:8080/");
@@ -302,7 +302,7 @@ mod replace_env_vars {
                 H23: ${env(E2)}, ${env(E3)}
             ").into(),
             &env::current_dir().unwrap()
-        );
+        ).unwrap();
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
@@ -323,7 +323,7 @@ mod replace_env_vars {
                 E1=${env(E1)} + E2=${env(E2)}
             ").into(),
             &env::current_dir().unwrap()
-        );
+        ).unwrap();
 
         replace_env_vars(&mut req, false).unwrap();
         assert_eq!(req.body, "E1=e1 + E2=e2");
@@ -346,7 +346,7 @@ mod dependencies {
         let init_request = Request::parse(
             fs::read_to_string(&init_path).unwrap(),
             &init_path
-        );
+        ).unwrap();
 
         let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
@@ -377,11 +377,11 @@ mod dependencies {
         let req1 = Request::parse(
             fs::read_to_string(&path1).unwrap(),
             &path1
-        );
+        ).unwrap();
         let req2 = Request::parse(
             fs::read_to_string(&path2).unwrap(),
             &path2
-        );
+        ).unwrap();
 
         let mut preprocessor = RequestPreprocessor::new(vec![req1, req2], Config::default())
             .unwrap();
@@ -401,7 +401,7 @@ mod dependencies {
         let req1 = Request::parse(
             fs::read_to_string(&path1).unwrap(),
             &path1
-        );
+        ).unwrap();
 
         RequestPreprocessor::new(vec![req1], Config::default()).unwrap();
     }
@@ -416,7 +416,7 @@ mod dependencies {
         let init_request = Request::parse(
             fs::read_to_string(&init_path).unwrap(),
             &init_path
-        );
+        ).unwrap();
 
         let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
@@ -434,7 +434,7 @@ mod dependencies {
         let init_request = Request::parse(
             fs::read_to_string(&init_path).unwrap(),
             &init_path
-        );
+        ).unwrap();
 
         let mut preprocessor = RequestPreprocessor::new(vec![init_request], Config::default())
             .unwrap();
