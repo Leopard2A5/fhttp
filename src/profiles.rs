@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use crate::Result;
+use crate::{Result, FhttpError, ErrorKind};
+use std::env::{self, VarError};
+use promptly::prompt;
 
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Profiles(HashMap<String, Profile>);
@@ -27,11 +29,47 @@ pub struct Profile {
     variables: HashMap<String, String>,
 }
 
+impl Profile {
+    pub fn new() -> Self {
+        Profile {
+            variables: HashMap::new(),
+        }
+    }
+
+    pub fn get<K: Into<String>>(
+        &self,
+        key: K,
+        prompt_for_missing: bool
+    ) -> Result<Option<String>> {
+        let key = key.into();
+
+        if self.variables.contains_key(&key) {
+            Ok(self.variables.get(&key).map(|v| v.clone()))
+        } else {
+            match env::var(&key) {
+                Ok(value) => Ok(Some(value)),
+                Err(err) => match err {
+                    VarError::NotPresent => match prompt_for_missing {
+                        true => {
+                            let value = prompt::<String, _>(&key);
+                            env::set_var(&key, &value);
+                            Ok(Some(value))
+                        },
+                        false => Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+                    },
+                    VarError::NotUnicode(_) => Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use std::path::PathBuf;
     use maplit::hashmap;
+    use std::env;
 
     #[test]
     fn should_load_profiles() -> Result<()> {
@@ -55,4 +93,29 @@ mod test {
         Ok(())
     }
 
+    #[test]
+    fn get_should_get_variables() -> Result<()> {
+        let profile = Profile {
+            variables: hashmap! {
+                "a".into() => "b".into()
+            },
+        };
+
+        assert_eq!(profile.get("a", false)?, Some("b".into()));
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_should_default_to_env_vars() -> Result<()> {
+        env::set_var("a", "A");
+
+        let profile = Profile {
+            variables: HashMap::new(),
+        };
+
+        assert_eq!(profile.get("a", false)?, Some("A".into()));
+
+        Ok(())
+    }
 }
