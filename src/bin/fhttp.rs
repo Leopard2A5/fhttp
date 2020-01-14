@@ -92,7 +92,7 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
     let mut ret = vec![];
     for file in files {
         let content = std::fs::read_to_string(&file)?;
-        ret.push(Request::parse(content, &file));
+        ret.push(Request::parse(content, &file)?);
     }
 
     Ok(ret)

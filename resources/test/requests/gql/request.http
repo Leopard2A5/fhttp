@@ -1,0 +1,5 @@
+POST http://server:8080/graphql
+
+query {
+    field
+}

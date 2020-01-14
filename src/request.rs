@@ -30,14 +30,14 @@ impl Request {
     pub fn parse(
         input: String,
         path: &Path
-    ) -> Request {
+    ) -> Result<Self> {
         Self::_parse(input, path, false)
     }
 
     pub fn parse_dependency(
         input: String,
         path: &Path
-    ) -> Self {
+    ) -> Result<Self> {
         Self::_parse(input, path, true)
     }
 
@@ -45,7 +45,21 @@ impl Request {
         input: String,
         path: &Path,
         dependency: bool
-    ) -> Request {
+    ) -> Result<Self> {
+        let filename = path.file_name().unwrap().to_str().unwrap();
+
+        if filename.ends_with(".gql.http") || filename.ends_with(".graphql.http") {
+            Self::parse_gql(input, path, dependency)
+        } else {
+            Self::parse_http(input, path, dependency)
+        }
+    }
+
+    fn parse_http(
+        input: String,
+        path: &Path,
+        dependency: bool
+    ) -> Result<Self> {
         let parts = split_body_parts(input.lines());
         let (method, url, headers) = parse_header_part(&parts[0]);
 
@@ -60,15 +74,17 @@ impl Request {
             _ => (parse_body(&parts[1]), parse_response_handler_script(parts.last().unwrap()))
         };
 
-        Request {
-            method,
-            url,
-            headers,
-            body,
-            source_path: fs::canonicalize(path).unwrap(),
-            response_handler,
-            dependency
-        }
+        Ok(
+            Request {
+                method,
+                url,
+                headers,
+                body,
+                source_path: fs::canonicalize(path).unwrap(),
+                response_handler,
+                dependency
+            }
+        )
     }
 
     fn parse_gql(
@@ -223,7 +239,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn should_parse_full_request() {
+    fn should_parse_full_request() -> Result<()> {
         let input = indoc!("
             GET https://google.com
             x-request-id: abc
@@ -243,26 +259,30 @@ mod test {
         expected_headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json; charset=UTF-8").unwrap());
         expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json, application/xml").unwrap());
 
-        let result = Request::parse(input, &std::env::current_dir().unwrap());
+        let result = Request::parse(input, &std::env::current_dir().unwrap())?;
         assert_eq!(result.method, Method::GET);
         assert_eq!(result.url, "https://google.com");
         assert_eq!(result.headers, expected_headers);
         assert_eq!(result.body, "body1\nbody2");
-        assert_eq!(result.source_path, std::env::current_dir().unwrap());
+        assert_eq!(result.source_path, std::env::current_dir()?);
         if let Some(_) = result.response_handler {
             // TODO check the actual response handler impl
         } else {
             panic!("expected a response handler");
         }
+
+        Ok(())
     }
 
     #[test]
-    fn should_canonicalize_path() {
-        let original_path = PathBuf::from_str("./src/../.").unwrap();
-        let req = Request::parse("GET http://localhost".into(), &original_path);
+    fn should_canonicalize_path() -> Result<()> {
+        let original_path = PathBuf::from_str("./resources/test/requests/../requests/./dummy.http").unwrap();
+        let req = Request::parse("GET http://localhost".into(), &original_path)?;
         let canonicalized_path = std::fs::canonicalize(&original_path).unwrap();
 
         assert_eq!(req.source_path, canonicalized_path);
+
+        Ok(())
     }
 
     #[test]
@@ -276,7 +296,7 @@ mod test {
 
         ").to_owned();
 
-        let result = Request::parse(input, &std::env::current_dir().unwrap());
+        let result = Request::parse(input, &std::env::current_dir().unwrap()).unwrap();
         assert_eq!(result.method, Method::GET);
         assert_eq!(result.url, "https://google.com");
         assert_eq!(result.headers, HeaderMap::new());
@@ -457,5 +477,34 @@ mod parse_gql {
         assert_eq!(result.source_path, std::env::current_dir().unwrap());
         assert_eq!(result.dependency, false);
         assert!(result.response_handler.is_none());
+    }
+
+    #[test]
+    fn parse_should_parse_gql_based_on_filename() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/gql");
+        let http_extension = root.join("request.http");
+        let gql_http_extension = root.join("request.gql.http");
+
+        let http_extension_result = Request::parse(
+            fs::read_to_string(&http_extension).unwrap(),
+            &http_extension
+        ).unwrap();
+
+        let gql_http_extension_result = Request::parse(
+            fs::read_to_string(&gql_http_extension).unwrap(),
+            &gql_http_extension
+        ).unwrap();
+
+        assert!(&http_extension_result.body.starts_with("query"));
+
+        assert!(serde_json::from_str::<Value>(&gql_http_extension_result.body).is_ok());
+        match serde_json::from_str::<Value>(&gql_http_extension_result.body).unwrap() {
+            Value::Object(map) => {
+                assert!(map.contains_key("query"));
+                assert!(map.contains_key("variables"));
+            },
+            _ => panic!("expected a Value::Object!")
+        }
     }
 }
