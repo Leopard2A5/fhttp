@@ -111,6 +111,11 @@ impl Request {
             _ => return Err(FhttpError::new(ErrorKind::RequestParseException("graphql requests don't support multipart".into())))
         };
 
+        let mut headers = headers;
+        headers
+            .entry(HeaderName::from_str("content-type").unwrap())
+            .or_insert(HeaderValue::from_str("application/json").unwrap());
+
         let query = Value::String(query.clone());
         let mut map = Map::new();
         map.insert("query".into(), query);
@@ -345,6 +350,7 @@ mod parse_gql {
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+        headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let body = serde_json::to_string_pretty(
             &json!({
@@ -386,6 +392,7 @@ mod parse_gql {
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+        headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let body = serde_json::to_string_pretty(
             &json!({
@@ -427,6 +434,7 @@ mod parse_gql {
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+        headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let body = serde_json::to_string_pretty(
             &json!({
@@ -462,6 +470,7 @@ mod parse_gql {
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
+        headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let body = serde_json::to_string_pretty(
             &json!({
@@ -506,5 +515,43 @@ mod parse_gql {
             },
             _ => panic!("expected a Value::Object!")
         }
+    }
+
+    #[test]
+    fn parse_qgl_should_set_contenttype_if_not_given() -> Result<()> {
+        let dummy_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("resources/test/requests/dummy.http");
+        let json = HeaderValue::from_str("application/json").unwrap();
+        let xml = HeaderValue::from_str("application/xml").unwrap();
+
+        let req = Request::parse_gql(
+            indoc!(r##"
+            POST http://graphql
+
+            query {
+                foo
+            }
+            "##).into(),
+            &dummy_path,
+            false
+        )?;
+        assert!(req.headers.contains_key(&HeaderName::from_str("content-type").unwrap()));
+        assert_eq!(req.headers.get(&HeaderName::from_str("content-type").unwrap()), Some(&json));
+
+        let req = Request::parse_gql(
+            indoc!(r##"
+            POST http://graphql
+            Content-type: application/xml
+
+            query {
+                foo
+            }
+            "##).into(),
+            &dummy_path,
+            false
+        )?;
+        assert_eq!(req.headers.get(&HeaderName::from_str("content-type").unwrap()), Some(&xml));
+
+        Ok(())
     }
 }
