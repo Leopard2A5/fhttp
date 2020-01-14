@@ -2,13 +2,15 @@ use std::io;
 use std::fmt::{self, Display, Formatter};
 use std::convert::From;
 use reqwest::header::{ToStrError, InvalidHeaderValue};
+use serde_json::Error;
 
 #[derive(Debug)]
 pub enum ErrorKind {
     IO(io::Error),
     MissingEnvVar(String),
     StringEncodingError,
-    RequestParseException(String)
+    RequestParseException(String),
+    JsonDeserializationError(String),
 }
 
 #[derive(Debug)]
@@ -49,5 +51,11 @@ impl From<ToStrError> for FhttpError {
 impl From<InvalidHeaderValue> for FhttpError {
     fn from(_: InvalidHeaderValue) -> Self {
         FhttpError::new(ErrorKind::RequestParseException("Invalid header value".to_string()))
+    }
+}
+
+impl From<serde_json::Error> for FhttpError {
+    fn from(err: serde_json::Error) -> Self {
+        FhttpError::new(ErrorKind::JsonDeserializationError(err.to_string()))
     }
 }

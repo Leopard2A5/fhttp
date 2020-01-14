@@ -1,0 +1,10 @@
+{
+  "development": {
+    "variables": {}
+  },
+  "testing": {
+    "variables": {
+      "var1": "value1"
+    }
+  }
+}
