@@ -1,4 +1,14 @@
----
 language: rust
 rust:
   - stable
+script:
+  - cargo build --verbose --release --all
+  - cargo test --verbose --all
+
+deploy:
+  provider: releases
+  api_key:
+    secure: bV+5NEg2BmSLzPLUlmiQuNtBW5mVDrdShF4RfjHaoxgrpb5OWieQF48YP+QHqhDM5tFM3nrwQPwpdLFbWaKqGRTz1aNUWYENKzfsZu0xvY/040ayIo0Mm5faF8vBisQLlWOrGiQaMgHa6lozSiUYZG+DSGU4yd8aCr0+iBSzmdQ35b5BatPHzzCKv5sH2jWYPqZKKeAri9m+aa00tRf4M++JNbcWheA/8Db6Yr+1WU2BCoG9ZJQktzF8D/0Tlydoh32tXMHf/WONYJIEU0LPZTST1ggyJyZ7y/K5P4wVvnaKyjEoPKc/AsFGbmwV8tV0mQ0rolku/Zret2keVI4cOwgKEoTSTRQJ8VgUp2Z2DtIO/4tSR00HUIarznuDPqYPkS0iJSzBorxFr51tP6J6pEqVsDlW0rfsg5LUxfyuPdTrMqfj5vVDZ7RoSBjg3GvPY7uOLnX7AE563uyilmEDwrdh5Pk6nKTae6dPFbVgqbNPMiqvEqVyEnkR9BsdEOAjLDy9swppeDjms01TafoDWqGJsPvQM0c0m97Bh750Wonk75SnM7jjZFd7mSq6aNU8o5w0A3BcqjCI4XI4G4sHVZDJ60/fTRH7reZm04iTuZOwWF5VVwtVyIGIwx1rkFgHpFJrHcDIOlu73qJMjq8CXysC29DxjxR6iTB0m9ewuZA=
+  file: target/release/fhttp
+  on:
+    repo: Leopard2A5/fhttp
