@@ -59,7 +59,7 @@ and this returns a json like this:
 ```
 
 If you're only interested in the access token you can add a response handler:
-```http request
+```
 POST http://authserver/authenticate
 
 > {%
@@ -94,7 +94,7 @@ Content-Type: application/json
 ```
 
 That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json. However, fhttp supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
-```http request
+```
 POST http://graphqlserver
 
 query($var1: String!) {
