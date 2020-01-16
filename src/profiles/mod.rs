@@ -48,11 +48,11 @@ impl Profile {
         let key = key.into();
 
         if self.variables.contains_key(&key) {
-            self.variables
-                .get(&key)
-                .map(|v| v.get())
-                .map(|v| v.to_owned())
-                .ok_or(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+            if let Some(variable) = self.variables.get(&key) {
+                variable.get()
+            } else {
+                Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+            }
         } else {
             match env::var(&key) {
                 Ok(value) => Ok(value),
