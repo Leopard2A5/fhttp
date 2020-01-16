@@ -11,6 +11,7 @@ pub enum ErrorKind {
     RequestParseException(String),
     JsonDeserializationError(String),
     ProfileNotFound,
+    ErrorInvokingProgram(String),
 }
 
 #[derive(Debug)]

@@ -1,5 +1,4 @@
 # FHTTP
-
 File-based command line http client.
 
 Get the latest version [here](https://github.com/Leopard2A5/fhttp/releases).
@@ -13,7 +12,6 @@ Get the latest version [here](https://github.com/Leopard2A5/fhttp/releases).
 * Support for graphql requests
 
 ## Getting started
-
 An http file consists of up to three parts:
 * the method, url and headers
 * body (optional)
@@ -43,7 +41,6 @@ Content-Type: application/json
 ```
 
 ## Response handlers
-
 Suppose you've written a request file to get a JWT for authenticating yourself to another server:
 ```http request
 POST http://authserver/authenticate
@@ -79,7 +76,6 @@ Authentication: Bearer ${request("authentication.http")}
 When you now run `fhttp <file>`, fhttp will first run the authentication request, apply the response handler and then insert that value in place of the `${request("authentication.http")}` and run that.
 
 ## GraphQL requests
-
 GraphQL requests are transmitted to the server as json, so naively a graphql request file would look like this:
 ```http request
 POST http://graphqlserver
@@ -109,3 +105,38 @@ query($var1: String!) {
 ``` 
 
 Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
+
+## Profiles
+In the directory where you execute fhttp, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
+```json
+{
+  "testing": {
+    "variables": {
+      "var1": "val1-testing"
+    }
+  },
+  "production": {
+    "variables": {
+      "var1": "val1-production"
+    }
+  }
+}
+```
+
+When you invoke fhttp with your requests you can call it with `-p <profile>` to use the corresponding variable definitions. These override existing environment variables.
+
+### Pass secrets
+If you use the popular password store [pass](https://www.passwordstore.org/), you can reference secrets from your profiles file. This allows you to keep secrets out of the profiles file and enables you to safely commit it.
+```json
+{
+  "testing": {
+    "variables": {
+      "var1": {
+        "path": "/path/inside/pass"
+      }
+    }
+  }
+}
+```
+
+fhttp will call the pass executable (must be in your PATH) to resolve the secret and insert it in your request wherever you've referenced the variable with `${env(variable)}`.

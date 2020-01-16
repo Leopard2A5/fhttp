@@ -5,6 +5,10 @@ use crate::{Result, FhttpError, ErrorKind};
 use std::env::{self, VarError};
 use promptly::prompt;
 
+mod profile_variable;
+
+pub use profile_variable::ProfileVariable;
+
 #[derive(Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Profiles(HashMap<String, Profile>);
 
@@ -26,7 +30,7 @@ impl Profiles {
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Profile {
-    variables: HashMap<String, String>,
+    variables: HashMap<String, ProfileVariable>,
 }
 
 impl Profile {
@@ -44,10 +48,11 @@ impl Profile {
         let key = key.into();
 
         if self.variables.contains_key(&key) {
-            self.variables
-                .get(&key)
-                .map(|v| v.clone())
-                .ok_or(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+            if let Some(variable) = self.variables.get(&key) {
+                variable.get()
+            } else {
+                Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+            }
         } else {
             match env::var(&key) {
                 Ok(value) => Ok(value),
@@ -73,6 +78,7 @@ mod test {
     use std::path::PathBuf;
     use maplit::hashmap;
     use std::env;
+    use crate::profiles::ProfileVariable;
 
     #[test]
     fn should_load_profiles() -> Result<()> {
@@ -87,7 +93,7 @@ mod test {
                 },
                 "testing".into() => Profile {
                     variables: hashmap!{
-                        "var1".into() => "value1".into()
+                        "var1".into() => ProfileVariable::StringValue("value1".into())
                     },
                 }
             })
@@ -100,7 +106,7 @@ mod test {
     fn get_should_get_variables() -> Result<()> {
         let profile = Profile {
             variables: hashmap! {
-                "a".into() => "b".into()
+                "a".into() => ProfileVariable::StringValue("b".into())
             },
         };
 
