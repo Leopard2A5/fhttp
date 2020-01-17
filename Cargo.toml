@@ -5,7 +5,7 @@ authors = ["René Perschon <rperschon85@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-reqwest = { version = "0.10.0", features = ["default-tls", "blocking"] }
+reqwest = { version = "0.10.0", features = ["rustls-tls", "blocking"] }
 regex = "1"
 lazy_static = "1.4.0"
 indoc = "0.3.4"
