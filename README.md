@@ -1,7 +1,17 @@
 # FHTTP
 File-based command line http client.
 
-Get the latest version [here](https://github.com/Leopard2A5/fhttp/releases).
+# Installation
+1. download the latest version [here](https://github.com/Leopard2A5/fhttp/releases)
+1. rename the downloaded file?
+1. make the file executable
+1. make sure it's on your PATH
+
+> Linux users: if you get
+>
+>`error while loading shared libraries: libssl.so.1.0.0: cannot open shared object file: No such file or directory`
+>
+>you need to install libssl1.0.0: `sudo apt-get install libssl1.0.0`
 
 ## Features
 * Simply author a request in a *.http file
