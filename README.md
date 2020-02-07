@@ -1,7 +1,10 @@
 # FHTTP
 File-based command line http client.
 
-# Installation
+## What's this?
+fhttp is not a curl replacement. It's meant to be a developer's tool to make http requests and store them as files, usually in a source code repository along with an application accepting http requests. It's inspired by tools like Postman, Insomnia and the IntelliJ http client.
+
+## Installation
 1. download the latest version [here](https://github.com/Leopard2A5/fhttp/releases)
 1. rename the downloaded file?
 1. make the file executable
