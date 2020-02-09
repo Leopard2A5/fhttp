@@ -1,10 +1,13 @@
-use crate::{Request, Config, Result, Profile};
 use core::iter::Iterator;
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+
 use regex::Regex;
 use reqwest::header::HeaderValue;
-use std::fs;
+
+use crate::{Config, Profile, Request, Result};
+use crate::random_numbers::replace_random_ints;
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -100,7 +103,7 @@ fn eval(
         buffer.replace_range(range, &value);
     }
 
-    Ok(buffer)
+    replace_random_ints(&buffer)
 }
 
 fn preprocess_request(
@@ -242,8 +245,11 @@ fn replace_dependency_values_in_str(
 
 #[cfg(test)]
 mod eval {
-    use super::*;
     use std::env;
+
+    use crate::random_numbers::RANDOM_INT_GENERATOR;
+
+    use super::*;
 
     #[test]
     fn eval_should_replace_with_env_vars() {
@@ -257,12 +263,16 @@ mod eval {
 
 #[cfg(test)]
 mod replace_env_vars {
-    use super::*;
-    use crate::Request;
     use std::env;
-    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use std::str::FromStr;
+
+    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+
     use indoc::indoc;
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_replace_in_url() {
@@ -322,10 +332,12 @@ mod replace_env_vars {
 
 #[cfg(test)]
 mod dependencies {
-    use super::*;
-    use crate::Request;
     use std::fs;
     use std::path::PathBuf;
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_resolve_nested_dependencies() {
@@ -437,8 +449,9 @@ mod dependencies {
 
 #[cfg(test)]
 mod replace_dependency_values_in_str {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn should_replace_dependencies_in_str() {
@@ -460,11 +473,14 @@ mod replace_dependency_values_in_str {
 
 #[cfg(test)]
 mod replace_dependency_values {
-    use super::*;
     use std::path::PathBuf;
     use std::str::FromStr;
-    use crate::Request;
+
     use reqwest::header::{HeaderMap, HeaderName};
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_replace_dependencies() {

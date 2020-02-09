@@ -16,7 +16,7 @@ pub enum ErrorKind {
 
 #[derive(Debug)]
 pub struct FhttpError {
-    kind: ErrorKind,
+    pub kind: ErrorKind,
 }
 
 impl FhttpError {

@@ -8,6 +8,7 @@ extern crate serde_json;
 extern crate clap;
 extern crate promptly;
 extern crate maplit;
+extern crate rand;
 
 mod request;
 mod response_handler;
@@ -17,6 +18,7 @@ mod response;
 mod errors;
 mod config;
 mod profiles;
+mod random_numbers;
 
 pub type Result<T> = std::result::Result<T, FhttpError>;
 
