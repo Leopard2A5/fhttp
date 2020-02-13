@@ -153,3 +153,18 @@ If you use the popular password store [pass](https://www.passwordstore.org/), yo
 ```
 
 fhttp will call the pass executable (must be in your PATH) to resolve the secret and insert it in your request wherever you've referenced the variable with `${env(variable)}`.
+
+## Random numbers
+Fhttp supports the generation of random, signed 32 bit integers.
+
+Given that the number generated is signed 32 bit, the lower and upper bounds are `-2.147.483.648` and `2.147.483.647`.
+
+The synopsis is `randomInt(min = 0, max = upper_bound)`. This results in three different ways of calling the function:
+1. `${randomInt()}` generates a number between 0 and the upper bound.
+1. `${randomInt(-12)}` generates a number between -12 and the upper bound.
+1. `${randomInt(-1, 1)}` generates a number between -1 and 1.
+
+> Note: The first parameter needs to be smaller or equal to the second.
+
+## UUIDs
+Generate a random UUID with `${uuid()}`.
