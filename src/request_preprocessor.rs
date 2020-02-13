@@ -1,10 +1,14 @@
-use crate::{Request, Config, Result, Profile};
 use core::iter::Iterator;
-use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-use regex::Regex;
-use reqwest::header::HeaderValue;
 use std::fs;
+use std::path::{Path, PathBuf};
+
+use regex::{Regex, Captures};
+use reqwest::header::HeaderValue;
+
+use crate::{Config, Profile, Request, Result};
+use crate::random_numbers::replace_random_ints;
+use crate::uuids::replace_uuids;
 
 lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -86,11 +90,11 @@ fn eval(
     };
 
     let mut buffer = text.to_owned();
-    let reversed_captures = RE_ENV.captures_iter(text)
+    let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
-        .collect::<Vec<_>>();
+        .collect();
     for capture in reversed_captures {
         let group = capture.get(0).unwrap();
         let key = capture.get(1).unwrap().as_str();
@@ -100,7 +104,8 @@ fn eval(
         buffer.replace_range(range, &value);
     }
 
-    Ok(buffer)
+    let buffer = replace_uuids(&buffer);
+    replace_random_ints(&buffer)
 }
 
 fn preprocess_request(
@@ -242,27 +247,43 @@ fn replace_dependency_values_in_str(
 
 #[cfg(test)]
 mod eval {
-    use super::*;
     use std::env;
+    use super::*;
 
     #[test]
-    fn eval_should_replace_with_env_vars() {
+    fn should_replace_with_env_vars() {
         let profile = Profile::new();
         env::set_var("FOO", "foo");
         env::set_var("BAR", "bar");
         let input = "X${env(FOO)}X${env(BAR)}X";
         assert_eq!(eval(&profile, input, false).unwrap(), "XfooXbarX");
     }
+
+    #[test]
+    fn should_replace_uuids() {
+        lazy_static! {
+            static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
+        };
+
+        let profile = Profile::new();
+        let input = "X${uuid()}X";
+        let result = eval(&profile, input, false).unwrap();
+        assert!(REGEX.is_match(&result));
+    }
 }
 
 #[cfg(test)]
 mod replace_env_vars {
-    use super::*;
-    use crate::Request;
     use std::env;
-    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use std::str::FromStr;
+
+    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+
     use indoc::indoc;
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_replace_in_url() {
@@ -322,10 +343,12 @@ mod replace_env_vars {
 
 #[cfg(test)]
 mod dependencies {
-    use super::*;
-    use crate::Request;
     use std::fs;
     use std::path::PathBuf;
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_resolve_nested_dependencies() {
@@ -437,8 +460,9 @@ mod dependencies {
 
 #[cfg(test)]
 mod replace_dependency_values_in_str {
-    use super::*;
     use std::path::PathBuf;
+
+    use super::*;
 
     #[test]
     fn should_replace_dependencies_in_str() {
@@ -460,11 +484,14 @@ mod replace_dependency_values_in_str {
 
 #[cfg(test)]
 mod replace_dependency_values {
-    use super::*;
     use std::path::PathBuf;
     use std::str::FromStr;
-    use crate::Request;
+
     use reqwest::header::{HeaderMap, HeaderName};
+
+    use crate::Request;
+
+    use super::*;
 
     #[test]
     fn should_replace_dependencies() {
