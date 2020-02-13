@@ -246,9 +246,6 @@ fn replace_dependency_values_in_str(
 #[cfg(test)]
 mod eval {
     use std::env;
-
-    use crate::random_numbers::RANDOM_INT_GENERATOR;
-
     use super::*;
 
     #[test]

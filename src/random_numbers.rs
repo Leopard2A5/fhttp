@@ -1,21 +1,34 @@
+#[allow(unused)]
 use std::cell::RefCell;
-use rand::{thread_rng, Rng};
 use regex::{Regex, Captures, Match};
 use crate::{Result, FhttpError, ErrorKind};
 
-#[allow(unused)]
-type RandomIntFunction = Box<dyn Fn(u32, u32) -> u32>;
-
+#[cfg(test)]
 thread_local!(
-    pub static RANDOM_INT_GENERATOR: RefCell<RandomIntFunction> = RefCell::new(Box::new(random_int))
+    static RANDOM_INT_CALLS: RefCell<Vec<(u32, u32)>> = RefCell::new(vec![])
 );
 
+#[cfg(not(test))]
 #[allow(unused)]
-fn random_int(
+pub fn random_int(
     min: u32,
     max: u32
 ) -> u32 {
+    use rand::{thread_rng, Rng};
+
     thread_rng().gen_range::<u32, u32, u32>(min, max)
+}
+
+#[cfg(test)]
+#[allow(unused)]
+pub fn random_int(
+    min: u32,
+    max: u32
+) -> u32 {
+    RANDOM_INT_CALLS.with(|c| {
+        c.borrow_mut().push((min, max));
+    });
+    7u32
 }
 
 pub fn replace_random_ints(text: &str) -> Result<String> {
@@ -37,9 +50,7 @@ pub fn replace_random_ints(text: &str) -> Result<String> {
         )?;
 
         let range = group.start()..group.end();
-        let value = RANDOM_INT_GENERATOR.with(|gen| {
-            gen.borrow()(min, max)
-        });
+        let value = random_int(min, max);
 
         buffer.replace_range(range, &value.to_string());
     }
@@ -80,22 +91,6 @@ mod test {
 
     #[test]
     fn test_happy_path() {
-        thread_local!(
-            static CALLS: RefCell<Vec<(u32, u32)>> = RefCell::new(vec![])
-        );
-
-        let lambda = |min: u32, max: u32| {
-            CALLS.with(|c| {
-                c.borrow_mut().push((min, max));
-            });
-            7u32
-        };
-        let replacement: RandomIntFunction = Box::new(lambda);
-
-        RANDOM_INT_GENERATOR.with(|f| {
-            f.replace(replacement);
-        });
-
         let buffer = String::from("${randomInt()}");
         let result = replace_random_ints(&buffer);
         assert_eq!(result.unwrap(), "7");
@@ -108,7 +103,7 @@ mod test {
         let result = replace_random_ints(&buffer);
         assert_eq!(result.unwrap(), "7");
 
-        CALLS.with(|calls| {
+        RANDOM_INT_CALLS.with(|calls| {
             assert_eq!(*calls.borrow(), vec![
                 (0, std::u32::MAX),
                 (5, std::u32::MAX),
