@@ -5,30 +5,30 @@ use crate::{Result, FhttpError, ErrorKind};
 
 #[cfg(test)]
 thread_local!(
-    static RANDOM_INT_CALLS: RefCell<Vec<(u32, u32)>> = RefCell::new(vec![])
+    static RANDOM_INT_CALLS: RefCell<Vec<(i32, i32)>> = RefCell::new(vec![])
 );
 
 #[cfg(not(test))]
 #[allow(unused)]
 pub fn random_int(
-    min: u32,
-    max: u32
-) -> u32 {
+    min: i32,
+    max: i32
+) -> i32 {
     use rand::{thread_rng, Rng};
 
-    thread_rng().gen_range::<u32, u32, u32>(min, max)
+    thread_rng().gen_range::<i32, i32, i32>(min, max)
 }
 
 #[cfg(test)]
 #[allow(unused)]
 pub fn random_int(
-    min: u32,
-    max: u32
-) -> u32 {
+    min: i32,
+    max: i32
+) -> i32 {
     RANDOM_INT_CALLS.with(|c| {
         c.borrow_mut().push((min, max));
     });
-    7u32
+    7i32
 }
 
 pub fn replace_random_ints(text: &str) -> Result<String> {
@@ -61,18 +61,18 @@ pub fn replace_random_ints(text: &str) -> Result<String> {
 fn parse_min_max(
     min: Option<Match>,
     max: Option<Match>
-) -> Result<(u32, u32)> {
+) -> Result<(i32, i32)> {
     let ret_min = min
-        .map(|m| m.as_str().parse::<u32>())
+        .map(|m| m.as_str().parse::<i32>())
         .unwrap_or(Ok(0))
         .map_err(|_| FhttpError::new(ErrorKind::RequestParseException(
-            format!("min param out of bounds: 0..{}", std::u32::MAX)
+            format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
         )))?;
     let ret_max = max
-        .map(|m| m.as_str().parse::<u32>())
-        .unwrap_or(Ok(std::u32::MAX))
+        .map(|m| m.as_str().parse::<i32>())
+        .unwrap_or(Ok(std::i32::MAX))
         .map_err(|_| FhttpError::new(ErrorKind::RequestParseException(
-            format!("max param out of bounds: 0..{}", std::u32::MAX)
+            format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
         )))?;
 
     if ret_max < ret_min {
@@ -95,30 +95,30 @@ mod test {
         let result = replace_random_ints(&buffer);
         assert_eq!(result.unwrap(), "7");
 
-        let buffer = String::from("${randomInt(5)}");
+        let buffer = String::from("${randomInt(-5)}");
         let result = replace_random_ints(&buffer);
         assert_eq!(result.unwrap(), "7");
 
-        let buffer = String::from("${randomInt(5, 12)}");
+        let buffer = String::from("${randomInt(-5, 7)}");
         let result = replace_random_ints(&buffer);
         assert_eq!(result.unwrap(), "7");
 
         RANDOM_INT_CALLS.with(|calls| {
             assert_eq!(*calls.borrow(), vec![
-                (0, std::u32::MAX),
-                (5, std::u32::MAX),
-                (5, 12)
+                (0, std::i32::MAX),
+                (-5, std::i32::MAX),
+                (-5, 7)
             ]);
         });
     }
 
     #[test]
     fn test_invalid_min() {
-        let buffer = "${randomInt(-1)}";
+        let buffer = format!("${{randomInt({})}}", std::i32::MIN as i64 - 1);
         let result = replace_random_ints(&buffer);
         match result {
             Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
-                assert_eq!(e, format!("min param out of bounds: 0..{}", std::u32::MAX))
+                assert_eq!(e, format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
             },
             _ => panic!("expected error!")
         }
@@ -126,11 +126,11 @@ mod test {
 
     #[test]
     fn test_invalid_max() {
-        let buffer = "${randomInt(0, -3)}";
+        let buffer = format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1);
         let result = replace_random_ints(&buffer);
         match result {
             Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
-                assert_eq!(e, format!("max param out of bounds: 0..{}", std::u32::MAX))
+                assert_eq!(e, format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
             },
             _ => panic!("expected error!")
         }
