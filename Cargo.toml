@@ -16,3 +16,4 @@ clap = "2.33.0"
 promptly = "0.2.0"
 maplit = "1.0.2"
 rand = "0.7.3"
+uuid = { version = "0.8.1", features = ["v4"] }

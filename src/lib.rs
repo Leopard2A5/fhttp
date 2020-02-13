@@ -9,6 +9,7 @@ extern crate clap;
 extern crate promptly;
 extern crate maplit;
 extern crate rand;
+extern crate uuid;
 
 mod request;
 mod response_handler;
@@ -19,6 +20,7 @@ mod errors;
 mod config;
 mod profiles;
 mod random_numbers;
+mod uuids;
 
 pub type Result<T> = std::result::Result<T, FhttpError>;
 
