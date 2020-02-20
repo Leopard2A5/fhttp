@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
 use crate::{ErrorKind, Result};
 use crate::errors::FhttpError;
+use crate::response_handler::{ResponseHandler, JsonPathResponseHandler};
 
 #[derive(Debug)]
 pub struct Request2 {
@@ -100,6 +102,30 @@ impl Request2 {
         let body_end = body_end.unwrap();
 
         &self.text[body_start..body_end]
+    }
+
+    pub fn response_handler(&self) -> Result<Option<Box<dyn ResponseHandler>>> {
+        lazy_static! {
+            static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
+        };
+
+        if let Some(captures) = RE_RESPONSE_HANDLER.captures(&self.text) {
+            if let Some(group) = captures.get(1) {
+                let group = group.as_str().trim();
+                let parts: Vec<&str> = group.splitn(2, ' ').collect();
+                let kind = parts[0];
+                let content = parts[1];
+
+                match kind {
+                    "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
+                    unknown => Err(FhttpError::new(ErrorKind::RequestParseException(format!("Unknown response handler '{}'", unknown))))
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     fn first_line(&self) -> Result<&str> {
@@ -201,6 +227,23 @@ mod test {
                 this as well
             "##)
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn response_handler() -> Result<()> {
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
+            POST http://localhost:8080
+
+            this is the body
+
+            > {%
+                json $
+            %}
+        "##));
+
+        assert!(req.response_handler()?.is_some());
 
         Ok(())
     }
