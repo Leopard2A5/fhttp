@@ -11,7 +11,7 @@ use crate::errors::FhttpError;
 pub struct Request2 {
     pub source_path: PathBuf,
     text: String,
-    dependency: bool,
+    pub dependency: bool,
 }
 
 impl Request2 {
