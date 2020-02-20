@@ -12,6 +12,7 @@ extern crate rand;
 extern crate uuid;
 
 mod request;
+mod request2;
 mod response_handler;
 mod client;
 mod request_preprocessor;
