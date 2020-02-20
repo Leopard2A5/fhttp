@@ -65,6 +65,30 @@ impl Request2 {
         Ok(ret)
     }
 
+    pub fn body(&self) -> &str {
+        let mut body_start = None;
+        let mut body_end = None;
+        let mut chars: usize = 0;
+        let mut last_char = None;
+
+        for (index, chr) in self.text.chars().enumerate() {
+            if body_start.is_none() && chr == '\n' && last_char == Some('\n') {
+                body_start = Some(chars + 1);
+            } else if body_end.is_none() && chr == '%' && &self.text[(index - 4)..index] == "\n> {" {
+                body_end = Some(index - 4);
+                break;
+            }
+
+            last_char = Some(chr);
+            chars += 1;
+        }
+
+        let body_start = body_start.unwrap();
+        let body_end = body_end.unwrap();
+
+        &self.text[body_start..body_end]
+    }
+
     fn first_line(&self) -> Result<&str> {
         self.text.lines()
             .map(|line| line.trim())
@@ -138,6 +162,32 @@ mod test {
         expected_headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json; charset=UTF-8").unwrap());
         expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
         assert_eq!(req.headers()?, expected_headers);
+
+        Ok(())
+    }
+
+    #[test]
+    fn body() -> Result<()> {
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
+            POST http://localhost:8080
+
+            this is the body
+
+            this as well
+
+            > {%
+                json $
+            %}
+        "##));
+
+        assert_eq!(
+            req.body(),
+            indoc!(r##"
+                this is the body
+
+                this as well
+            "##)
+        );
 
         Ok(())
     }
