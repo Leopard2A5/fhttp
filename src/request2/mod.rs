@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -8,13 +9,20 @@ use crate::errors::FhttpError;
 
 #[derive(Debug)]
 pub struct Request2 {
+    pub source_path: PathBuf,
     text: String,
 }
 
 impl Request2 {
 
-    pub fn new<T: Into<String>>(text: T) -> Self {
-        Request2 { text: text.into() }
+    pub fn new<P: Into<PathBuf>, T: Into<String>>(
+        path: P,
+        text: T
+    ) -> Self {
+        Request2 {
+            source_path: path.into(),
+            text: text.into()
+        }
     }
 
     pub fn method(&self) -> Result<Method> {
@@ -75,7 +83,7 @@ mod test {
 
     #[test]
     fn method() -> Result<()> {
-        let req = Request2::new(indoc!(r##"
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
             # comment
             POST http://localhost:8080
         "##));
@@ -86,8 +94,8 @@ mod test {
     }
 
     #[test]
-    fn method_no_first_line() {
-        let req = Request2::new(indoc!(r##"
+    fn method_no_first_line() -> Result<()> {
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
             # comment
             # POST http://localhost:8080
         "##));
@@ -98,11 +106,13 @@ mod test {
             },
             _ => panic!("Expected error!")
         }
+
+        Ok(())
     }
 
     #[test]
     fn url() -> Result<()> {
-        let req = Request2::new(indoc!(r##"
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
             # comment
             POST http://localhost:8080
         "##));
@@ -114,7 +124,7 @@ mod test {
 
     #[test]
     fn headers() -> Result<()> {
-        let req = Request2::new(indoc!(r##"
+        let req = Request2::new(std::env::current_dir()?, indoc!(r##"
             # comment
             POST http://localhost:8080
             # comment
