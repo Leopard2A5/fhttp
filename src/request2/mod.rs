@@ -11,6 +11,7 @@ use crate::errors::FhttpError;
 pub struct Request2 {
     pub source_path: PathBuf,
     text: String,
+    dependency: bool,
 }
 
 impl Request2 {
@@ -21,7 +22,19 @@ impl Request2 {
     ) -> Self {
         Request2 {
             source_path: path.into(),
-            text: text.into()
+            text: text.into(),
+            dependency: false,
+        }
+    }
+
+    pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
+        path: P,
+        text: T
+    ) -> Self {
+        Request2 {
+            source_path: path.into(),
+            text: text.into(),
+            dependency: true,
         }
     }
 
