@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
 use crate::{ErrorKind, Result};
@@ -33,6 +34,29 @@ impl Request2 {
             .ok_or(FhttpError::new(ErrorKind::RequestParseException("Malformed url line".into())))
     }
 
+    pub fn headers(&self) -> Result<HeaderMap> {
+        let lines = self.text.lines()
+            .map(|line| line.trim())
+            .filter(|line| !line.starts_with('#'))
+            .skip(1)
+            .collect::<Vec<&str>>();
+
+        let mut ret = HeaderMap::new();
+        for line in lines {
+            if line.is_empty() {
+                break;
+            }
+
+            let split: Vec<&str> = line.splitn(2, ':').collect();
+            let key = HeaderName::from_bytes(split[0].trim().as_bytes())
+                .expect("couldn't create HeaderName");
+            let value_text = split[1].trim();
+            ret.insert(key, HeaderValue::from_str(value_text).unwrap());
+        }
+
+        Ok(ret)
+    }
+
     fn first_line(&self) -> Result<&str> {
         self.text.lines()
             .map(|line| line.trim())
@@ -45,8 +69,9 @@ impl Request2 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use indoc::indoc;
+
+    use super::*;
 
     #[test]
     fn method() -> Result<()> {
@@ -87,4 +112,23 @@ mod test {
         Ok(())
     }
 
+    #[test]
+    fn headers() -> Result<()> {
+        let req = Request2::new(indoc!(r##"
+            # comment
+            POST http://localhost:8080
+            # comment
+            content-type: application/json; charset=UTF-8
+            accept: application/json
+
+            not-a-header: not-a-header-value
+        "##));
+
+        let mut expected_headers = HeaderMap::new();
+        expected_headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json; charset=UTF-8").unwrap());
+        expected_headers.insert(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
+        assert_eq!(req.headers()?, expected_headers);
+
+        Ok(())
+    }
 }
