@@ -97,6 +97,30 @@ impl Request2 {
         }
     }
 
+    pub fn response_handler(&self) -> Result<Option<Box<dyn ResponseHandler>>> {
+        lazy_static! {
+            static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
+        };
+
+        if let Some(captures) = RE_RESPONSE_HANDLER.captures(&self.text) {
+            if let Some(group) = captures.get(1) {
+                let group = group.as_str().trim();
+                let parts: Vec<&str> = group.splitn(2, ' ').collect();
+                let kind = parts[0];
+                let content = parts[1];
+
+                match kind {
+                    "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
+                    unknown => Err(FhttpError::new(ErrorKind::RequestParseException(format!("Unknown response handler '{}'", unknown))))
+                }
+            } else {
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
     fn _body(&self) -> Result<&str> {
         let mut body_start = None;
         let mut body_end = None;
@@ -139,30 +163,6 @@ impl Request2 {
         let body = Value::Object(map);
 
         Ok(serde_json::to_string(&body).unwrap())
-    }
-
-    pub fn response_handler(&self) -> Result<Option<Box<dyn ResponseHandler>>> {
-        lazy_static! {
-            static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
-        };
-
-        if let Some(captures) = RE_RESPONSE_HANDLER.captures(&self.text) {
-            if let Some(group) = captures.get(1) {
-                let group = group.as_str().trim();
-                let parts: Vec<&str> = group.splitn(2, ' ').collect();
-                let kind = parts[0];
-                let content = parts[1];
-
-                match kind {
-                    "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
-                    unknown => Err(FhttpError::new(ErrorKind::RequestParseException(format!("Unknown response handler '{}'", unknown))))
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
     }
 
     fn first_line(&self) -> Result<&str> {
