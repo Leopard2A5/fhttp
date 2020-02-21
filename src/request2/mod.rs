@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::str::FromStr;
 
 use regex::Regex;
@@ -11,6 +11,10 @@ use serde_json::Value;
 use crate::{ErrorKind, Result};
 use crate::errors::FhttpError;
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
+
+lazy_static!{
+    static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
+}
 
 #[derive(Debug)]
 pub struct Request2 {
@@ -121,6 +125,16 @@ impl Request2 {
         }
     }
 
+    pub fn dependencies(&self) -> Vec<PathBuf> {
+        let mut ret = vec![];
+        for capture in RE_REQUEST.captures_iter(&self.text) {
+            let group = capture.get(1).unwrap().as_str();
+            let path = self.get_dependency_path(group);
+            ret.push(path);
+        }
+        ret
+    }
+
     fn _body(&self) -> Result<&str> {
         let mut body_start = None;
         let mut body_end = None;
@@ -177,6 +191,22 @@ impl Request2 {
         let filename = self.source_path.file_name().unwrap().to_str().unwrap();
 
         filename.ends_with(".gql.http") || filename.ends_with(".graphql.http")
+    }
+
+    fn get_dependency_path(
+        &self,
+        path: &str
+    ) -> PathBuf {
+        let path = Path::new(path);
+        let ret = if path.is_absolute() {
+            path.to_path_buf()
+        } else if self.source_path.is_dir() {
+            self.source_path.join(path)
+        } else {
+            self.source_path.parent().unwrap().join(path)
+        };
+
+        std::fs::canonicalize(ret).unwrap()
     }
 }
 
@@ -547,6 +577,38 @@ mod gql {
             "##),
         );
         assert_eq!(req.headers()?.get(&HeaderName::from_str("content-type").unwrap()), Some(&xml));
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod dependencies {
+    use super::*;
+    use indoc::indoc;
+
+    #[test]
+    fn should_find_dependencies() -> Result<()> {
+        let source_path = std::env::current_dir()?;
+        let input = format!(r##"GET http://${{request("resources/test/requests/nested_dependencies/1.http")}}:8080
+Authorization: Bearer ${{request("./../fhttp/resources/test/requests/nested_dependencies/2.http")}}
+
+${{request("{}")}}
+"##,
+            source_path.join("resources/test/requests/nested_dependencies/3.http").to_str().unwrap()
+        );
+
+        let req = Request2::new(&source_path, input);
+        let dependencies = req.dependencies();
+
+        assert_eq!(
+            dependencies,
+            vec![
+                source_path.join("resources/test/requests/nested_dependencies/1.http"),
+                source_path.join("resources/test/requests/nested_dependencies/2.http"),
+                source_path.join("resources/test/requests/nested_dependencies/3.http"),
+            ]
+        );
 
         Ok(())
     }
