@@ -16,7 +16,7 @@ lazy_static!{
     static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq)]
 pub struct Request2 {
     pub source_path: PathBuf,
     text: String,
@@ -207,6 +207,15 @@ impl Request2 {
         };
 
         std::fs::canonicalize(ret).unwrap()
+    }
+}
+
+impl PartialEq for Request2 {
+    fn eq(
+        &self,
+        other: &Self
+    ) -> bool {
+        self.source_path == other.source_path
     }
 }
 
