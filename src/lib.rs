@@ -16,6 +16,7 @@ mod request2;
 mod response_handler;
 mod client;
 mod request_preprocessor;
+mod request_preprocessor2;
 mod response;
 mod errors;
 mod config;

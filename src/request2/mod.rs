@@ -13,13 +13,13 @@ use crate::errors::FhttpError;
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
 
 lazy_static!{
-    static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
+    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
 }
 
 #[derive(Debug, Eq)]
 pub struct Request2 {
     pub source_path: PathBuf,
-    text: String,
+    pub text: String,
     pub dependency: bool,
 }
 
@@ -45,6 +45,20 @@ impl Request2 {
             text: text.into(),
             dependency: true,
         }
+    }
+
+    pub fn from_file(
+        path: &Path,
+        dependency: bool,
+    ) -> Result<Self> {
+        let content = std::fs::read_to_string(&path)?;
+
+        Ok(
+            match dependency {
+                true => Request2::depdendency(&path, content),
+                false => Request2::new(&path, content),
+            }
+        )
     }
 
     pub fn method(&self) -> Result<Method> {
@@ -594,7 +608,6 @@ mod gql {
 #[cfg(test)]
 mod dependencies {
     use super::*;
-    use indoc::indoc;
 
     #[test]
     fn should_find_dependencies() -> Result<()> {

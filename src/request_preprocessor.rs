@@ -104,8 +104,9 @@ fn eval(
         buffer.replace_range(range, &value);
     }
 
-    let buffer = replace_uuids(&buffer);
-    replace_random_ints(&buffer)
+    // let buffer = replace_uuids(&buffer);
+    // replace_random_ints(&buffer)
+    Ok(buffer)
 }
 
 fn preprocess_request(
@@ -243,102 +244,6 @@ fn replace_dependency_values_in_str(
     }
 
     ret
-}
-
-#[cfg(test)]
-mod eval {
-    use std::env;
-    use super::*;
-
-    #[test]
-    fn should_replace_with_env_vars() {
-        let profile = Profile::new();
-        env::set_var("FOO", "foo");
-        env::set_var("BAR", "bar");
-        let input = "X${env(FOO)}X${env(BAR)}X";
-        assert_eq!(eval(&profile, input, false).unwrap(), "XfooXbarX");
-    }
-
-    #[test]
-    fn should_replace_uuids() {
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
-        };
-
-        let profile = Profile::new();
-        let input = "X${uuid()}X";
-        let result = eval(&profile, input, false).unwrap();
-        assert!(REGEX.is_match(&result));
-    }
-}
-
-#[cfg(test)]
-mod replace_env_vars {
-    use std::env;
-    use std::str::FromStr;
-
-    use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-
-    use indoc::indoc;
-
-    use crate::Request;
-
-    use super::*;
-
-    #[test]
-    fn should_replace_in_url() {
-        let profile = Profile::new();
-        env::set_var("SERVER", "localhost");
-        env::set_var("PORT", "8080");
-        let mut req = Request::parse(
-            "GET http://${env(SERVER)}:${env(PORT)}/".into(),
-            &env::current_dir().unwrap()
-        ).unwrap();
-
-        replace_env_vars(&profile, &mut req, false).unwrap();
-        assert_eq!(req.url, "http://localhost:8080/");
-    }
-
-    #[test]
-    fn should_replace_in_headers() {
-        let profile = Profile::new();
-        env::set_var("E1", "e1");
-        env::set_var("E2", "e2");
-        env::set_var("E3", "e3");
-        let mut req = Request::parse(
-            indoc!("
-                GET http://localhost/
-                H1: ${env(E1)}
-                H23: ${env(E2)}, ${env(E3)}
-            ").into(),
-            &env::current_dir().unwrap()
-        ).unwrap();
-
-        let mut headers = HeaderMap::new();
-        headers.insert(HeaderName::from_str("H1").unwrap(), HeaderValue::from_str("e1").unwrap());
-        headers.insert(HeaderName::from_str("H23").unwrap(), HeaderValue::from_str("e2, e3").unwrap());
-
-        replace_env_vars(&profile, &mut req, false).unwrap();
-        assert_eq!(req.headers, headers);
-    }
-
-    #[test]
-    fn should_replace_in_body() {
-        let profile = Profile::new();
-        env::set_var("E1", "e1");
-        env::set_var("E2", "e2");
-        let mut req = Request::parse(
-            indoc!("
-                GET http://localhost/
-
-                E1=${env(E1)} + E2=${env(E2)}
-            ").into(),
-            &env::current_dir().unwrap()
-        ).unwrap();
-
-        replace_env_vars(&profile, &mut req, false).unwrap();
-        assert_eq!(req.body, "E1=e1 + E2=e2");
-    }
 }
 
 #[cfg(test)]
