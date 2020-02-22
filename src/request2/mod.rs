@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use regex::Regex;
@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use crate::{ErrorKind, Result};
 use crate::errors::FhttpError;
+use crate::request_preprocessor2::get_dependency_path;
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
 
 lazy_static!{
@@ -207,20 +208,14 @@ impl Request2 {
         filename.ends_with(".gql.http") || filename.ends_with(".graphql.http")
     }
 
-    fn get_dependency_path(
+    pub fn get_dependency_path(
         &self,
         path: &str
     ) -> PathBuf {
-        let path = Path::new(path);
-        let ret = if path.is_absolute() {
-            path.to_path_buf()
-        } else if self.source_path.is_dir() {
-            self.source_path.join(path)
-        } else {
-            self.source_path.parent().unwrap().join(path)
-        };
-
-        std::fs::canonicalize(ret).unwrap()
+        get_dependency_path(
+            &self.source_path,
+            path
+        )
     }
 }
 
