@@ -153,25 +153,32 @@ impl Request {
     fn _body(&self) -> Result<&str> {
         let mut body_start = None;
         let mut body_end = None;
-        let mut chars: usize = 0;
+        let mut text_index: usize = 0;
         let mut last_char = None;
 
         for (index, chr) in self.text.chars().enumerate() {
             if body_start.is_none() && chr == '\n' && last_char == Some('\n') {
-                body_start = Some(chars + 1);
+                body_start = Some(text_index + 1);
             } else if body_end.is_none() && chr == '%' && &self.text[(index - 4)..index] == "\n> {" {
                 body_end = Some(index - 4);
                 break;
             }
 
             last_char = Some(chr);
-            chars += 1;
+            text_index += 1;
         }
 
-        let body_start = body_start.unwrap();
-        let body_end = body_end.unwrap_or(chars);
-
-        Ok(&self.text[body_start..body_end])
+        match body_start {
+            Some(start) => {
+                let end = body_end.unwrap_or(text_index);
+                if start < end {
+                    Ok(&self.text[start..body_end.unwrap_or(text_index)])
+                } else {
+                    Ok("")
+                }
+            },
+            None => Ok(""),
+        }
     }
 
     fn _gql_body(&self) -> Result<String> {
