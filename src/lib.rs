@@ -1,15 +1,17 @@
 extern crate reqwest;
 #[macro_use]
 extern crate lazy_static;
-extern crate indoc;
 extern crate jsonpath_lib as jsonpath;
 extern crate serde;
 extern crate serde_json;
 extern crate clap;
 extern crate promptly;
-extern crate maplit;
 extern crate rand;
 extern crate uuid;
+#[cfg(test)]
+extern crate indoc;
+#[cfg(test)]
+extern crate maplit;
 
 mod request;
 mod response_handler;
@@ -26,7 +28,7 @@ pub type Result<T> = std::result::Result<T, FhttpError>;
 
 pub use request::Request;
 pub use client::Client;
-pub use request_preprocessor::RequestPreprocessor;
+pub use request_preprocessor::Requestpreprocessor;
 pub use response::Response;
 pub use errors::{FhttpError, ErrorKind};
 pub use config::Config;

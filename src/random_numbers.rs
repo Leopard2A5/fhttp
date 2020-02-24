@@ -31,31 +31,37 @@ pub fn random_int(
     7i32
 }
 
-pub fn replace_random_ints(text: &str) -> Result<String> {
+pub fn replace_random_ints(text: String) -> Result<String> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)}").unwrap();
     };
-    let mut buffer = text.to_owned();
 
     let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(&text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
         .collect();
-    for capture in reversed_captures {
-        let group = capture.get(0).unwrap();
-        let (min, max) = parse_min_max(
-            capture.get(1),
-            capture.get(3)
-        )?;
 
-        let range = group.start()..group.end();
-        let value = random_int(min, max);
+    if reversed_captures.is_empty() {
+        Ok(text)
+    } else {
+        let mut buffer = text.to_owned();
 
-        buffer.replace_range(range, &value.to_string());
+        for capture in reversed_captures {
+            let group = capture.get(0).unwrap();
+            let (min, max) = parse_min_max(
+                capture.get(1),
+                capture.get(3)
+            )?;
+
+            let range = group.start()..group.end();
+            let value = random_int(min, max);
+
+            buffer.replace_range(range, &value.to_string());
+        }
+
+        Ok(buffer)
     }
-
-    Ok(buffer)
 }
 
 fn parse_min_max(
@@ -90,18 +96,18 @@ mod test {
     use crate::{FhttpError, ErrorKind};
 
     #[test]
-    fn test_happy_path() {
+    fn test_happy_path() -> Result<()> {
         let buffer = String::from("${randomInt()}");
-        let result = replace_random_ints(&buffer);
-        assert_eq!(result.unwrap(), "7");
+        let result = replace_random_ints(buffer)?;
+        assert_eq!(result, "7");
 
         let buffer = String::from("${randomInt(-5)}");
-        let result = replace_random_ints(&buffer);
-        assert_eq!(result.unwrap(), "7");
+        let result = replace_random_ints(buffer)?;
+        assert_eq!(result, "7");
 
         let buffer = String::from("${randomInt(-5, 7)}");
-        let result = replace_random_ints(&buffer);
-        assert_eq!(result.unwrap(), "7");
+        let result = replace_random_ints(buffer)?;
+        assert_eq!(result, "7");
 
         RANDOM_INT_CALLS.with(|calls| {
             assert_eq!(*calls.borrow(), vec![
@@ -110,12 +116,14 @@ mod test {
                 (-5, 7)
             ]);
         });
+
+        Ok(())
     }
 
     #[test]
     fn test_invalid_min() {
         let buffer = format!("${{randomInt({})}}", std::i32::MIN as i64 - 1);
-        let result = replace_random_ints(&buffer);
+        let result = replace_random_ints(buffer);
         match result {
             Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
                 assert_eq!(e, format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
@@ -127,7 +135,7 @@ mod test {
     #[test]
     fn test_invalid_max() {
         let buffer = format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1);
-        let result = replace_random_ints(&buffer);
+        let result = replace_random_ints(buffer);
         match result {
             Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
                 assert_eq!(e, format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
@@ -138,8 +146,8 @@ mod test {
 
     #[test]
     fn test_min_gt_max() {
-        let buffer = "${randomInt(3, 2)}";
-        let result = replace_random_ints(&buffer);
+        let buffer = "${randomInt(3, 2)}".to_owned();
+        let result = replace_random_ints(buffer);
         match result {
             Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
                 assert_eq!(e, String::from("min cannot be greater than max"))

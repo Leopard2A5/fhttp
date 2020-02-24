@@ -5,7 +5,7 @@ use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, RequestPreprocessor, Result, Config, Profiles, Profile, FhttpError, ErrorKind};
+use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError, ErrorKind};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -53,16 +53,17 @@ fn do_it(
         None => Profile::new()
     };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
-    let mut preprocessor = RequestPreprocessor::new(profile, requests, config)?;
+    let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {
-        let req = preprocessor.next().unwrap();
+        let req: Result<Request> = preprocessor.next().unwrap();
+        let req = req?;
         let dependency = req.dependency;
 
         let path = req.source_path.clone();
         eprint!("calling '{}'... ", path.to_str().unwrap());
-        let resp = client.exec(req);
+        let resp = client.exec(req)?;
         eprintln!("{}", resp.status());
         preprocessor.notify_response(&path, resp.body());
 
@@ -103,8 +104,7 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
 
     let mut ret = vec![];
     for file in files {
-        let content = std::fs::read_to_string(&file)?;
-        ret.push(Request::parse(content, &file)?);
+        ret.push(Request::from_file(&file, false)?);
     }
 
     Ok(ret)
