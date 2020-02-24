@@ -327,6 +327,32 @@ mod test {
     }
 
     #[test]
+    fn no_body_should_return_empty_string() -> Result<()> {
+        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+            POST http://localhost:8080
+        "##));
+
+        assert_eq!(req.body()?, "");
+
+        Ok(())
+    }
+
+    #[test]
+    fn no_body_with_response_handler_should_return_empty_string() -> Result<()> {
+        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+            POST http://localhost:8080
+
+            > {%
+                json $
+            %}
+        "##));
+
+        assert_eq!(req.body()?, "");
+
+        Ok(())
+    }
+
+    #[test]
     fn response_handler() -> Result<()> {
         let req = Request::new(std::env::current_dir()?, indoc!(r##"
             POST http://localhost:8080
