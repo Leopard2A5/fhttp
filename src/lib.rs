@@ -1,15 +1,17 @@
 extern crate reqwest;
 #[macro_use]
 extern crate lazy_static;
-extern crate indoc;
 extern crate jsonpath_lib as jsonpath;
 extern crate serde;
 extern crate serde_json;
 extern crate clap;
 extern crate promptly;
-extern crate maplit;
 extern crate rand;
 extern crate uuid;
+#[cfg(test)]
+extern crate indoc;
+#[cfg(test)]
+extern crate maplit;
 
 mod request;
 mod response_handler;
