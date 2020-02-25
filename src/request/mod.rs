@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -26,7 +27,7 @@ pub struct Request {
 
 impl Request {
 
-    pub fn new<P: Into<PathBuf>, T: Into<String>>(
+    pub(crate) fn new<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
@@ -37,7 +38,7 @@ impl Request {
         }
     }
 
-    pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
+    pub(crate) fn depdendency<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
@@ -52,7 +53,8 @@ impl Request {
         path: &Path,
         dependency: bool,
     ) -> Result<Self> {
-        let content = std::fs::read_to_string(&path)?;
+        let path = fs::canonicalize(&path)?;
+        let content = fs::read_to_string(&path)?;
 
         Ok(
             match dependency {
