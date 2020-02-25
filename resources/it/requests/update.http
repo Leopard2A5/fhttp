@@ -1,0 +1,7 @@
+PATCH ${env(URL)}/resources/${request("create.http")}
+Authorization: Bearer ${request("token.http")}
+Content-Type: application/json
+
+{
+  "name": "changed resource"
+}

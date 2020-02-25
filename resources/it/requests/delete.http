@@ -1,0 +1,2 @@
+DELETE ${env(URL)}/resources/${request("create.http")}
+Authorization: Bearer ${request("token.http")}
