@@ -1,0 +1,8 @@
+{
+  "it": {
+    "variables": {
+      "USERNAME": "username_from_profile",
+      "PASSWORD": "password_from_profile"
+    }
+  }
+}

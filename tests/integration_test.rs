@@ -53,7 +53,6 @@ fn complex_test() {
 
     let stderr = String::from_utf8(output.stderr)
         .expect("stderr is not utf-8");
-    println!("{}", stderr);
 
     assert_eq!(stderr, format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
 calling '{base}/resources/it/requests/create.http'... 201 Created

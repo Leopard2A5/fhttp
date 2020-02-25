@@ -25,7 +25,13 @@ fn main() {
             .long("profile")
             .short("p")
             .takes_value(true)
-            .help("profile file to use"))
+            .help("profile to use"))
+        .arg(Arg::with_name("profile-file")
+            .long("profile-file")
+            .short("f")
+            .takes_value(true)
+            .default_value("fhttp-config.json")
+            .help("profile file to use instead of fhttp-config.json"))
         .get_matches();
 
     let config = Config {
@@ -35,6 +41,7 @@ fn main() {
     let result= do_it(
         matches.values_of("files").unwrap(),
         config,
+        matches.value_of("profile-file").unwrap(),
         matches.value_of("profile")
     );
     if let Err(error) = result {
@@ -46,10 +53,11 @@ fn main() {
 fn do_it(
     file_values: Values,
     config: Config,
+    profile_path: &str,
     profile_name: Option<&str>
 ) -> Result<()> {
     let profile = match profile_name {
-        Some(p) => parse_profile(p)?,
+        Some(p) => parse_profile(profile_path, p)?,
         None => Profile::new()
     };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
@@ -110,8 +118,11 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
     Ok(ret)
 }
 
-fn parse_profile(profile: &str) -> Result<Profile> {
-    let path = env::current_dir()?.join("fhttp-config.json");
+fn parse_profile(
+    profile_path: &str,
+    profile: &str
+) -> Result<Profile> {
+    let path = PathBuf::from_str(profile_path).unwrap();
     Profiles::parse(&path)?
         .get(profile)
         .map(|p| p.clone())

@@ -1,11 +1,12 @@
-use std::io;
-use std::fmt::{self, Display, Formatter};
 use std::convert::From;
-use reqwest::header::{ToStrError, InvalidHeaderValue};
+use std::fmt::{self, Display, Formatter};
+use std::io;
+
+use reqwest::header::{InvalidHeaderValue, ToStrError};
 
 #[derive(Debug)]
 pub enum ErrorKind {
-    IO(io::Error),
+    IO(String),
     MissingEnvVar(String),
     StringEncodingError,
     RequestParseException(String),
@@ -38,7 +39,7 @@ impl std::error::Error for FhttpError {}
 impl From<io::Error> for FhttpError {
     fn from(err: io::Error) -> Self {
         FhttpError {
-            kind: ErrorKind::IO(err)
+            kind: ErrorKind::IO(err.to_string())
         }
     }
 }

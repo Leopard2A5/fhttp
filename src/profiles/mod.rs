@@ -14,7 +14,8 @@ pub struct Profiles(HashMap<String, Profile>);
 
 impl Profiles {
     pub fn parse(path: &Path) -> Result<Self> {
-        let content = std::fs::read_to_string(&path)?;
+        let content = std::fs::read_to_string(&path)
+            .map_err(|_| FhttpError::new(ErrorKind::IO(format!("Error opening file {}", path.to_str().unwrap()))))?;
         let profiles = serde_json::from_str::<Profiles>(&content)?;
 
         Ok(profiles)
