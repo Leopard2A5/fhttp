@@ -25,7 +25,7 @@ fn main() {
             .long("profile")
             .short("p")
             .takes_value(true)
-            .help("profile to use"))
+            .help("profile to use. can be overridden by env var FHTTP_PROFILE"))
         .arg(Arg::with_name("profile-file")
             .long("profile-file")
             .short("f")
@@ -38,7 +38,7 @@ fn main() {
     };
 
     let profile_path = matches.value_of("profile-file")
-        .map(|value| value.to_owned())
+        .map(str::to_owned)
         .or_else(|| {
             match env::var("FHTTP_PROFILE_FILE") {
                 Ok(path) => Some(path),
@@ -47,11 +47,20 @@ fn main() {
         })
         .unwrap_or("fhttp-config.json".to_owned());
 
+    let profile_name = matches.value_of("profile")
+        .map(str::to_owned)
+        .or_else(|| {
+            match env::var("FHTTP_PROFILE") {
+                Ok(name) => Some(name),
+                Err(_) => None,
+            }
+        });
+
     let result= do_it(
         matches.values_of("files").unwrap(),
         config,
         &profile_path,
-        matches.value_of("profile")
+        profile_name
     );
     if let Err(error) = result {
         println!("{}", error);
@@ -63,10 +72,10 @@ fn do_it(
     file_values: Values,
     config: Config,
     profile_path: &str,
-    profile_name: Option<&str>
+    profile_name: Option<String>
 ) -> Result<()> {
     let profile = match profile_name {
-        Some(p) => parse_profile(profile_path, p)?,
+        Some(ref p) => parse_profile(profile_path, p)?,
         None => Profile::new()
     };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
