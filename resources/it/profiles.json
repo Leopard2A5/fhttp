@@ -4,5 +4,11 @@
       "USERNAME": "username_from_profile",
       "PASSWORD": "password_from_profile"
     }
+  },
+  "it2": {
+    "variables": {
+      "USERNAME": "username2",
+      "PASSWORD": "password2"
+    }
   }
 }

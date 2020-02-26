@@ -76,3 +76,48 @@ fn profile_file_cli_should_override_env_var() {
     assert!(output.status.success());
     token.assert();
 }
+
+#[test]
+fn profile_through_env_var() {
+    let url = &mockito::server_url();
+    env::set_var("URL", &url);
+    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles.json");
+    env::set_var("FHTTP_PROFILE", "it");
+
+    let token = mock("POST", "/token")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .with_body("{\n  \"token\": \"secret_token\"\n}")
+        .create();
+
+    let output = Command::new(BIN)
+        .args(&["resources/it/requests/token.http"])
+        .output()
+        .expect("failed to execute process");
+
+    assert!(output.status.success());
+    token.assert();
+}
+
+#[test]
+fn profile_through_cli_option_should_precede_env_var() {
+    let url = &mockito::server_url();
+    env::set_var("URL", &url);
+    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles.json");
+    env::set_var("FHTTP_PROFILE", "it");
+
+    let token = mock("POST", "/token")
+        .match_body("{\n  \"username\": \"username2\",\n  \"password\": \"password2\"\n}\n")
+        .with_body("{\n  \"token\": \"secret_token\"\n}")
+        .create();
+
+    let output = Command::new(BIN)
+        .args(&[
+            "-p", "it2",
+            "resources/it/requests/token.http"
+        ])
+        .output()
+        .expect("failed to execute process");
+
+    assert!(output.status.success());
+    token.assert();
+}
