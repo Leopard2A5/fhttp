@@ -1,0 +1,8 @@
+{
+  "it": {
+    "variables": {
+      "USERNAME": "wrong_username",
+      "PASSWORD": "wrong_password"
+    }
+  }
+}

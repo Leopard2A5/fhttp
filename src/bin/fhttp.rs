@@ -30,18 +30,27 @@ fn main() {
             .long("profile-file")
             .short("f")
             .takes_value(true)
-            .default_value("fhttp-config.json")
-            .help("profile file to use instead of fhttp-config.json"))
+            .help("profile file to use. can be overridden by env var FHTTP_PROFILE_FILE. defaults to fhttp-config.json"))
         .get_matches();
 
     let config = Config {
         prompt_missing_env_vars: !matches.is_present("no-prompt"),
     };
 
+    let profile_path = matches.value_of("profile-file")
+        .map(|value| value.to_owned())
+        .or_else(|| {
+            match env::var("FHTTP_PROFILE_FILE") {
+                Ok(path) => Some(path),
+                Err(_) => None,
+            }
+        })
+        .unwrap_or("fhttp-config.json".to_owned());
+
     let result= do_it(
         matches.values_of("files").unwrap(),
         config,
-        matches.value_of("profile-file").unwrap(),
+        &profile_path,
         matches.value_of("profile")
     );
     if let Err(error) = result {
