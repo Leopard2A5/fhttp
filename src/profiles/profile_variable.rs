@@ -11,7 +11,10 @@ pub enum ProfileVariable {
         path: String,
         #[serde(skip)]
         cache: RefCell<Option<String>>
-    }
+    },
+    Request {
+        request: String,
+    },
 }
 
 impl ProfileVariable {
@@ -29,6 +32,7 @@ impl ProfileVariable {
 
                 Ok(cache.borrow().as_ref().unwrap().clone())
             }
+            ProfileVariable::Request { request: _ } => panic!("ProfileVariable::Request cannot resolve by itself"),
         }
     }
 

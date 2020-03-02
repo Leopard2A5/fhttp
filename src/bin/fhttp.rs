@@ -76,7 +76,7 @@ fn do_it(
 ) -> Result<()> {
     let profile = match profile_name {
         Some(ref p) => parse_profile(profile_path, p)?,
-        None => Profile::new()
+        None => Profile::empty(profile_path)
     };
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
