@@ -12,6 +12,8 @@ fn should_resolve() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
 
+    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+
     let token = mock("POST", "/token")
         .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
@@ -34,10 +36,17 @@ fn should_resolve() {
         ])
         .output()
         .expect("failed to execute process");
-
-    eprintln!("stderr: {}", String::from_utf8(output.stderr).unwrap());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    eprintln!("stderr: {}", stderr);
 
     assert!(output.status.success());
+
+    assert_eq!(stderr, format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
+calling '{base}/resources/it/requests/create.http'... 201 Created
+calling '{base}/resources/it/requests/delete_by_env_var.http'... 200 OK
+"##, base=base
+    ));
+
     token.assert();
     create.assert();
     delete.assert();

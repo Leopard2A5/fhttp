@@ -5,6 +5,9 @@
       "PASSWORD": "password_from_profile",
       "ID": {
         "request": "requests/create.http"
+      },
+      "UNUSED": {
+        "request": "requests/delete.http"
       }
     }
   }
