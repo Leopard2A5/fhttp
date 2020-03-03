@@ -37,7 +37,6 @@ fn should_resolve() {
         .output()
         .expect("failed to execute process");
     let stderr = String::from_utf8(output.stderr).unwrap();
-    eprintln!("stderr: {}", stderr);
 
     assert!(output.status.success());
 
