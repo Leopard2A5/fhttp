@@ -7,7 +7,7 @@ jobs:
     - stage: build
       script: cargo build --verbose --all
     - stage: test
-      script: cargo test --verbose --all
+      script: cargo test --verbose --all -- --nocapture
     - stage: release MacOS
       os: osx
       script: cargo build --verbose --release --all && mv target/release/fhttp target/release/fhttp.macosx
