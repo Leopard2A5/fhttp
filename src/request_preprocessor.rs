@@ -5,11 +5,13 @@ use std::path::{Path, PathBuf};
 use regex::{Captures, Regex};
 
 use crate::{Config, Profile};
+use crate::profiles::Resolve;
 use crate::random_numbers::replace_random_ints;
 use crate::request::RE_REQUEST;
 use crate::request::Request;
 use crate::Result;
 use crate::uuids::replace_uuids;
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct Requestpreprocessor {
@@ -29,9 +31,20 @@ impl Requestpreprocessor {
         let mut preprocessor_stack = vec![];
         let mut requests_with_dependencies = vec![];
 
+        for req in &requests {
+            for path in get_env_vars_defined_through_requests(&profile, &req.text) {
+                let req = Request::from_file(&path, true)?;
+                preprocess_request(
+                    req,
+                    &mut requests_with_dependencies,
+                    &mut preprocessor_stack,
+                    &config
+                )?;
+            }
+        }
+
         for req in requests {
             preprocess_request(
-                &profile,
                 req,
                 &mut requests_with_dependencies,
                 &mut preprocessor_stack,
@@ -87,25 +100,20 @@ impl Requestpreprocessor {
         &self,
         text: String
     ) -> Result<String> {
-        lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
-        };
-
-        let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(&text)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
+        let reversed_captures: Vec<(&str, Range<usize>)> = get_env_vars(&text);
 
         if reversed_captures.is_empty() {
             Ok(text)
         } else {
             let mut buffer = text.clone();
-            for capture in reversed_captures {
-                let group = capture.get(0).unwrap();
-                let key = capture.get(1).unwrap().as_str();
-                let range = group.start()..group.end();
-                let value = self.profile.get(key, self.config.prompt_missing_env_vars)?;
+            for (key, range) in reversed_captures {
+                let value = match self.profile.get(key, self.config.prompt_missing_env_vars)? {
+                    Resolve::StringValue(value) => value,
+                    Resolve::RequestLookup(path) => {
+                        let path = get_dependency_path(self.profile.source_path(), path.to_str().unwrap());
+                        self.response_data.get(&path).unwrap().clone()
+                    },
+                };
 
                 buffer.replace_range(range, &value);
             }
@@ -144,6 +152,23 @@ impl Requestpreprocessor {
     }
 }
 
+fn get_env_vars(text: &str) -> Vec<(&str, Range<usize>)> {
+    lazy_static! {
+            static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
+        };
+
+    RE_ENV.captures_iter(&text)
+        .collect::<Vec<Captures>>()
+        .into_iter()
+        .rev()
+        .map(|capture| {
+            let group = capture.get(0).unwrap();
+            let key = capture.get(1).unwrap().as_str();
+            (key, group.start()..group.end())
+        })
+        .collect()
+}
+
 impl Iterator for Requestpreprocessor {
     type Item = Result<Request>;
 
@@ -171,11 +196,29 @@ pub fn get_dependency_path(
         origin_path.parent().unwrap().join(path).to_path_buf()
     };
 
-    std::fs::canonicalize(ret).unwrap()
+    std::fs::canonicalize(&ret).unwrap()
+}
+
+fn get_env_vars_defined_through_requests(
+    profile: &Profile,
+    text: &str
+) -> Vec<PathBuf> {
+    let vars: Vec<(&str, Range<usize>)> = get_env_vars(&text);
+    vars.into_iter()
+        .map(|(key, _)| {
+            let var = profile.get(key, false).unwrap();
+            match var {
+                Resolve::RequestLookup(path) => Some(path),
+                _ => None
+            }
+        })
+        .filter(|it| it.is_some())
+        .map(|it| it.unwrap())
+        .map(|path| get_dependency_path(profile.source_path(), path.to_str().unwrap()))
+        .collect()
 }
 
 fn preprocess_request(
-    profile: &Profile,
     req: Request,
     mut list: &mut Vec<Request>,
     mut preprocessor_stack: &mut Vec<PathBuf>,
@@ -191,7 +234,7 @@ fn preprocess_request(
 
     for dep in req.dependencies() {
         let dep = Request::from_file(&dep, true)?;
-        preprocess_request(&profile, dep, &mut list, &mut preprocessor_stack, &config)?;
+        preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
     }
 
     preprocessor_stack.pop();
@@ -224,7 +267,7 @@ mod env_vars {
             "##)
         );
         let mut processor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir()?),
             vec![req],
             Config::default()
         )?;
@@ -265,7 +308,7 @@ mod uuids {
             "##)
         );
         let mut processor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir()?),
             vec![req],
             Config::default()
         )?;
@@ -279,6 +322,7 @@ mod uuids {
 
 #[cfg(test)]
 mod dependencies {
+    use std::env;
     use std::path::PathBuf;
 
     use crate::request::Request;
@@ -294,7 +338,7 @@ mod dependencies {
         let init_request = Request::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir()?),
             vec![init_request],
             Config::default()
         )?;
@@ -329,7 +373,7 @@ mod dependencies {
         let req2 = Request::from_file(&path2, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir()?),
             vec![req1, req2],
             Config::default()
         )?;
@@ -351,7 +395,7 @@ mod dependencies {
         let req1 = Request::from_file(&path1, false).unwrap();
 
         Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir().unwrap()),
             vec![req1],
             Config::default()
         ).unwrap();
@@ -366,7 +410,7 @@ mod dependencies {
         let init_request = Request::from_file(&init_path, false).unwrap();
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir().unwrap()),
             vec![init_request],
             Config::default()
         ).unwrap();
@@ -385,7 +429,7 @@ mod dependencies {
         let init_request = Request::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::new(),
+            Profile::empty(env::current_dir()?),
             vec![init_request],
             Config::default()
         )?;
