@@ -154,6 +154,22 @@ If you use the popular password store [pass](https://www.passwordstore.org/), yo
 
 fhttp will call the pass executable (must be in your PATH) to resolve the secret and insert it in your request wherever you've referenced the variable with `${env(variable)}`.
 
+### Request-defined variables
+In a profile, you can define a variable through a request file. The path is either absolute or relative to the location of the profile file.
+```json
+{
+  "testing": {
+    "variables": {
+      "var1": {
+        "request": "../requests/foo.http"
+      }
+    }
+  }
+}
+```
+
+Requests referenced by variables will only be executed if they're actually used.
+
 ## Random numbers
 Fhttp supports the generation of random, signed 32 bit integers.
 
