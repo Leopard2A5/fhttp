@@ -91,6 +91,16 @@ fn do_it(
         eprint!("calling '{}'... ", path.to_str().unwrap());
         let resp = client.exec(req)?;
         eprintln!("{}", resp.status());
+
+        if !resp.status().is_success() {
+            if resp.body().trim().is_empty() {
+                eprintln!("no response body");
+            } else {
+                eprintln!("{}", resp.body());
+            }
+            std::process::exit(1);
+        }
+
         preprocessor.notify_response(&path, resp.body());
 
         if !dependency {
