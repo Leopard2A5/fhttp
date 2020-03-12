@@ -98,7 +98,6 @@ fn profile_through_env_var() {
     token.assert();
 }
 
-#[ignore]
 #[test]
 fn profile_through_cli_option_should_precede_env_var() {
     let url = &mockito::server_url();
