@@ -13,6 +13,7 @@ pub enum ErrorKind {
     JsonDeserializationError(String),
     ProfileNotFound,
     ErrorInvokingProgram(String),
+    HttpError,
 }
 
 #[derive(Debug)]
@@ -59,5 +60,11 @@ impl From<InvalidHeaderValue> for FhttpError {
 impl From<serde_json::Error> for FhttpError {
     fn from(err: serde_json::Error) -> Self {
         FhttpError::new(ErrorKind::JsonDeserializationError(err.to_string()))
+    }
+}
+
+impl From<reqwest::Error> for FhttpError {
+    fn from(_: reqwest::Error) -> Self {
+        FhttpError::new(ErrorKind::HttpError)
     }
 }
