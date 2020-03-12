@@ -19,7 +19,7 @@ impl Client {
             .request(request.method()?, url)
             .headers(request.headers()?)
             .body(request.body()?.into_owned());
-        let response = req.send().unwrap();
+        let response = req.send()?;
         let status = response.status();
         let headers = response.headers().clone();
         let text = response.text().unwrap();

@@ -89,22 +89,31 @@ fn do_it(
 
         let path = req.source_path.clone();
         eprint!("calling '{}'... ", path.to_str().unwrap());
-        let resp = client.exec(req)?;
-        eprintln!("{}", resp.status());
+        let resp = client.exec(req);
 
-        if !resp.status().is_success() {
-            if resp.body().trim().is_empty() {
-                eprintln!("no response body");
-            } else {
-                eprintln!("{}", resp.body());
-            }
-            std::process::exit(1);
-        }
+        match resp {
+            Err(_) => {
+                eprintln!("Connection error");
+                std::process::exit(1);
+            },
+            Ok(resp) => {
+                eprintln!("{}", resp.status());
 
-        preprocessor.notify_response(&path, resp.body());
+                if !resp.status().is_success() {
+                    if resp.body().trim().is_empty() {
+                        eprintln!("no response body");
+                    } else {
+                        eprintln!("{}", resp.body());
+                    }
+                    std::process::exit(1);
+                }
 
-        if !dependency {
-            println!("{}", resp.body());
+                preprocessor.notify_response(&path, resp.body());
+
+                if !dependency {
+                    println!("{}", resp.body());
+                }
+            },
         }
     }
 

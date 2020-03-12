@@ -41,3 +41,24 @@ fn should_stop_execution_on_status_400() {
     one.assert();
     two.assert();
 }
+
+#[test]
+fn should_stop_execution_on_connection_issues() {
+    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    env::set_var("URL", "http://unreachableurl.foobar");
+
+    let output = Command::new(BIN)
+        .args(&[
+            "resources/it/requests/1.http",
+            "resources/it/requests/2.http"
+        ])
+        .output()
+        .expect("failed to execute process");
+    let stderr = String::from_utf8(output.stderr).unwrap();
+
+    assert_eq!(stderr, format!(
+        "calling '{base}/resources/it/requests/1.http'... Connection error\n",
+        base=base
+    ));
+    assert_eq!(output.status.success(), false);
+}
