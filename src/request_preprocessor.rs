@@ -258,7 +258,7 @@ mod env_vars {
         env::set_var("BODY", "body");
 
         let req = Request::new(
-            env::current_dir()?,
+            env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://${env(SERVER)}
                 Authorization: ${env(TOKEN)}
@@ -267,7 +267,7 @@ mod env_vars {
             "##)
         );
         let mut processor = Requestpreprocessor::new(
-            Profile::empty(env::current_dir()?),
+            Profile::empty(env::current_dir().unwrap()),
             vec![req],
             Config::default()
         )?;
@@ -302,13 +302,13 @@ mod uuids {
         };
 
         let req = Request::new(
-            env::current_dir()?,
+            env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://X${uuid()}X
             "##)
         );
         let mut processor = Requestpreprocessor::new(
-            Profile::empty(env::current_dir()?),
+            Profile::empty(env::current_dir().unwrap()),
             vec![req],
             Config::default()
         )?;
@@ -338,7 +338,7 @@ mod dependencies {
         let init_request = Request::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::empty(env::current_dir()?),
+            Profile::empty(env::current_dir().unwrap()),
             vec![init_request],
             Config::default()
         )?;
@@ -373,7 +373,7 @@ mod dependencies {
         let req2 = Request::from_file(&path2, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::empty(env::current_dir()?),
+            Profile::empty(env::current_dir().unwrap()),
             vec![req1, req2],
             Config::default()
         )?;
@@ -429,7 +429,7 @@ mod dependencies {
         let init_request = Request::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
-            Profile::empty(env::current_dir()?),
+            Profile::empty(env::current_dir().unwrap()),
             vec![init_request],
             Config::default()
         )?;

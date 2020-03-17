@@ -30,6 +30,6 @@ pub use request::Request;
 pub use client::Client;
 pub use request_preprocessor::Requestpreprocessor;
 pub use response::Response;
-pub use errors::{FhttpError, ErrorKind};
+pub use errors::FhttpError;
 pub use config::Config;
 pub use profiles::{Profiles, Profile};

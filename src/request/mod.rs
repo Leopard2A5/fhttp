@@ -9,7 +9,7 @@ use reqwest::Method;
 use serde_json::map::Map;
 use serde_json::Value;
 
-use crate::{ErrorKind, Result};
+use crate::{Result};
 use crate::errors::FhttpError;
 use crate::request_preprocessor::get_dependency_path;
 use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
@@ -53,8 +53,10 @@ impl Request {
         path: &Path,
         dependency: bool,
     ) -> Result<Self> {
-        let path = fs::canonicalize(&path)?;
-        let content = fs::read_to_string(&path)?;
+        let path = fs::canonicalize(&path)
+            .map_err(|_| FhttpError::new(format!("cannot convert {} to an absolute path", path.to_str().unwrap())))?;
+        let content = fs::read_to_string(&path)
+            .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
 
         Ok(
             match dependency {
@@ -70,7 +72,7 @@ impl Request {
         let method_string = split[0];
 
         Method::from_str(method_string)
-            .map_err(|_| FhttpError::new(ErrorKind::RequestParseException(format!("Couldn't parse method '{}'", method_string))))
+            .map_err(|_| FhttpError::new(format!("Couldn't parse method '{}'", method_string)))
     }
 
     pub fn url(&self) -> Result<&str> {
@@ -78,7 +80,7 @@ impl Request {
         let mut split: Vec<&str> = first_line.splitn(2, ' ').collect();
 
         split.pop()
-            .ok_or(FhttpError::new(ErrorKind::RequestParseException("Malformed url line".into())))
+            .ok_or(FhttpError::new("Malformed url line"))
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
@@ -132,7 +134,7 @@ impl Request {
 
                 match kind {
                     "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
-                    unknown => Err(FhttpError::new(ErrorKind::RequestParseException(format!("Unknown response handler '{}'", unknown))))
+                    unknown => Err(FhttpError::new(format!("Unknown response handler '{}'", unknown)))
                 }
             } else {
                 Ok(None)
@@ -190,7 +192,7 @@ impl Request {
         let (query, variables) = match parts.len() {
             1 => (parts[0], None),
             2 => (parts[0], Some(parse_variables(parts[1])?)),
-            _ => return Err(FhttpError::new(ErrorKind::RequestParseException("GraphQL requests can only have 1 or 2 body parts".into()))),
+            _ => return Err(FhttpError::new("GraphQL requests can only have 1 or 2 body parts")),
         };
 
         let query = Value::String(query.to_owned());
@@ -208,7 +210,7 @@ impl Request {
             .map(|line| line.trim())
             .filter(|line| !line.starts_with("#"))
             .nth(0)
-            .ok_or(FhttpError::new(ErrorKind::RequestParseException("Could not find first line".into())))
+            .ok_or(FhttpError::new("Could not find first line"))
     }
 
     fn gql_file(&self) -> bool {
@@ -239,7 +241,7 @@ impl PartialEq for Request {
 
 fn parse_variables(text: &str) -> Result<Value> {
     serde_json::from_str::<Value>(&text)
-        .map_err(|_| FhttpError::new(ErrorKind::RequestParseException("Error parsing variables".into())))
+        .map_err(|_| FhttpError::new("Error parsing variables"))
 }
 
 #[cfg(test)]
@@ -250,7 +252,7 @@ mod test {
 
     #[test]
     fn method() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             POST http://localhost:8080
         "##));
@@ -262,24 +264,19 @@ mod test {
 
     #[test]
     fn method_no_first_line() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             # POST http://localhost:8080
         "##));
 
-        match req.method() {
-            Err(FhttpError { kind: ErrorKind::RequestParseException(ref msg) }) => {
-                assert_eq!(msg, "Could not find first line");
-            },
-            _ => panic!("Expected error!")
-        }
+        assert_eq!(req.method(), Err(FhttpError::new("Could not find first line")));
 
         Ok(())
     }
 
     #[test]
     fn url() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             POST http://localhost:8080
         "##));
@@ -291,7 +288,7 @@ mod test {
 
     #[test]
     fn headers() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             POST http://localhost:8080
             # comment
@@ -311,7 +308,7 @@ mod test {
 
     #[test]
     fn body() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             POST http://localhost:8080
 
             this is the body
@@ -337,7 +334,7 @@ mod test {
 
     #[test]
     fn no_body_should_return_empty_string() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             POST http://localhost:8080
         "##));
 
@@ -348,7 +345,7 @@ mod test {
 
     #[test]
     fn no_body_with_response_handler_should_return_empty_string() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             POST http://localhost:8080
 
             > {%
@@ -363,7 +360,7 @@ mod test {
 
     #[test]
     fn response_handler() -> Result<()> {
-        let req = Request::new(std::env::current_dir()?, indoc!(r##"
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             POST http://localhost:8080
 
             this is the body
@@ -393,7 +390,7 @@ mod gql {
 
     #[test]
     fn parse_gql_with_query_variables_response_handler() -> Result<()> {
-        let source_path = std::env::current_dir()?.join("foo.gql.http");
+        let source_path = std::env::current_dir().unwrap().join("foo.gql.http");
         let input = indoc!(r##"
             POST http://server:8080/graphql
             Authorization: Bearer token
@@ -426,7 +423,7 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?)?;
+        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -441,7 +438,7 @@ mod gql {
 
     #[test]
     fn parse_gql_with_query_variables() -> Result<()> {
-        let source_path = std::env::current_dir()?.join("foo.gql.http");
+        let source_path = std::env::current_dir().unwrap().join("foo.gql.http");
         let input = indoc!(r##"
             POST http://server:8080/graphql
             Authorization: Bearer token
@@ -470,7 +467,7 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?)?;
+        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -485,7 +482,7 @@ mod gql {
 
     #[test]
     fn parse_gql_with_query_response_handler() -> Result<()> {
-        let source_path = std::env::current_dir()?.join("foo.gql.http");
+        let source_path = std::env::current_dir().unwrap().join("foo.gql.http");
         let input = indoc!(r##"
             POST http://server:8080/graphql
             Authorization: Bearer token
@@ -512,7 +509,7 @@ mod gql {
             "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}\n",
             "variables": {}
         });
-        let body = serde_json::from_str::<Value>(&result.body()?)?;
+        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -527,7 +524,7 @@ mod gql {
 
     #[test]
     fn parse_gql_with_query() -> Result<()> {
-        let source_path = std::env::current_dir()?.join("foo.gql.http");
+        let source_path = std::env::current_dir().unwrap().join("foo.gql.http");
         let input = indoc!(r##"
             POST http://server:8080/graphql
             Authorization: Bearer token
@@ -554,7 +551,7 @@ mod gql {
             "variables": {}
         });
 
-        let body = serde_json::from_str::<Value>(&result.body()?)?;
+        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -576,18 +573,18 @@ mod gql {
 
         let http_extension_result = Request::new(
             &http_extension,
-            fs::read_to_string(&http_extension)?
+            fs::read_to_string(&http_extension).unwrap()
         );
 
         let gql_http_extension_result = Request::new(
             &gql_http_extension,
-            fs::read_to_string(&gql_http_extension)?,
+            fs::read_to_string(&gql_http_extension).unwrap(),
         );
 
         assert!(&http_extension_result.body()?.starts_with("query"));
 
         assert!(serde_json::from_str::<Value>(&gql_http_extension_result.body()?).is_ok());
-        match serde_json::from_str::<Value>(&gql_http_extension_result.body()?)? {
+        match serde_json::from_str::<Value>(&gql_http_extension_result.body()?).unwrap() {
             Value::Object(map) => {
                 assert!(map.contains_key("query"));
                 assert!(map.contains_key("variables"));
@@ -641,7 +638,7 @@ mod dependencies {
 
     #[test]
     fn should_find_dependencies() -> Result<()> {
-        let source_path = std::env::current_dir()?;
+        let source_path = std::env::current_dir().unwrap();
         let input = format!(r##"GET http://${{request("resources/test/requests/nested_dependencies/1.http")}}:8080
 Authorization: Bearer ${{request("./../fhttp/resources/test/requests/nested_dependencies/2.http")}}
 

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use crate::{Result, FhttpError, ErrorKind};
+use crate::{Result, FhttpError};
 use std::process::Command;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -49,9 +49,9 @@ fn resolve_pass(path: &str) -> Result<String> {
         Ok(String::from_utf8(output).unwrap())
     } else {
         let stderr = String::from_utf8(output.stderr).unwrap();
-        Err(FhttpError::new(ErrorKind::ErrorInvokingProgram(
-            format!("pass returned an error: '{}'", stderr).into()
-        )))
+        Err(FhttpError::new(
+            format!("pass returned an error: '{}'", stderr)
+        ))
     }
 }
 

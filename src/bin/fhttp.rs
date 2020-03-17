@@ -5,7 +5,7 @@ use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError, ErrorKind};
+use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -56,14 +56,14 @@ fn main() {
             }
         });
 
-    let result= do_it(
+    let result = do_it(
         matches.values_of("files").unwrap(),
         config,
         &profile_path,
         profile_name
     );
     if let Err(error) = result {
-        println!("{}", error);
+        eprintln!("{}", error);
         process::exit(1);
     };
 }
@@ -163,5 +163,5 @@ fn parse_profile(
     Profiles::parse(&path)?
         .get(profile)
         .map(|p| p.clone())
-        .ok_or(FhttpError::new(ErrorKind::ProfileNotFound))
+        .ok_or(FhttpError::new("profile not found"))
 }
