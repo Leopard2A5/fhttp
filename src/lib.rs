@@ -28,6 +28,7 @@ pub type Result<T> = std::result::Result<T, FhttpError>;
 
 pub use request::Request;
 pub use client::Client;
+pub use client::ClientError;
 pub use request_preprocessor::Requestpreprocessor;
 pub use response::Response;
 pub use errors::FhttpError;

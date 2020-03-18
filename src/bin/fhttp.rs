@@ -5,7 +5,7 @@ use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
+use fhttp::{Client, ClientError, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -92,10 +92,11 @@ fn do_it(
         let resp = client.exec(req);
 
         match resp {
-            Err(_) => {
+            Err(ClientError::RemoteError(msg)) => {
                 eprintln!("Connection error");
                 std::process::exit(1);
             },
+            Err(ClientError::LocalError(e)) => return Err(e),
             Ok(resp) => {
                 eprintln!("{}", resp.status());
 

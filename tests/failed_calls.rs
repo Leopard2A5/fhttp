@@ -57,7 +57,7 @@ fn should_stop_execution_on_connection_issues() {
     let stderr = String::from_utf8(output.stderr).unwrap();
 
     assert_eq!(stderr, format!(
-        "calling '{base}/resources/it/requests/1.http'... Connection error\n",
+        "calling '{base}/resources/it/requests/1.http'... error sending request for url (http://unreachableurl.foobar/1): error trying to connect: dns error: failed to lookup address information: nodename nor servname provided, or not known\n",
         base=base
     ));
     assert_eq!(output.status.success(), false);
