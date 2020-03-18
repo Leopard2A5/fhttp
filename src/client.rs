@@ -1,9 +1,7 @@
-use std::convert::From;
-
 use reqwest::blocking::Client as InnerClient;
-use reqwest::{Url, Error};
+use reqwest::Url;
 
-use crate::{FhttpError, Request, Response};
+use crate::{FhttpError, Result, Request, Response};
 
 pub struct Client;
 
@@ -42,28 +40,6 @@ impl Client {
                 headers,
                 body
             )
-        )
-    }
-}
-
-pub type Result<T> = std::result::Result<T, ClientError>;
-
-#[derive(Debug)]
-pub enum ClientError {
-    LocalError(FhttpError),
-    RemoteError(String),
-}
-
-impl From<FhttpError> for ClientError {
-    fn from(e: FhttpError) -> Self {
-        ClientError::LocalError(e)
-    }
-}
-
-impl From<reqwest::Error> for ClientError {
-    fn from(e: Error) -> Self {
-        ClientError::RemoteError(
-            format!("{}", e)
         )
     }
 }

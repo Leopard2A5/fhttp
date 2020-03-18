@@ -1,4 +1,6 @@
+use std::convert::From;
 use std::fmt::{self, Display, Formatter};
+use reqwest::Error;
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct FhttpError {
@@ -20,3 +22,9 @@ impl Display for FhttpError {
 }
 
 impl std::error::Error for FhttpError {}
+
+impl From<reqwest::Error> for FhttpError {
+    fn from(e: Error) -> Self {
+        FhttpError::new(format!("{}", e))
+    }
+}

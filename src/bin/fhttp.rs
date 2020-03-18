@@ -5,7 +5,7 @@ use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, ClientError, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
+use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -89,32 +89,23 @@ fn do_it(
 
         let path = req.source_path.clone();
         eprint!("calling '{}'... ", path.to_str().unwrap());
-        let resp = client.exec(req);
+        let resp = client.exec(req)?;
 
-        match resp {
-            Err(ClientError::RemoteError(msg)) => {
-                eprintln!("Connection error");
-                std::process::exit(1);
-            },
-            Err(ClientError::LocalError(e)) => return Err(e),
-            Ok(resp) => {
-                eprintln!("{}", resp.status());
+        eprintln!("{}", resp.status());
 
-                if !resp.status().is_success() {
-                    if resp.body().trim().is_empty() {
-                        eprintln!("no response body");
-                    } else {
-                        eprintln!("{}", resp.body());
-                    }
-                    std::process::exit(1);
-                }
+        if !resp.status().is_success() {
+            if resp.body().trim().is_empty() {
+                eprintln!("no response body");
+            } else {
+                eprintln!("{}", resp.body());
+            }
+            std::process::exit(1);
+        }
 
-                preprocessor.notify_response(&path, resp.body());
+        preprocessor.notify_response(&path, resp.body());
 
-                if !dependency {
-                    println!("{}", resp.body());
-                }
-            },
+        if !dependency {
+            println!("{}", resp.body());
         }
     }
 
