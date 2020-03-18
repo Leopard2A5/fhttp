@@ -1,70 +1,30 @@
 use std::convert::From;
 use std::fmt::{self, Display, Formatter};
-use std::io;
+use reqwest::Error;
 
-use reqwest::header::{InvalidHeaderValue, ToStrError};
-
-#[derive(Debug)]
-pub enum ErrorKind {
-    IO(String),
-    MissingEnvVar(String),
-    StringEncodingError,
-    RequestParseException(String),
-    JsonDeserializationError(String),
-    ProfileNotFound,
-    ErrorInvokingProgram(String),
-    HttpError,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct FhttpError {
-    pub kind: ErrorKind,
+    pub msg: String,
 }
 
 impl FhttpError {
-    pub fn new(kind: ErrorKind) -> Self {
+    pub fn new<T: Into<String>>(msg: T) -> Self {
         FhttpError {
-            kind
+            msg: msg.into(),
         }
     }
 }
 
 impl Display for FhttpError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "FHTTPerror: {:?}", self.kind)
+        write!(f, "{}", self.msg)
     }
 }
 
 impl std::error::Error for FhttpError {}
 
-impl From<io::Error> for FhttpError {
-    fn from(err: io::Error) -> Self {
-        FhttpError {
-            kind: ErrorKind::IO(err.to_string())
-        }
-    }
-}
-
-impl From<ToStrError> for FhttpError {
-    fn from(_: ToStrError) -> Self {
-        FhttpError::new(ErrorKind::StringEncodingError)
-    }
-}
-
-impl From<InvalidHeaderValue> for FhttpError {
-    fn from(_: InvalidHeaderValue) -> Self {
-        FhttpError::new(ErrorKind::RequestParseException("Invalid header value".to_string()))
-    }
-}
-
-impl From<serde_json::Error> for FhttpError {
-    fn from(err: serde_json::Error) -> Self {
-        FhttpError::new(ErrorKind::JsonDeserializationError(err.to_string()))
-    }
-}
-
 impl From<reqwest::Error> for FhttpError {
-    fn from(_: reqwest::Error) -> Self {
-        FhttpError::new(ErrorKind::HttpError)
+    fn from(e: Error) -> Self {
+        FhttpError::new(format!("{}", e))
     }
 }

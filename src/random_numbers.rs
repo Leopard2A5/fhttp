@@ -1,7 +1,7 @@
 #[allow(unused)]
 use std::cell::RefCell;
 use regex::{Regex, Captures, Match};
-use crate::{Result, FhttpError, ErrorKind};
+use crate::{Result, FhttpError};
 
 #[cfg(test)]
 thread_local!(
@@ -71,20 +71,18 @@ fn parse_min_max(
     let ret_min = min
         .map(|m| m.as_str().parse::<i32>())
         .unwrap_or(Ok(0))
-        .map_err(|_| FhttpError::new(ErrorKind::RequestParseException(
+        .map_err(|_| FhttpError::new(
             format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
-        )))?;
+        ))?;
     let ret_max = max
         .map(|m| m.as_str().parse::<i32>())
         .unwrap_or(Ok(std::i32::MAX))
-        .map_err(|_| FhttpError::new(ErrorKind::RequestParseException(
+        .map_err(|_| FhttpError::new(
             format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
-        )))?;
+        ))?;
 
     if ret_max < ret_min {
-        Err(FhttpError::new(ErrorKind::RequestParseException(String::from(
-            "min cannot be greater than max"
-        ))))
+        Err(FhttpError::new("min cannot be greater than max"))
     } else {
         Ok((ret_min, ret_max))
     }
@@ -93,7 +91,7 @@ fn parse_min_max(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{FhttpError, ErrorKind};
+    use crate::{FhttpError};
 
     #[test]
     fn test_happy_path() -> Result<()> {
@@ -124,35 +122,20 @@ mod test {
     fn test_invalid_min() {
         let buffer = format!("${{randomInt({})}}", std::i32::MIN as i64 - 1);
         let result = replace_random_ints(buffer);
-        match result {
-            Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
-                assert_eq!(e, format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
-            },
-            _ => panic!("expected error!")
-        }
+        assert_eq!(result, Err(FhttpError::new(format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))));
     }
 
     #[test]
     fn test_invalid_max() {
         let buffer = format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1);
         let result = replace_random_ints(buffer);
-        match result {
-            Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
-                assert_eq!(e, format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))
-            },
-            _ => panic!("expected error!")
-        }
+        assert_eq!(result, Err(FhttpError::new(format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX))));
     }
 
     #[test]
     fn test_min_gt_max() {
         let buffer = "${randomInt(3, 2)}".to_owned();
         let result = replace_random_ints(buffer);
-        match result {
-            Err(FhttpError { kind: ErrorKind::RequestParseException(e) }) => {
-                assert_eq!(e, String::from("min cannot be greater than max"))
-            },
-            _ => panic!("expected error!")
-        }
+        assert_eq!(result, Err(FhttpError::new("min cannot be greater than max")));
     }
 }

@@ -5,7 +5,7 @@ use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError, ErrorKind};
+use fhttp::{Client, Request, Requestpreprocessor, Result, Config, Profiles, Profile, FhttpError};
 
 fn main() {
     let matches = App::new("fhttp")
@@ -56,14 +56,14 @@ fn main() {
             }
         });
 
-    let result= do_it(
+    let result = do_it(
         matches.values_of("files").unwrap(),
         config,
         &profile_path,
         profile_name
     );
     if let Err(error) = result {
-        println!("{}", error);
+        eprintln!("{}", error);
         process::exit(1);
     };
 }
@@ -89,31 +89,23 @@ fn do_it(
 
         let path = req.source_path.clone();
         eprint!("calling '{}'... ", path.to_str().unwrap());
-        let resp = client.exec(req);
+        let resp = client.exec(req)?;
 
-        match resp {
-            Err(_) => {
-                eprintln!("Connection error");
-                std::process::exit(1);
-            },
-            Ok(resp) => {
-                eprintln!("{}", resp.status());
+        eprintln!("{}", resp.status());
 
-                if !resp.status().is_success() {
-                    if resp.body().trim().is_empty() {
-                        eprintln!("no response body");
-                    } else {
-                        eprintln!("{}", resp.body());
-                    }
-                    std::process::exit(1);
-                }
+        if !resp.status().is_success() {
+            if resp.body().trim().is_empty() {
+                eprintln!("no response body");
+            } else {
+                eprintln!("{}", resp.body());
+            }
+            std::process::exit(1);
+        }
 
-                preprocessor.notify_response(&path, resp.body());
+        preprocessor.notify_response(&path, resp.body());
 
-                if !dependency {
-                    println!("{}", resp.body());
-                }
-            },
+        if !dependency {
+            println!("{}", resp.body());
         }
     }
 
@@ -163,5 +155,5 @@ fn parse_profile(
     Profiles::parse(&path)?
         .get(profile)
         .map(|p| p.clone())
-        .ok_or(FhttpError::new(ErrorKind::ProfileNotFound))
+        .ok_or(FhttpError::new("profile not found"))
 }

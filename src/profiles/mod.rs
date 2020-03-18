@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub use profile_variable::ProfileVariable;
 
-use crate::{ErrorKind, FhttpError, Result};
+use crate::{FhttpError, Result};
 
 mod profile_variable;
 
@@ -18,8 +18,9 @@ pub struct Profiles;
 impl Profiles {
     pub fn parse(path: &Path) -> Result<HashMap<String, Profile>> {
         let content = std::fs::read_to_string(&path)
-            .map_err(|_| FhttpError::new(ErrorKind::IO(format!("Error opening file {}", path.to_str().unwrap()))))?;
-        let profiles = serde_json::from_str::<HashMap<String, _Profile>>(&content)?;
+            .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
+        let profiles = serde_json::from_str::<HashMap<String, _Profile>>(&content)
+            .map_err(|_| FhttpError::new(format!("error reading profile from {}", path.to_str().unwrap())))?;
         let ret = profiles.into_iter()
             .map(|(key, value)| {
                 let profile = Profile::new(path, value.variables);
@@ -74,7 +75,7 @@ impl Profile {
                     ProfileVariable::PassSecret { cache: _, path: _ } => Ok(Resolve::StringValue(variable.get()?)),
                     ProfileVariable::Request { request } => Ok(Resolve::RequestLookup(PathBuf::from_str(request).unwrap())),
                 },
-                None => Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+                None => Err(FhttpError::new(format!("missing environment variable {}", key)))
             }
         } else {
             match env::var(&key) {
@@ -86,9 +87,9 @@ impl Profile {
                             env::set_var(&key, &value);
                             Ok(Resolve::StringValue(value))
                         },
-                        false => Err(FhttpError::new(ErrorKind::MissingEnvVar(key)))
+                        false => Err(FhttpError::new(format!("missing environment variable {}", key)))
                     },
-                    VarError::NotUnicode(_) => Err(FhttpError::new(ErrorKind::MissingEnvVar(key.into())))
+                    VarError::NotUnicode(_) => Err(FhttpError::new(format!("missing environment variable {}", key)))
                 }
             }
         }
@@ -129,11 +130,11 @@ mod test {
             profiles,
             hashmap!{
                 "development".into() => Profile {
-                    source_path: env::current_dir()?.join("resources/test/profiles/profile1.json"),
+                    source_path: env::current_dir().unwrap().join("resources/test/profiles/profile1.json"),
                     variables: hashmap!{},
                 },
                 "testing".into() => Profile {
-                    source_path: env::current_dir()?.join("resources/test/profiles/profile1.json"),
+                    source_path: env::current_dir().unwrap().join("resources/test/profiles/profile1.json"),
                     variables: hashmap!{
                         "var1".into() => ProfileVariable::StringValue("value1".into())
                     },
@@ -147,7 +148,7 @@ mod test {
     #[test]
     fn get_should_get_variables() -> Result<()> {
         let profile = Profile {
-            source_path: env::current_dir()?,
+            source_path: env::current_dir().unwrap(),
             variables: hashmap! {
                 "a".into() => ProfileVariable::StringValue("b".into())
             },
@@ -163,7 +164,7 @@ mod test {
         env::set_var("a", "A");
 
         let profile = Profile {
-            source_path: env::current_dir()?,
+            source_path: env::current_dir().unwrap(),
             variables: HashMap::new(),
         };
 
