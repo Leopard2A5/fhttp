@@ -56,9 +56,14 @@ fn should_stop_execution_on_connection_issues() {
         .expect("failed to execute process");
     let stderr = String::from_utf8(output.stderr).unwrap();
 
-    assert_eq!(stderr, format!(
-        "calling '{base}/resources/it/requests/1.http'... error sending request for url (http://unreachableurl.foobar/1): error trying to connect: dns error: failed to lookup address information: nodename nor servname provided, or not known\n",
-        base=base
-    ));
+    assert!(
+        stderr.starts_with(
+            &format!(
+                "calling '{base}/resources/it/requests/1.http'... error sending request for url (http://unreachableurl.foobar/1): error trying to connect:",
+                base=base
+            )
+        )
+    );
+    assert_eq!(stderr.lines().collect::<Vec<_>>().len(), 1);
     assert_eq!(output.status.success(), false);
 }
