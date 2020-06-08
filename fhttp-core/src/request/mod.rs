@@ -9,10 +9,10 @@ use reqwest::Method;
 use serde_json::map::Map;
 use serde_json::Value;
 
-use crate::{Result};
+use crate::errors::Result;
+use crate::{JsonPathResponseHandler, ResponseHandler};
+use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
-use crate::request_preprocessor::get_dependency_path;
-use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -27,7 +27,7 @@ pub struct Request {
 
 impl Request {
 
-    pub(crate) fn new<P: Into<PathBuf>, T: Into<String>>(
+    pub fn new<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
@@ -38,7 +38,7 @@ impl Request {
         }
     }
 
-    pub(crate) fn depdendency<P: Into<PathBuf>, T: Into<String>>(
+    pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {

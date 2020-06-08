@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 pub use profile_variable::ProfileVariable;
 
-use crate::{FhttpError, Result};
+use fhttp_core::{FhttpError, Result};
 
 mod profile_variable;
 

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use crate::{Result, FhttpError};
+use fhttp_core::{Result, FhttpError};
 use std::process::Command;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]

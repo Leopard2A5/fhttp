@@ -13,21 +13,14 @@ extern crate indoc;
 #[cfg(test)]
 extern crate maplit;
 
-mod request;
-mod response_handler;
 mod client;
 mod request_preprocessor;
 mod response;
-mod errors;
 mod profiles;
 mod random_numbers;
 mod uuids;
 
-pub type Result<T> = std::result::Result<T, FhttpError>;
-
-pub use request::Request;
 pub use client::Client;
 pub use request_preprocessor::Requestpreprocessor;
 pub use response::Response;
-pub use errors::FhttpError;
 pub use profiles::{Profiles, Profile};

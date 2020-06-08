@@ -5,12 +5,12 @@ use std::path::{Path, PathBuf};
 use regex::{Captures, Regex};
 
 use fhttp_core::Config;
+use fhttp_core::{Request, RE_REQUEST};
+use fhttp_core::Result;
+use fhttp_core::path_utils;
 use crate::Profile;
 use crate::profiles::Resolve;
 use crate::random_numbers::replace_random_ints;
-use crate::request::RE_REQUEST;
-use crate::request::Request;
-use crate::Result;
 use crate::uuids::replace_uuids;
 use std::ops::Range;
 
@@ -111,7 +111,7 @@ impl Requestpreprocessor {
                 let value = match self.profile.get(key, self.config.prompt_missing_env_vars)? {
                     Resolve::StringValue(value) => value,
                     Resolve::RequestLookup(path) => {
-                        let path = get_dependency_path(self.profile.source_path(), path.to_str().unwrap());
+                        let path = path_utils::get_dependency_path(self.profile.source_path(), path.to_str().unwrap());
                         self.response_data.get(&path).unwrap().clone()
                     },
                 };
@@ -142,7 +142,7 @@ impl Requestpreprocessor {
                 let range = whole_match.start()..whole_match.end();
 
                 let group = capture.get(1).unwrap();
-                let path = get_dependency_path(&source_path, &group.as_str());
+                let path = path_utils::get_dependency_path(&source_path, &group.as_str());
 
                 let replacement = self.response_data.get(&path).unwrap();
                 ret.replace_range(range, &replacement);
@@ -184,22 +184,6 @@ impl Iterator for Requestpreprocessor {
     }
 }
 
-pub fn get_dependency_path(
-    origin_path: &Path,
-    path: &str
-) -> PathBuf {
-    let path = Path::new(path);
-    let ret = if path.is_absolute() {
-        path.to_path_buf()
-    } else if origin_path.is_dir() {
-        origin_path.join(path).to_path_buf()
-    } else {
-        origin_path.parent().unwrap().join(path).to_path_buf()
-    };
-
-    std::fs::canonicalize(&ret).unwrap()
-}
-
 fn get_env_vars_defined_through_requests(
     profile: &Profile,
     text: &str
@@ -215,7 +199,7 @@ fn get_env_vars_defined_through_requests(
         })
         .filter(|it| it.is_some())
         .map(|it| it.unwrap())
-        .map(|path| get_dependency_path(profile.source_path(), path.to_str().unwrap()))
+        .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
         .collect()
 }
 
@@ -326,7 +310,7 @@ mod dependencies {
     use std::env;
     use std::path::PathBuf;
 
-    use crate::request::Request;
+    use fhttp_core::Request;
 
     use super::*;
 
