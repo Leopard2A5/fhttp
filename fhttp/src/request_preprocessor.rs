@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use regex::{Captures, Regex};
 
-use crate::{Config, Profile};
+use fhttp_core::Config;
+use crate::Profile;
 use crate::profiles::Resolve;
 use crate::random_numbers::replace_random_ints;
 use crate::request::RE_REQUEST;
