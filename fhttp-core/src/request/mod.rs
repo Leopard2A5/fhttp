@@ -10,9 +10,10 @@ use serde_json::map::Map;
 use serde_json::Value;
 
 use crate::errors::Result;
-use crate::ResponseHandler;
 use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
+
+pub mod response_handler;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -117,30 +118,6 @@ impl Request {
             Ok(Cow::Owned(self._gql_body()?))
         } else {
             Ok(Cow::Borrowed(self._body()?))
-        }
-    }
-
-    pub fn response_handler(&self) -> Result<Option<ResponseHandler>> {
-        lazy_static! {
-            static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
-        };
-
-        if let Some(captures) = RE_RESPONSE_HANDLER.captures(&self.text) {
-            if let Some(group) = captures.get(1) {
-                let group = group.as_str().trim();
-                let parts: Vec<&str> = group.splitn(2, ' ').collect();
-                let kind = parts[0];
-                let content = parts[1];
-
-                match kind {
-                    "json" => Ok(Some(ResponseHandler::Json { json_path: content.into() })),
-                    unknown => Err(FhttpError::new(format!("Unknown response handler '{}'", unknown)))
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
         }
     }
 
@@ -357,23 +334,6 @@ mod test {
 
         Ok(())
     }
-
-    #[test]
-    fn response_handler() -> Result<()> {
-        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
-            POST http://localhost:8080
-
-            this is the body
-
-            > {%
-                json $
-            %}
-        "##));
-
-        assert!(req.response_handler()?.is_some());
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -384,6 +344,7 @@ mod gql {
     use reqwest::Method;
     use serde_json::json;
     use crate::test_utils::root;
+    use response_handler::RequestResponseHandlerExt;
 
     use indoc::indoc;
 
