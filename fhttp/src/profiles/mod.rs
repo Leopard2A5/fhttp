@@ -7,9 +7,8 @@ use std::str::FromStr;
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
-pub use profile_variable::ProfileVariable;
-
 use fhttp_core::{FhttpError, Result};
+pub use profile_variable::ProfileVariable;
 
 mod profile_variable;
 
@@ -113,9 +112,10 @@ pub enum Resolve {
 #[cfg(test)]
 mod test {
     use std::env;
-    use std::path::PathBuf;
 
     use maplit::hashmap;
+
+    use fhttp_core::test_utils::root;
 
     use crate::profiles::ProfileVariable;
 
@@ -123,18 +123,18 @@ mod test {
 
     #[test]
     fn should_load_profiles() -> Result<()> {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let path = root()
             .join("resources/test/profiles/profile1.json");
         let profiles = Profiles::parse(&path)?;
         assert_eq!(
             profiles,
             hashmap!{
                 "development".into() => Profile {
-                    source_path: env::current_dir().unwrap().join("resources/test/profiles/profile1.json"),
+                    source_path: root().join("resources/test/profiles/profile1.json"),
                     variables: hashmap!{},
                 },
                 "testing".into() => Profile {
-                    source_path: env::current_dir().unwrap().join("resources/test/profiles/profile1.json"),
+                    source_path: root().join("resources/test/profiles/profile1.json"),
                     variables: hashmap!{
                         "var1".into() => ProfileVariable::StringValue("value1".into())
                     },

@@ -15,12 +15,10 @@ extern crate maplit;
 
 mod client;
 mod request_preprocessor;
-mod response;
 mod profiles;
 mod random_numbers;
 mod uuids;
 
 pub use client::Client;
 pub use request_preprocessor::Requestpreprocessor;
-pub use response::Response;
 pub use profiles::{Profiles, Profile};

@@ -383,6 +383,7 @@ mod gql {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use reqwest::Method;
     use serde_json::json;
+    use crate::test_utils::root;
 
     use indoc::indoc;
 
@@ -566,7 +567,7 @@ mod gql {
 
     #[test]
     fn parse_should_parse_gql_based_on_filename() -> Result<()> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let root = root()
             .join("resources/test/requests/gql");
         let http_extension = root.join("request.http");
         let gql_http_extension = root.join("request.gql.http");
@@ -636,9 +637,11 @@ mod gql {
 mod dependencies {
     use super::*;
 
+    use crate::test_utils::root;
+
     #[test]
     fn should_find_dependencies() -> Result<()> {
-        let source_path = std::env::current_dir().unwrap();
+        let source_path = root();
         let input = format!(r##"GET http://${{request("resources/test/requests/nested_dependencies/1.http")}}:8080
 Authorization: Bearer ${{request("./../fhttp/resources/test/requests/nested_dependencies/2.http")}}
 

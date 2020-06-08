@@ -19,9 +19,9 @@ fn use_custom_profile_file_through_cli_option() {
 
     let output = Command::new(BIN)
         .args(&[
-            "-f", "resources/it/profiles.json",
+            "-f", "../resources/it/profiles.json",
             "-p", "it",
-            "resources/it/requests/token.http"
+            "../resources/it/requests/token.http"
         ])
         .output()
         .expect("failed to execute process");
@@ -34,7 +34,7 @@ fn use_custom_profile_file_through_cli_option() {
 fn use_custom_profile_file_through_env_var() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles.json");
+    env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
 
     let token = mock("POST", "/token")
         .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
@@ -44,7 +44,7 @@ fn use_custom_profile_file_through_env_var() {
     let output = Command::new(BIN)
         .args(&[
             "-p", "it",
-            "resources/it/requests/token.http"
+            "../resources/it/requests/token.http"
         ])
         .output()
         .expect("failed to execute process");
@@ -57,7 +57,7 @@ fn use_custom_profile_file_through_env_var() {
 fn profile_file_cli_should_override_env_var() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles2.json");
+    env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles2.json");
 
     let token = mock("POST", "/token")
         .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
@@ -66,9 +66,9 @@ fn profile_file_cli_should_override_env_var() {
 
     let output = Command::new(BIN)
         .args(&[
-            "-f", "resources/it/profiles.json",
+            "-f", "../resources/it/profiles.json",
             "-p", "it",
-            "resources/it/requests/token.http"
+            "../resources/it/requests/token.http"
         ])
         .output()
         .expect("failed to execute process");
@@ -81,7 +81,7 @@ fn profile_file_cli_should_override_env_var() {
 fn profile_through_env_var() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles.json");
+    env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
     env::set_var("FHTTP_PROFILE", "it");
 
     let token = mock("POST", "/token")
@@ -90,7 +90,7 @@ fn profile_through_env_var() {
         .create();
 
     let output = Command::new(BIN)
-        .args(&["resources/it/requests/token.http"])
+        .args(&["../resources/it/requests/token.http"])
         .output()
         .expect("failed to execute process");
 
@@ -102,7 +102,7 @@ fn profile_through_env_var() {
 fn profile_through_cli_option_should_precede_env_var() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-    env::set_var("FHTTP_PROFILE_FILE", "resources/it/profiles.json");
+    env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
     env::set_var("FHTTP_PROFILE", "it");
 
     let token = mock("POST", "/token")
@@ -113,7 +113,7 @@ fn profile_through_cli_option_should_precede_env_var() {
     let output = Command::new(BIN)
         .args(&[
             "-p", "it2",
-            "resources/it/requests/token.http"
+            "../resources/it/requests/token.http"
         ])
         .output()
         .expect("failed to execute process");

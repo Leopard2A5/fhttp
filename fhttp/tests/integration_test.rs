@@ -3,13 +3,15 @@ extern crate mockito;
 use std::env;
 use std::process::Command;
 
+use fhttp_core::test_utils::root;
+
 use mockito::mock;
 
 static BIN: &str = "target/debug/fhttp";
 
 #[test]
 fn complex_test() {
-    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    let base = root().to_str().unwrap().to_owned();
 
     let url = &mockito::server_url();
     env::set_var("URL", &url);
@@ -43,9 +45,9 @@ fn complex_test() {
 
     let output = Command::new(BIN)
         .args(&[
-            "resources/it/requests/create.http",
-            "resources/it/requests/update.http",
-            "resources/it/requests/delete.http"
+            "../resources/it/requests/create.http",
+            "../resources/it/requests/update.http",
+            "../resources/it/requests/delete.http"
         ])
         .output()
         .expect("failed to execute process");

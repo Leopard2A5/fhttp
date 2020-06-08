@@ -311,12 +311,13 @@ mod dependencies {
     use std::path::PathBuf;
 
     use fhttp_core::Request;
+    use fhttp_core::test_utils::root;
 
     use super::*;
 
     #[test]
     fn should_resolve_nested_dependencies() -> Result<()> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let root = root()
             .join("resources/test/requests/nested_dependencies");
         let init_path = root.join("1.http");
 
@@ -349,7 +350,7 @@ mod dependencies {
     #[test]
     fn should_not_resolve_duplicate_dependencies() -> Result<()> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/test/requests/duplicate_dependencies");
+            .parent().unwrap().join("resources/test/requests/duplicate_dependencies");
         let path1 = root.join("1.http");
         let path2 = root.join("2.http");
         let dep_path = root.join("dependency.http");
@@ -406,7 +407,7 @@ mod dependencies {
 
     #[test]
     fn should_replace_dependencies_on_next_calls() -> Result<()> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let root = root()
             .join("resources/test/requests/nested_dependencies");
         let init_path = root.join("4.http");
         let dep_path = root.join("5.http");

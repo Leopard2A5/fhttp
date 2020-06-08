@@ -1,14 +1,16 @@
 use std::process::Command;
 
+use fhttp_core::test_utils::root;
+
 static BIN: &str = "target/debug/fhttp";
 
 #[test]
 fn should_handle_invalid_url() {
-    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    let base = root().to_str().unwrap().to_owned();
 
     let output = Command::new(BIN)
         .args(&[
-            "resources/it/requests/invalid_url.http"
+            "../resources/it/requests/invalid_url.http"
         ])
         .output()
         .expect("failed to execute process");
