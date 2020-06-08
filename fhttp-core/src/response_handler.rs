@@ -1,48 +1,44 @@
 use std::fmt::Debug;
 
-pub trait ResponseHandler : Debug {
-    fn process_body(
-        &self,
-        body: &str
-    ) -> String;
-}
-
 #[derive(Debug)]
-pub struct JsonPathResponseHandler {
-    json_path: String,
+pub enum ResponseHandler {
+    Json { json_path: String },
 }
 
-impl JsonPathResponseHandler {
-    pub fn new(json_path: &str) -> Self {
-        JsonPathResponseHandler { json_path: json_path.to_owned() }
-    }
-}
-
-impl ResponseHandler for JsonPathResponseHandler {
-    fn process_body(
+impl ResponseHandler {
+    pub fn process_body(
         &self,
         body: &str
     ) -> String {
-        use jsonpath::Selector;
-        use serde_json::Value;
-
-        let value: Value = serde_json::from_str(body).unwrap();
-
-        let mut selector = Selector::new();
-        let json_path_results = selector
-            .str_path(&self.json_path).unwrap()
-            .value(&value)
-            .select()
-            .unwrap();
-        let result = match json_path_results.len() {
-            0 => Value::String("".into()),
-            _ => json_path_results[0].clone(),
-        };
-
-        match result {
-            Value::String(string) => string,
-            _ => serde_json::to_string(&result).unwrap()
+        match self {
+            ResponseHandler::Json { json_path } => process_body_json(json_path, body)
         }
+    }
+}
+
+fn process_body_json(
+    json_path: &str,
+    body: &str
+) -> String {
+    use jsonpath::Selector;
+    use serde_json::Value;
+
+    let value: Value = serde_json::from_str(body).unwrap();
+
+    let mut selector = Selector::new();
+    let json_path_results = selector
+        .str_path(json_path).unwrap()
+        .value(&value)
+        .select()
+        .unwrap();
+    let result = match json_path_results.len() {
+        0 => Value::String("".into()),
+        _ => json_path_results[0].clone(),
+    };
+
+    match result {
+        Value::String(string) => string,
+        _ => serde_json::to_string(&result).unwrap()
     }
 }
 
@@ -63,7 +59,8 @@ mod json_tests {
                 }
             }
         ");
-        let result = JsonPathResponseHandler::new("$.a.b.c").process_body(body);
+        let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
+        let result = handler.process_body(body);
 
         assert_eq!(result, "success");
     }
@@ -79,7 +76,8 @@ mod json_tests {
                 }
             }
         ");
-        let result = JsonPathResponseHandler::new("$.a.b.c").process_body(body);
+        let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
+        let result = handler.process_body(body);
 
         assert_eq!(result, "3.141");
     }

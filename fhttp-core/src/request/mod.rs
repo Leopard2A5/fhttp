@@ -10,7 +10,7 @@ use serde_json::map::Map;
 use serde_json::Value;
 
 use crate::errors::Result;
-use crate::{JsonPathResponseHandler, ResponseHandler};
+use crate::ResponseHandler;
 use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
 
@@ -120,7 +120,7 @@ impl Request {
         }
     }
 
-    pub fn response_handler(&self) -> Result<Option<Box<dyn ResponseHandler>>> {
+    pub fn response_handler(&self) -> Result<Option<ResponseHandler>> {
         lazy_static! {
             static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
         };
@@ -133,7 +133,7 @@ impl Request {
                 let content = parts[1];
 
                 match kind {
-                    "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
+                    "json" => Ok(Some(ResponseHandler::Json { json_path: content.into() })),
                     unknown => Err(FhttpError::new(format!("Unknown response handler '{}'", unknown)))
                 }
             } else {

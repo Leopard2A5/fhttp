@@ -18,5 +18,5 @@ pub mod test_utils;
 pub use config::Config;
 pub use request::{Request, RE_REQUEST};
 pub use errors::{FhttpError, Result};
-pub use response_handler::{ResponseHandler, JsonPathResponseHandler};
+pub use response_handler::ResponseHandler;
 pub use response::Response;
