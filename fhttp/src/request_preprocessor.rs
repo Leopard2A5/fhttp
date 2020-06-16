@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use regex::{Captures, Regex};
 
-use fhttp_core::Config;
+use fhttp_core::{Config, ResponseStore};
 use fhttp_core::{Request, RE_REQUEST};
 use fhttp_core::Result;
 use fhttp_core::path_utils;
@@ -19,7 +18,7 @@ pub struct Requestpreprocessor {
     profile: Profile,
     config: Config,
     requests: Vec<Request>,
-    response_data: HashMap<PathBuf, String>,
+    response_data: ResponseStore,
 }
 
 impl Requestpreprocessor {
@@ -58,7 +57,7 @@ impl Requestpreprocessor {
                 profile,
                 config,
                 requests: requests_with_dependencies,
-                response_data: HashMap::new(),
+                response_data: ResponseStore::new(),
             }
         )
     }
@@ -74,10 +73,7 @@ impl Requestpreprocessor {
     ) {
         let path = fs::canonicalize(&path).unwrap();
 
-        self.response_data.insert(
-            path,
-            response.to_owned()
-        );
+        self.response_data.store(path, response);
     }
 
     fn replace_variables(
@@ -112,7 +108,7 @@ impl Requestpreprocessor {
                     Resolve::StringValue(value) => value,
                     Resolve::RequestLookup(path) => {
                         let path = path_utils::get_dependency_path(self.profile.source_path(), path.to_str().unwrap());
-                        self.response_data.get(&path).unwrap().clone()
+                        self.response_data.get(&path)
                     },
                 };
 
@@ -144,7 +140,7 @@ impl Requestpreprocessor {
                 let group = capture.get(1).unwrap();
                 let path = path_utils::get_dependency_path(&source_path, &group.as_str());
 
-                let replacement = self.response_data.get(&path).unwrap();
+                let replacement = self.response_data.get(&path);
                 ret.replace_range(range, &replacement);
             }
 
