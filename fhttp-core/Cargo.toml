@@ -9,9 +9,12 @@ edition = "2018"
 [dependencies]
 reqwest = { version = "0.10.0", features = ["rustls-tls", "blocking"] }
 jsonpath_lib = "0.2.3"
+serde = "1.0.104"
 serde_json = "1.0.44"
 regex = "1"
 lazy_static = "1.4.0"
+promptly = "0.3.0"
 
 [dev-dependencies]
 indoc = "0.3.4"
+maplit = "1.0.2"

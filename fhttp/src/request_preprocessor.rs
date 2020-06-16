@@ -1,14 +1,13 @@
 use std::fs;
-use std::path::{Path, PathBuf};
-
-use regex::{Captures, Regex};
+use std::path::Path;
 
 use fhttp_core::{Config, ResponseStore};
 use fhttp_core::{Request, RE_REQUEST};
+use fhttp_core::VariableSupport;
 use fhttp_core::Result;
 use fhttp_core::path_utils;
-use crate::Profile;
-use crate::profiles::Resolve;
+use fhttp_core::execution_order::plan_request_order;
+use fhttp_core::{Profile, Resolve};
 use crate::random_numbers::replace_random_ints;
 use crate::uuids::replace_uuids;
 use std::ops::Range;
@@ -28,35 +27,13 @@ impl Requestpreprocessor {
         requests: Vec<Request>,
         config: Config,
     ) -> Result<Self> {
-        let mut preprocessor_stack = vec![];
-        let mut requests_with_dependencies = vec![];
-
-        for req in &requests {
-            for path in get_env_vars_defined_through_requests(&profile, &req.text) {
-                let req = Request::from_file(&path, true)?;
-                preprocess_request(
-                    req,
-                    &mut requests_with_dependencies,
-                    &mut preprocessor_stack,
-                    &config
-                )?;
-            }
-        }
-
-        for req in requests {
-            preprocess_request(
-                req,
-                &mut requests_with_dependencies,
-                &mut preprocessor_stack,
-                &config
-            )?;
-        }
+        let requests_in_order = plan_request_order(requests, &profile, &config)?;
 
         Ok(
             Requestpreprocessor {
                 profile,
                 config,
-                requests: requests_with_dependencies,
+                requests: requests_in_order,
                 response_data: ResponseStore::new(),
             }
         )
@@ -80,7 +57,7 @@ impl Requestpreprocessor {
         &self,
         req: Request
     ) -> Result<Request> {
-        let text = self.replace_env_vars(req.text)?;
+        let text = self.replace_env_vars(&req)?;
         let text = replace_uuids(text);
         let text = replace_random_ints(text)?;
         let text = self.replace_dependency_values(text, &req.source_path)?;
@@ -95,14 +72,14 @@ impl Requestpreprocessor {
 
     fn replace_env_vars(
         &self,
-        text: String
+        req: &Request
     ) -> Result<String> {
-        let reversed_captures: Vec<(&str, Range<usize>)> = get_env_vars(&text);
+        let reversed_captures: Vec<(&str, Range<usize>)> = req.get_env_vars();
 
         if reversed_captures.is_empty() {
-            Ok(text)
+            Ok(req.text.clone())
         } else {
-            let mut buffer = text.clone();
+            let mut buffer = req.text.clone();
             for (key, range) in reversed_captures {
                 let value = match self.profile.get(key, self.config.prompt_missing_env_vars)? {
                     Resolve::StringValue(value) => value,
@@ -149,23 +126,6 @@ impl Requestpreprocessor {
     }
 }
 
-fn get_env_vars(text: &str) -> Vec<(&str, Range<usize>)> {
-    lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
-        };
-
-    RE_ENV.captures_iter(&text)
-        .collect::<Vec<Captures>>()
-        .into_iter()
-        .rev()
-        .map(|capture| {
-            let group = capture.get(0).unwrap();
-            let key = capture.get(1).unwrap().as_str();
-            (key, group.start()..group.end())
-        })
-        .collect()
-}
-
 impl Iterator for Requestpreprocessor {
     type Item = Result<Request>;
 
@@ -178,50 +138,6 @@ impl Iterator for Requestpreprocessor {
             None
         }
     }
-}
-
-fn get_env_vars_defined_through_requests(
-    profile: &Profile,
-    text: &str
-) -> Vec<PathBuf> {
-    let vars: Vec<(&str, Range<usize>)> = get_env_vars(&text);
-    vars.into_iter()
-        .map(|(key, _)| {
-            let var = profile.get(key, false).unwrap();
-            match var {
-                Resolve::RequestLookup(path) => Some(path),
-                _ => None
-            }
-        })
-        .filter(|it| it.is_some())
-        .map(|it| it.unwrap())
-        .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
-        .collect()
-}
-
-fn preprocess_request(
-    req: Request,
-    mut list: &mut Vec<Request>,
-    mut preprocessor_stack: &mut Vec<PathBuf>,
-    config: &Config
-) -> Result<()> {
-    if list.contains(&req) {
-        return Ok(());
-    }
-    if preprocessor_stack.contains(&req.source_path) {
-        panic!("cyclic dependency detected!");
-    }
-    preprocessor_stack.push(req.source_path.clone());
-
-    for dep in req.dependencies() {
-        let dep = Request::from_file(&dep, true)?;
-        preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
-    }
-
-    preprocessor_stack.pop();
-    list.push(req);
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -278,6 +194,7 @@ mod uuids {
 
     #[test]
     fn should_replace_uuids() -> Result<()> {
+        use regex::Regex;
         lazy_static! {
             static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
         };

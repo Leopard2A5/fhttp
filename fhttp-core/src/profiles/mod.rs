@@ -7,7 +7,7 @@ use std::str::FromStr;
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
-use fhttp_core::{FhttpError, Result};
+use crate::{FhttpError, Result};
 pub use profile_variable::ProfileVariable;
 
 mod profile_variable;
@@ -82,7 +82,7 @@ impl Profile {
                 Err(err) => match err {
                     VarError::NotPresent => match prompt_for_missing {
                         true => {
-                            let value = prompt::<String, _>(&key);
+                            let value = prompt::<String, _>(&key).unwrap();
                             env::set_var(&key, &value);
                             Ok(Resolve::StringValue(value))
                         },
@@ -115,7 +115,7 @@ mod test {
 
     use maplit::hashmap;
 
-    use fhttp_core::test_utils::root;
+    use crate::test_utils::root;
 
     use crate::profiles::ProfileVariable;
 

@@ -14,6 +14,7 @@ use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
 
 pub mod response_handler;
+pub mod variable_support;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
