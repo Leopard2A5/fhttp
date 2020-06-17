@@ -15,7 +15,5 @@ extern crate indoc;
 extern crate maplit;
 
 mod client;
-mod request_preprocessor;
 
 pub use client::Client;
-pub use request_preprocessor::Requestpreprocessor;

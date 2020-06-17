@@ -6,7 +6,8 @@ use std::env;
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
 use fhttp_core::{Config, Request, Result, FhttpError, Profiles, Profile};
-use fhttp::{Client, Requestpreprocessor};
+use fhttp_core::Requestpreprocessor;
+use fhttp::{Client};
 
 fn main() {
     let matches = App::new("fhttp")

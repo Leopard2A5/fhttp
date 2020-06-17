@@ -22,6 +22,7 @@ mod response_handler;
 mod response;
 mod response_store;
 mod profiles;
+mod request_preprocessor;
 
 pub use errors::{FhttpError, Result};
 pub use config::Config;
@@ -32,3 +33,4 @@ pub use request::variable_support::VariableSupport;
 pub use response_handler::ResponseHandler;
 pub use response::Response;
 pub use response_store::ResponseStore;
+pub use request_preprocessor::Requestpreprocessor;

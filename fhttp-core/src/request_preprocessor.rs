@@ -1,12 +1,13 @@
 use std::fs;
 use std::path::Path;
 
-use fhttp_core::{Config, ResponseStore};
-use fhttp_core::{Request};
-use fhttp_core::VariableSupport;
-use fhttp_core::Result;
-use fhttp_core::execution_order::plan_request_order;
-use fhttp_core::{Profile};
+use crate::Config;
+use crate::ResponseStore;
+use crate::Request;
+use crate::VariableSupport;
+use crate::Result;
+use crate::execution_order::plan_request_order;
+use crate::Profile;
 
 #[derive(Debug)]
 pub struct Requestpreprocessor {
@@ -70,8 +71,8 @@ impl Iterator for Requestpreprocessor {
 mod dependencies {
     use std::env;
 
-    use fhttp_core::Request;
-    use fhttp_core::test_utils::root;
+    use crate::Request;
+    use crate::test_utils::root;
 
     use super::*;
 
