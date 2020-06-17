@@ -3,13 +3,15 @@ extern crate mockito;
 use std::env;
 use std::process::Command;
 
+use fhttp_core::test_utils::root;
+
 use mockito::mock;
 
 static BIN: &str = "target/debug/fhttp";
 
 #[test]
 fn should_stop_execution_on_status_400() {
-    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    let base = root().to_str().unwrap().to_owned();
 
     let url = &mockito::server_url();
     env::set_var("URL", &url);
@@ -25,8 +27,8 @@ fn should_stop_execution_on_status_400() {
 
     let output = Command::new(BIN)
         .args(&[
-            "resources/it/requests/1.http",
-            "resources/it/requests/2.http"
+            "../resources/it/requests/1.http",
+            "../resources/it/requests/2.http"
         ])
         .output()
         .expect("failed to execute process");
@@ -44,13 +46,13 @@ fn should_stop_execution_on_status_400() {
 
 #[test]
 fn should_stop_execution_on_connection_issues() {
-    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    let base = root().to_str().unwrap().to_owned();
     env::set_var("URL", "http://unreachableurl.foobar");
 
     let output = Command::new(BIN)
         .args(&[
-            "resources/it/requests/1.http",
-            "resources/it/requests/2.http"
+            "../resources/it/requests/1.http",
+            "../resources/it/requests/2.http"
         ])
         .output()
         .expect("failed to execute process");

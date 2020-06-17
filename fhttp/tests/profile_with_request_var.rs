@@ -3,6 +3,8 @@ extern crate mockito;
 use std::env;
 use std::process::Command;
 
+use fhttp_core::test_utils::root;
+
 use mockito::mock;
 
 static BIN: &str = "target/debug/fhttp";
@@ -12,7 +14,7 @@ fn should_resolve() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
 
-    let base = std::env::current_dir().unwrap().to_str().unwrap().to_owned();
+    let base = root().to_str().unwrap().to_owned();
 
     let token = mock("POST", "/token")
         .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
@@ -30,9 +32,9 @@ fn should_resolve() {
 
     let output = Command::new(BIN)
         .args(&[
-            "-f", "resources/it/profiles-request-dependency.json",
+            "-f", "../resources/it/profiles-request-dependency.json",
             "-p", "it",
-            "resources/it/requests/delete_by_env_var.http"
+            "../resources/it/requests/delete_by_env_var.http"
         ])
         .output()
         .expect("failed to execute process");

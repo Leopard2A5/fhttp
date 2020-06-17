@@ -1,7 +1,7 @@
 use reqwest::blocking::Client as InnerClient;
 use reqwest::Url;
 
-use crate::{FhttpError, Result, Request, Response};
+use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
 
 pub struct Client;
 

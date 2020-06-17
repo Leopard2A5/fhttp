@@ -91,7 +91,7 @@ fn parse_min_max(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{FhttpError};
+    use crate::{FhttpError, Result};
 
     #[test]
     fn test_happy_path() -> Result<()> {

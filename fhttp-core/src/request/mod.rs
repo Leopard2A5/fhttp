@@ -9,10 +9,12 @@ use reqwest::Method;
 use serde_json::map::Map;
 use serde_json::Value;
 
-use crate::{Result};
+use crate::errors::Result;
+use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
-use crate::request_preprocessor::get_dependency_path;
-use crate::response_handler::{JsonPathResponseHandler, ResponseHandler};
+
+pub mod response_handler;
+pub mod variable_support;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -27,7 +29,7 @@ pub struct Request {
 
 impl Request {
 
-    pub(crate) fn new<P: Into<PathBuf>, T: Into<String>>(
+    pub fn new<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
@@ -38,7 +40,7 @@ impl Request {
         }
     }
 
-    pub(crate) fn depdendency<P: Into<PathBuf>, T: Into<String>>(
+    pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
@@ -117,30 +119,6 @@ impl Request {
             Ok(Cow::Owned(self._gql_body()?))
         } else {
             Ok(Cow::Borrowed(self._body()?))
-        }
-    }
-
-    pub fn response_handler(&self) -> Result<Option<Box<dyn ResponseHandler>>> {
-        lazy_static! {
-            static ref RE_RESPONSE_HANDLER: Regex = Regex::new(r"(?sm)>\s*\{%(.*)%}").unwrap();
-        };
-
-        if let Some(captures) = RE_RESPONSE_HANDLER.captures(&self.text) {
-            if let Some(group) = captures.get(1) {
-                let group = group.as_str().trim();
-                let parts: Vec<&str> = group.splitn(2, ' ').collect();
-                let kind = parts[0];
-                let content = parts[1];
-
-                match kind {
-                    "json" => Ok(Some(Box::new(JsonPathResponseHandler::new(content)))),
-                    unknown => Err(FhttpError::new(format!("Unknown response handler '{}'", unknown)))
-                }
-            } else {
-                Ok(None)
-            }
-        } else {
-            Ok(None)
         }
     }
 
@@ -357,23 +335,6 @@ mod test {
 
         Ok(())
     }
-
-    #[test]
-    fn response_handler() -> Result<()> {
-        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
-            POST http://localhost:8080
-
-            this is the body
-
-            > {%
-                json $
-            %}
-        "##));
-
-        assert!(req.response_handler()?.is_some());
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -383,6 +344,8 @@ mod gql {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use reqwest::Method;
     use serde_json::json;
+    use crate::test_utils::root;
+    use response_handler::RequestResponseHandlerExt;
 
     use indoc::indoc;
 
@@ -566,7 +529,7 @@ mod gql {
 
     #[test]
     fn parse_should_parse_gql_based_on_filename() -> Result<()> {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        let root = root()
             .join("resources/test/requests/gql");
         let http_extension = root.join("request.http");
         let gql_http_extension = root.join("request.gql.http");
@@ -636,9 +599,11 @@ mod gql {
 mod dependencies {
     use super::*;
 
+    use crate::test_utils::root;
+
     #[test]
     fn should_find_dependencies() -> Result<()> {
-        let source_path = std::env::current_dir().unwrap();
+        let source_path = root();
         let input = format!(r##"GET http://${{request("resources/test/requests/nested_dependencies/1.http")}}:8080
 Authorization: Bearer ${{request("./../fhttp/resources/test/requests/nested_dependencies/2.http")}}
 

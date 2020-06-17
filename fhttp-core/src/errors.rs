@@ -16,7 +16,7 @@ impl FhttpError {
 }
 
 impl Display for FhttpError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::result::Result<(), fmt::Error> {
         write!(f, "{}", self.msg)
     }
 }
@@ -28,3 +28,5 @@ impl From<reqwest::Error> for FhttpError {
         FhttpError::new(format!("{}", e))
     }
 }
+
+pub type Result<T> = std::result::Result<T, FhttpError>;
