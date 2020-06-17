@@ -2,15 +2,11 @@ use std::fs;
 use std::path::Path;
 
 use fhttp_core::{Config, ResponseStore};
-use fhttp_core::{Request, RE_REQUEST};
+use fhttp_core::{Request};
 use fhttp_core::VariableSupport;
 use fhttp_core::Result;
-use fhttp_core::path_utils;
 use fhttp_core::execution_order::plan_request_order;
-use fhttp_core::{Profile, Resolve};
-use crate::random_numbers::replace_random_ints;
-use crate::uuids::replace_uuids;
-use std::ops::Range;
+use fhttp_core::{Profile};
 
 #[derive(Debug)]
 pub struct Requestpreprocessor {
@@ -52,78 +48,6 @@ impl Requestpreprocessor {
 
         self.response_data.store(path, response);
     }
-
-    fn replace_variables(
-        &self,
-        req: Request
-    ) -> Result<Request> {
-        let text = self.replace_env_vars(&req)?;
-        let text = replace_uuids(text);
-        let text = replace_random_ints(text)?;
-        let text = self.replace_dependency_values(text, &req.source_path)?;
-
-        Ok(
-            Request {
-                text,
-                ..req
-            }
-        )
-    }
-
-    fn replace_env_vars(
-        &self,
-        req: &Request
-    ) -> Result<String> {
-        let reversed_captures: Vec<(&str, Range<usize>)> = req.get_env_vars();
-
-        if reversed_captures.is_empty() {
-            Ok(req.text.clone())
-        } else {
-            let mut buffer = req.text.clone();
-            for (key, range) in reversed_captures {
-                let value = match self.profile.get(key, self.config.prompt_missing_env_vars)? {
-                    Resolve::StringValue(value) => value,
-                    Resolve::RequestLookup(path) => {
-                        let path = path_utils::get_dependency_path(self.profile.source_path(), path.to_str().unwrap());
-                        self.response_data.get(&path)
-                    },
-                };
-
-                buffer.replace_range(range, &value);
-            }
-            Ok(buffer)
-        }
-    }
-
-    fn replace_dependency_values(
-        &self,
-        text: String,
-        source_path: &Path
-    ) -> Result<String> {
-        let reversed_captures = RE_REQUEST.captures_iter(&text)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect::<Vec<_>>();
-
-        if reversed_captures.is_empty() {
-            Ok(text)
-        } else {
-            let mut ret = text.clone();
-            for capture in reversed_captures {
-                let whole_match = capture.get(0).unwrap();
-                let range = whole_match.start()..whole_match.end();
-
-                let group = capture.get(1).unwrap();
-                let path = path_utils::get_dependency_path(&source_path, &group.as_str());
-
-                let replacement = self.response_data.get(&path);
-                ret.replace_range(range, &replacement);
-            }
-
-            Ok(ret)
-        }
-    }
 }
 
 impl Iterator for Requestpreprocessor {
@@ -131,8 +55,10 @@ impl Iterator for Requestpreprocessor {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.len() > 0 {
-            let req = self.requests.remove(0);
-            let req = self.replace_variables(req);
+            let mut req = self.requests.remove(0);
+
+            let req = req.replace_variables(&self.profile, &self.config, &self.response_data)
+                .map(|_| req);
             Some(req)
         } else {
             None

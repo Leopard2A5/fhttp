@@ -1,4 +1,5 @@
 extern crate reqwest;
+#[allow(unused)]
 #[macro_use]
 extern crate lazy_static;
 extern crate jsonpath_lib as jsonpath;
@@ -15,8 +16,6 @@ extern crate maplit;
 
 mod client;
 mod request_preprocessor;
-mod random_numbers;
-mod uuids;
 
 pub use client::Client;
 pub use request_preprocessor::Requestpreprocessor;

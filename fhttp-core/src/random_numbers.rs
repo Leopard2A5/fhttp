@@ -1,7 +1,7 @@
 #[allow(unused)]
 use std::cell::RefCell;
 use regex::{Regex, Captures, Match};
-use fhttp_core::{Result, FhttpError};
+use crate::{Result, FhttpError};
 
 #[cfg(test)]
 thread_local!(
@@ -91,7 +91,7 @@ fn parse_min_max(
 #[cfg(test)]
 mod test {
     use super::*;
-    use fhttp_core::{FhttpError, Result};
+    use crate::{FhttpError, Result};
 
     #[test]
     fn test_happy_path() -> Result<()> {

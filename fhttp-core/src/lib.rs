@@ -7,6 +7,8 @@ extern crate lazy_static;
 #[cfg(test)]
 extern crate indoc;
 extern crate promptly;
+extern crate uuid;
+extern crate rand;
 
 pub mod path_utils;
 mod config;
@@ -18,6 +20,7 @@ mod response_store;
 pub mod test_utils;
 pub mod execution_order;
 mod profiles;
+pub mod random_numbers;
 
 pub use config::Config;
 pub use request::{Request, RE_REQUEST};
