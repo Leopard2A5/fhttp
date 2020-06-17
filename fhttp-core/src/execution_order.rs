@@ -1,10 +1,11 @@
-use crate::{Request, Config, FhttpError, path_utils};
-use crate::Result;
-use crate::Profile;
-use std::path::PathBuf;
-use crate::profiles::Resolve;
 use std::ops::Range;
+use std::path::PathBuf;
+
+use crate::{Config, FhttpError, path_utils, Request};
+use crate::Profile;
+use crate::profiles::Resolve;
 use crate::request::variable_support::VariableSupport;
+use crate::Result;
 
 pub fn plan_request_order(
     initial_requests: Vec<Request>,
@@ -80,4 +81,85 @@ fn get_env_vars_defined_through_requests(
         .map(|it| it.unwrap())
         .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+
+    use crate::{Request, Profile, Config, Result, ResponseStore};
+    use crate::test_utils::root;
+    use crate::execution_order::plan_request_order;
+
+    #[test]
+    fn should_resolve_nested_dependencies() -> Result<()> {
+        let root = root()
+            .join("resources/test/requests/nested_dependencies");
+        let init_path = root.join("1.http");
+
+        let init_request = Request::from_file(&init_path, false)?;
+
+        let profile = Profile::empty(env::current_dir().unwrap());
+        let mut response_store = ResponseStore::new();
+        let config = Config::default();
+
+        for i in 2..=5 {
+            let path = root.join(format!("{}.http", i));
+            response_store.store(&path, &format!("{}", i));
+        }
+
+        let coll = plan_request_order(vec![init_request], &profile, &config)?
+            .into_iter()
+            .map(|req| req.source_path)
+            .collect::<Vec<_>>();
+
+        let foo = (1..=5).into_iter()
+            .rev()
+            .map(|i| root.join(format!("{}.http", i)))
+            .collect::<Vec<_>>();
+        assert_eq!(&coll, &foo);
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_resolve_duplicate_dependencies() -> Result<()> {
+        let root = root()
+            .join("resources/test/requests/duplicate_dependencies");
+        let path1 = root.join("1.http");
+        let path2 = root.join("2.http");
+        let dep_path = root.join("dependency.http");
+
+        let req1 = Request::from_file(&path1, false)?;
+        let req2 = Request::from_file(&path2, false)?;
+
+        let profile = Profile::empty(env::current_dir().unwrap());
+        let mut response_store = ResponseStore::new();
+        let config = Config::default();
+
+        response_store.store(&dep_path, "");
+        let coll = plan_request_order(vec![req1, req2], &profile, &config)?
+            .into_iter()
+            .map(|req| req.source_path)
+            .collect::<Vec<_>>();
+
+        assert_eq!(&coll, &[dep_path, path1, path2]);
+
+        Ok(())
+    }
+
+    #[test]
+    #[should_panic]
+    fn should_panic_on_cyclic_dependency() {
+        let root = root()
+            .join("resources/test/requests/cyclic_dependencies");
+        let path1 = root.join("1.http");
+        let req1 = Request::from_file(&path1, false).unwrap();
+
+        plan_request_order(
+            vec![req1],
+            &Profile::empty(env::current_dir().unwrap()),
+            &Config::default()
+        ).unwrap();
+    }
 }
