@@ -13,7 +13,3 @@ extern crate uuid;
 extern crate indoc;
 #[cfg(test)]
 extern crate maplit;
-
-mod client;
-
-pub use client::Client;

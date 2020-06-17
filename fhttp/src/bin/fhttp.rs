@@ -7,7 +7,7 @@ use clap::{App, Arg, crate_authors, crate_version, Values};
 
 use fhttp_core::{Config, Request, Result, FhttpError, Profiles, Profile};
 use fhttp_core::Requestpreprocessor;
-use fhttp::{Client};
+use fhttp_core::Client;
 
 fn main() {
     let matches = App::new("fhttp")
