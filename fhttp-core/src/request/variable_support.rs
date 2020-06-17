@@ -2,7 +2,8 @@ use std::ops::Range;
 
 use regex::{Captures, Regex, Match};
 
-use crate::{Config, path_utils, Profile, Request, Resolve, ResponseStore, Result, FhttpError};
+use crate::{Config, path_utils, Profile, Request, ResponseStore, Result, FhttpError};
+use crate::profiles::Resolve;
 use crate::random_numbers::random_int;
 use crate::RE_REQUEST;
 use uuid::Uuid;

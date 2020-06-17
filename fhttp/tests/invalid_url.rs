@@ -1,11 +1,11 @@
 use std::process::Command;
 
-use fhttp_core::test_utils::root;
-
 static BIN: &str = "target/debug/fhttp";
 
 #[test]
 fn should_handle_invalid_url() {
+    use fhttp_core::test_utils::root;
+
     let base = root().to_str().unwrap().to_owned();
 
     let output = Command::new(BIN)
