@@ -188,3 +188,72 @@ fn _replace_request_dependencies(
         req.text = buffer;
     }
 }
+
+#[cfg(test)]
+mod replace_variables {
+    use std::env;
+
+    use indoc::indoc;
+
+    use super::*;
+
+    #[test]
+    fn should_replace_env_vars() -> Result<()> {
+        env::set_var("SERVER", "server");
+        env::set_var("TOKEN", "token");
+        env::set_var("BODY", "body");
+
+        let mut req = Request::new(
+            env::current_dir().unwrap(),
+            indoc!(r##"
+                GET http://${env(SERVER)}
+                Authorization: ${env(TOKEN)}
+
+                X${env(BODY)}X
+            "##)
+        );
+
+        req.replace_variables(
+            &Profile::empty(env::current_dir().unwrap()),
+            &Config::default(),
+            &ResponseStore::new()
+        )?;
+
+        assert_eq!(
+            &req.text,
+            indoc!(r##"
+                GET http://server
+                Authorization: token
+
+                XbodyX
+            "##)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_replace_uuids() -> Result<()> {
+        use regex::Regex;
+        lazy_static! {
+            static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
+        };
+
+        let mut req = Request::new(
+            env::current_dir().unwrap(),
+            indoc!(r##"
+                GET http://X${uuid()}X
+            "##)
+        );
+
+        req.replace_variables(
+            &Profile::empty(env::current_dir().unwrap()),
+            &Config::default(),
+            &ResponseStore::new()
+        )?;
+
+        assert!(REGEX.is_match(&req.text));
+
+        Ok(())
+    }
+}
