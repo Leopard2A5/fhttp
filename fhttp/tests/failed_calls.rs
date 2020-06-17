@@ -9,6 +9,7 @@ use mockito::mock;
 
 static BIN: &str = "target/debug/fhttp";
 
+#[ignore]
 #[test]
 fn should_stop_execution_on_status_400() {
     let base = root().to_str().unwrap().to_owned();
@@ -44,6 +45,7 @@ fn should_stop_execution_on_status_400() {
     two.assert();
 }
 
+#[ignore]
 #[test]
 fn should_stop_execution_on_connection_issues() {
     let base = root().to_str().unwrap().to_owned();
