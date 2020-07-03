@@ -1,6 +1,6 @@
 use std::process::Command;
 
-static BIN: &str = "target/debug/fhttp";
+static BIN: &str = "../target/debug/fhttp";
 
 #[test]
 fn should_handle_invalid_url() {

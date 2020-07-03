@@ -7,7 +7,7 @@ use fhttp_core::test_utils::root;
 
 use mockito::mock;
 
-static BIN: &str = "target/debug/fhttp";
+static BIN: &str = "../target/debug/fhttp";
 
 #[test]
 fn complex_test() {

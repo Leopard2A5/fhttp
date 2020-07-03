@@ -5,7 +5,7 @@ use std::process::Command;
 
 use mockito::mock;
 
-static BIN: &str = "target/debug/fhttp";
+static BIN: &str = "../target/debug/fhttp";
 
 #[test]
 fn use_custom_profile_file_through_cli_option() {
