@@ -60,6 +60,21 @@ impl Profile {
         }
     }
 
+    pub fn defined_through_request<K: Into<String>>(
+        &self,
+        key: K
+    ) -> Option<PathBuf> {
+        let key = key.into();
+
+        match self.variables.contains_key(&key) {
+            true => match self.variables.get(&key) {
+                Some(ProfileVariable::Request { request }) => Some(PathBuf::from_str(request).unwrap()),
+                _ => None
+            },
+            false => None
+        }
+    }
+
     pub fn get<K: Into<String>>(
         &self,
         key: K,

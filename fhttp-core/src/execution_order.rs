@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use crate::{Config, FhttpError, path_utils, Request};
 use crate::Profile;
-use crate::profiles::Resolve;
 use crate::request::variable_support::VariableSupport;
 use crate::Result;
 
@@ -70,13 +69,7 @@ fn get_env_vars_defined_through_requests(
 ) -> Vec<PathBuf> {
     let vars: Vec<(&str, Range<usize>)> = req.get_env_vars();
     vars.into_iter()
-        .map(|(key, _)| {
-            let var = profile.get(key, false).unwrap();
-            match var {
-                Resolve::RequestLookup(path) => Some(path),
-                _ => None
-            }
-        })
+        .map(|(key, _)| profile.defined_through_request(key))
         .filter(|it| it.is_some())
         .map(|it| it.unwrap())
         .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
