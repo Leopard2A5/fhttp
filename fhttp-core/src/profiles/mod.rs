@@ -98,6 +98,15 @@ impl Profile {
     pub fn variables(&self) -> Vec<&ProfileVariable> {
         self.variables.values().collect()
     }
+
+    pub fn override_with(
+        &mut self,
+        other: Profile
+    ) {
+        for (key, value) in other.variables {
+            self.variables.insert(key, value);
+        }
+    }
 }
 
 fn get_from_environment(
@@ -184,6 +193,34 @@ mod test {
             profile.get("a", &Config::default(), &ResponseStore::new())?,
             String::from("A")
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn override_with_should_merge() -> Result<()> {
+        let config = Config::default();
+        let response_store = ResponseStore::new();
+
+        let mut default = Profile::new(
+            env::current_dir().unwrap(),
+            hashmap! {
+                String::from("a") => ProfileVariable::StringValue(String::from("A")),
+                String::from("b") => ProfileVariable::StringValue(String::from("B"))
+            }
+        );
+        let local = Profile::new(
+            env::current_dir().unwrap(),
+            hashmap! {
+                String::from("b") => ProfileVariable::StringValue(String::from("BBB")),
+                String::from("c") => ProfileVariable::StringValue(String::from("CCC")),
+            }
+        );
+
+        default.override_with(local);
+        assert_eq!(default.get("a", &config, &response_store)?, "A");
+        assert_eq!(default.get("b", &config, &response_store)?, "BBB");
+        assert_eq!(default.get("c", &config, &response_store)?, "CCC");
 
         Ok(())
     }

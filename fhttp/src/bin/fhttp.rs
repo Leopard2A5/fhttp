@@ -154,8 +154,12 @@ fn parse_profile(
     profile: &str
 ) -> Result<Profile> {
     let path = PathBuf::from_str(profile_path).unwrap();
-    Profiles::parse(&path)?
-        .get(profile)
-        .map(|p| p.clone())
-        .ok_or(FhttpError::new("profile not found"))
+    let mut profiles = Profiles::parse(&path)?;
+    let mut default = profiles.remove("default")
+        .unwrap_or(Profile::empty(&path));
+    let profile = profiles.remove(profile)
+        .ok_or(FhttpError::new("profile not found"))?;
+
+    default.override_with(profile);
+    Ok(default)
 }
