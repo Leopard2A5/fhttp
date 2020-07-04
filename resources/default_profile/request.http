@@ -1,0 +1,4 @@
+POST ${env(URL)}/foo
+
+A=${env(A)}
+B=${env(B)}
