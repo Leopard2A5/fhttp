@@ -138,6 +138,9 @@ In the directory where you execute fhttp, you can create a file called `fhttp-co
 
 When you invoke fhttp with your requests you can call it with `-p <profile>` to use the corresponding variable definitions. These override existing environment variables.
 
+### Default profile
+When you name your profile "default" it will always be used. When paired with the --profile argument, the selected profile will be merged with and override variables set in the default.
+
 ### Pass secrets
 If you use the popular password store [pass](https://www.passwordstore.org/), you can reference secrets from your profiles file. This allows you to keep secrets out of the profiles file and enables you to safely commit it.
 ```json
