@@ -7,8 +7,9 @@ use std::str::FromStr;
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
-use crate::{FhttpError, Result, Config};
+use crate::{FhttpError, Result, Config, ResponseStore};
 pub use profile_variable::ProfileVariable;
+use crate::path_utils::get_dependency_path;
 
 mod profile_variable;
 
@@ -75,37 +76,18 @@ impl Profile {
         }
     }
 
-    pub fn get<K: Into<String>>(
+    pub fn get<'a, K: Into<&'a str>>(
         &self,
         key: K,
         config: &Config,
-    ) -> Result<Resolve> {
+        response_store: &ResponseStore,
+    ) -> Result<String> {
         let key = key.into();
 
-        if self.variables.contains_key(&key) {
-            match self.variables.get(&key) {
-                Some(variable) => match variable {
-                    ProfileVariable::StringValue(_) => Ok(Resolve::StringValue(variable.get()?)),
-                    ProfileVariable::PassSecret { cache: _, path: _ } => Ok(Resolve::StringValue(variable.get()?)),
-                    ProfileVariable::Request { request } => Ok(Resolve::RequestLookup(PathBuf::from_str(request).unwrap())),
-                },
-                None => Err(FhttpError::new(format!("missing environment variable {}", key)))
-            }
-        } else {
-            match env::var(&key) {
-                Ok(value) => Ok(Resolve::StringValue(value)),
-                Err(err) => match err {
-                    VarError::NotPresent => match config.prompt_missing_env_vars {
-                        true => {
-                            let value = prompt::<String, _>(&key).unwrap();
-                            env::set_var(&key, &value);
-                            Ok(Resolve::StringValue(value))
-                        },
-                        false => Err(FhttpError::new(format!("missing environment variable {}", key)))
-                    },
-                    VarError::NotUnicode(_) => Err(FhttpError::new(format!("missing environment variable {}", key)))
-                }
-            }
+        match self.variables.get(key) {
+            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&get_dependency_path(&self.source_path, request))),
+            Some(var) => var.get(),
+            None => get_from_environment(&key, config)
         }
     }
 
@@ -118,10 +100,22 @@ impl Profile {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum Resolve {
-    StringValue(String),
-    RequestLookup(PathBuf),
+fn get_from_environment(
+    key: &str,
+    config: &Config
+) -> Result<String> {
+    match env::var(&key) {
+        Ok(value) => Ok(value),
+        Err(VarError::NotUnicode(_)) => Err(FhttpError::new(format!("environment variable {} is not unicode!", key))),
+        Err(VarError::NotPresent) => match config.prompt_missing_env_vars {
+            true => {
+                let value = prompt::<String, _>(&key).unwrap();
+                env::set_var(&key, &value);
+                Ok(value)
+            },
+            false => Err(FhttpError::new(format!("missing environment variable {}", key)))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -169,7 +163,10 @@ mod test {
             },
         };
 
-        assert_eq!(profile.get("a", &Config::default())?, Resolve::StringValue(String::from("b")));
+        assert_eq!(
+            profile.get("a", &Config::default(), &ResponseStore::new())?,
+            String::from("b")
+        );
 
         Ok(())
     }
@@ -183,7 +180,10 @@ mod test {
             variables: HashMap::new(),
         };
 
-        assert_eq!(profile.get("a", &Config::default())?, Resolve::StringValue(String::from("A")));
+        assert_eq!(
+            profile.get("a", &Config::default(), &ResponseStore::new())?,
+            String::from("A")
+        );
 
         Ok(())
     }

@@ -3,7 +3,6 @@ use std::ops::Range;
 use regex::{Captures, Regex, Match};
 
 use crate::{Config, path_utils, Profile, Request, ResponseStore, Result, FhttpError};
-use crate::profiles::Resolve;
 use crate::random_numbers::random_int;
 use crate::RE_REQUEST;
 use uuid::Uuid;
@@ -64,14 +63,7 @@ fn _replace_env_vars(
         let mut buffer = req.text.clone();
 
         for (key, range) in variables {
-            let value = match profile.get(key, config)? {
-                Resolve::StringValue(value) => value,
-                Resolve::RequestLookup(path) => {
-                    let path = path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap());
-                    response_store.get(&path)
-                },
-            };
-
+            let value = profile.get(key, config, response_store)?;
             buffer.replace_range(range, &value);
         }
         req.text = buffer;
