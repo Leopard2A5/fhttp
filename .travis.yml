@@ -5,9 +5,9 @@ rust:
 jobs:
   include:
     - stage: build
-      script: cargo test --workspace --release
+      script: travis_retry cargo test --workspace --release
     - stage: test
-      script: cargo test --workspace --release
+      script: travis_retry cargo test --workspace --release
     - stage: release MacOS
       os: osx
       script: cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.macosx
