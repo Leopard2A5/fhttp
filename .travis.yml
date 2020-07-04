@@ -4,8 +4,6 @@ rust:
 
 jobs:
   include:
-    - stage: build
-      script: travis_retry cargo test --workspace --release
     - stage: test
       script: travis_retry cargo test --workspace --release
     - stage: release MacOS
