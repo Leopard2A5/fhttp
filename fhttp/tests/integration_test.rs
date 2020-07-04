@@ -1,13 +1,12 @@
+extern crate assert_cmd;
 extern crate mockito;
 
 use std::env;
-use std::process::Command;
 
-use fhttp_core::test_utils::root;
-
+use assert_cmd::Command;
 use mockito::mock;
 
-static BIN: &str = "../target/debug/fhttp";
+use fhttp_core::test_utils::root;
 
 #[test]
 fn complex_test() {
@@ -43,29 +42,20 @@ fn complex_test() {
         .match_header("authorization", "Bearer secret_token")
         .create();
 
-    let output = Command::new(BIN)
-        .args(&[
-            "../resources/it/requests/create.http",
-            "../resources/it/requests/update.http",
-            "../resources/it/requests/delete.http"
-        ])
-        .output()
-        .expect("failed to execute process");
-    assert!(output.status.success());
-
-    let stderr = String::from_utf8(output.stderr)
-        .expect("stderr is not utf-8");
-
-    assert_eq!(stderr, format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
+    let assert = Command::cargo_bin("fhttp").unwrap()
+        .arg("../resources/it/requests/create.http")
+        .arg("../resources/it/requests/update.http")
+        .arg("../resources/it/requests/delete.http")
+        .assert();
+    assert
+        .success()
+        .stdout("123456\n\n\n")
+        .stderr(format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
 calling '{base}/resources/it/requests/create.http'... 201 Created
 calling '{base}/resources/it/requests/update.http'... 200 OK
 calling '{base}/resources/it/requests/delete.http'... 200 OK
 "##, base=base
     ));
-
-    let stdout = String::from_utf8(output.stdout)
-        .expect("stdout is not utf-8");
-    assert_eq!(&stdout, "123456\n\n\n");
 
     token.assert();
     create.assert();

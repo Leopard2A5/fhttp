@@ -1,13 +1,12 @@
+extern crate assert_cmd;
 extern crate mockito;
 
 use std::env;
-use std::process::Command;
 
-use fhttp_core::test_utils::root;
-
+use assert_cmd::Command;
 use mockito::mock;
 
-static BIN: &str = "../target/debug/fhttp";
+use fhttp_core::test_utils::root;
 
 #[test]
 fn should_resolve() {
@@ -30,23 +29,19 @@ fn should_resolve() {
         .match_header("authorization", "Bearer secret_token")
         .create();
 
-    let output = Command::new(BIN)
-        .args(&[
-            "-f", "../resources/it/profiles-request-dependency.json",
-            "-p", "it",
-            "../resources/it/requests/delete_by_env_var.http"
-        ])
-        .output()
-        .expect("failed to execute process");
-    let stderr = String::from_utf8(output.stderr).unwrap();
+    let assert = Command::cargo_bin("fhttp").unwrap()
+        .arg("-f").arg("../resources/it/profiles-request-dependency.json")
+        .arg("-p").arg("it")
+        .arg("../resources/it/requests/delete_by_env_var.http")
+        .assert();
 
-    assert!(output.status.success());
-
-    assert_eq!(stderr, format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
+    assert
+        .success()
+        .stderr(format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
 calling '{base}/resources/it/requests/create.http'... 201 Created
 calling '{base}/resources/it/requests/delete_by_env_var.http'... 200 OK
 "##, base=base
-    ));
+        ));
 
     token.assert();
     create.assert();

@@ -1,6 +1,6 @@
-use std::process::Command;
+extern crate assert_cmd;
 
-static BIN: &str = "../target/debug/fhttp";
+use assert_cmd::Command;
 
 #[test]
 fn should_handle_invalid_url() {
@@ -8,16 +8,11 @@ fn should_handle_invalid_url() {
 
     let base = root().to_str().unwrap().to_owned();
 
-    let output = Command::new(BIN)
-        .args(&[
-            "../resources/it/requests/invalid_url.http"
-        ])
-        .output()
-        .expect("failed to execute process");
+    let assert = Command::cargo_bin("fhttp").unwrap()
+        .arg("../resources/it/requests/invalid_url.http")
+        .assert();
 
-    let stderr = String::from_utf8(output.stderr)
-        .expect("stderr is not utf-8");
-    eprintln!("{}", stderr);
-    assert_eq!(stderr, format!("calling '{}/resources/it/requests/invalid_url.http'... Invalid URL: 'notAValidUrl'\n", base));
-    assert!(!output.status.success());
+    assert
+        .failure()
+        .stderr(format!("calling '{}/resources/it/requests/invalid_url.http'... Invalid URL: 'notAValidUrl'\n", base));
 }
