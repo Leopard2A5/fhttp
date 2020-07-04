@@ -21,3 +21,4 @@ uuid = { version = "0.8.1", features = ["v4"] }
 maplit = "1.0.2"
 indoc = "0.3.4"
 mockito = "0.23.3"
+assert_cmd = "1.0.1"

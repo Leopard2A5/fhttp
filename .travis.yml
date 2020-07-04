@@ -4,13 +4,11 @@ rust:
 
 jobs:
   include:
-    - stage: build
-      script: cargo build --verbose --all
     - stage: test
-      script: cargo test --verbose --all -- --nocapture
+      script: travis_retry cargo test --workspace --release
     - stage: release MacOS
       os: osx
-      script: cargo build --verbose --release --all && mv target/release/fhttp target/release/fhttp.macosx
+      script: cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.macosx
       if: tag IS present
       deploy:
         provider: releases
@@ -23,7 +21,7 @@ jobs:
           tags: true
     - stage: release linux x64
       os: linux
-      script: cargo build --verbose --release --all && mv target/release/fhttp target/release/fhttp.linux_x64
+      script: cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.linux_x64
       if: tag IS present
       deploy:
         provider: releases
