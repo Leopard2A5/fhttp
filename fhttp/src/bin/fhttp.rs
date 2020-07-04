@@ -76,10 +76,7 @@ fn do_it(
     profile_path: &str,
     profile_name: Option<String>
 ) -> Result<()> {
-    let profile = match profile_name {
-        Some(ref p) => parse_profile(profile_path, p)?,
-        None => Profile::empty(profile_path)
-    };
+    let profile = parse_profile(profile_path, profile_name)?;
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();
@@ -151,14 +148,16 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
 
 fn parse_profile(
     profile_path: &str,
-    profile: &str
+    profile: Option<String>
 ) -> Result<Profile> {
     let path = PathBuf::from_str(profile_path).unwrap();
     let mut profiles = Profiles::parse(&path)?;
     let mut default = profiles.remove("default")
         .unwrap_or(Profile::empty(&path));
-    let profile = profiles.remove(profile)
-        .ok_or(FhttpError::new("profile not found"))?;
+    let profile = match profile {
+        Some(ref name) => profiles.remove(name).ok_or(FhttpError::new("profile not found"))?,
+        None => Profile::empty(&path),
+    };
 
     default.override_with(profile);
     Ok(default)
