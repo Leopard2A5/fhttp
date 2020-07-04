@@ -7,7 +7,7 @@ use std::str::FromStr;
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
-use crate::{FhttpError, Result};
+use crate::{FhttpError, Result, Config};
 pub use profile_variable::ProfileVariable;
 
 mod profile_variable;
@@ -78,7 +78,7 @@ impl Profile {
     pub fn get<K: Into<String>>(
         &self,
         key: K,
-        prompt_for_missing: bool
+        config: &Config,
     ) -> Result<Resolve> {
         let key = key.into();
 
@@ -95,7 +95,7 @@ impl Profile {
             match env::var(&key) {
                 Ok(value) => Ok(Resolve::StringValue(value)),
                 Err(err) => match err {
-                    VarError::NotPresent => match prompt_for_missing {
+                    VarError::NotPresent => match config.prompt_missing_env_vars {
                         true => {
                             let value = prompt::<String, _>(&key).unwrap();
                             env::set_var(&key, &value);
@@ -169,7 +169,7 @@ mod test {
             },
         };
 
-        assert_eq!(profile.get("a", false)?, Resolve::StringValue(String::from("b")));
+        assert_eq!(profile.get("a", &Config::default())?, Resolve::StringValue(String::from("b")));
 
         Ok(())
     }
@@ -183,7 +183,7 @@ mod test {
             variables: HashMap::new(),
         };
 
-        assert_eq!(profile.get("a", false)?, Resolve::StringValue(String::from("A")));
+        assert_eq!(profile.get("a", &Config::default())?, Resolve::StringValue(String::from("A")));
 
         Ok(())
     }

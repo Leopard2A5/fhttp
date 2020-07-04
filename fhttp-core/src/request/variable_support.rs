@@ -64,7 +64,7 @@ fn _replace_env_vars(
         let mut buffer = req.text.clone();
 
         for (key, range) in variables {
-            let value = match profile.get(key, config.prompt_missing_env_vars)? {
+            let value = match profile.get(key, config)? {
                 Resolve::StringValue(value) => value,
                 Resolve::RequestLookup(path) => {
                     let path = path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap());
