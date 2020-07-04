@@ -46,8 +46,7 @@ fn main() {
                 Ok(path) => Some(path),
                 Err(_) => None,
             }
-        })
-        .unwrap_or("fhttp-config.json".to_owned());
+        });
 
     let profile_name = matches.value_of("profile")
         .map(str::to_owned)
@@ -61,7 +60,7 @@ fn main() {
     let result = do_it(
         matches.values_of("files").unwrap(),
         config,
-        &profile_path,
+        profile_path,
         profile_name
     );
     if let Err(error) = result {
@@ -73,13 +72,10 @@ fn main() {
 fn do_it(
     file_values: Values,
     config: Config,
-    profile_path: &str,
+    profile_path: Option<String>,
     profile_name: Option<String>
 ) -> Result<()> {
-    let profile = match profile_name {
-        Some(ref p) => parse_profile(profile_path, p)?,
-        None => Profile::empty(profile_path)
-    };
+    let profile = parse_profile(profile_path, profile_name)?;
     let requests: Vec<Request> = validate_and_parse_files(file_values)?;
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();
@@ -150,12 +146,35 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
 }
 
 fn parse_profile(
-    profile_path: &str,
-    profile: &str
+    profile_path: Option<String>,
+    profile: Option<String>
 ) -> Result<Profile> {
-    let path = PathBuf::from_str(profile_path).unwrap();
-    Profiles::parse(&path)?
-        .get(profile)
-        .map(|p| p.clone())
-        .ok_or(FhttpError::new("profile not found"))
+    let profile_path = profile_path.map(|it| PathBuf::from_str(&it).unwrap());
+
+    let path = match profile_path {
+        Some(profile_path) => {
+            match profile_path.exists() {
+                true => Ok(profile_path),
+                false => Err(FhttpError::new(format!("file not found: '{}'", profile_path.to_str().unwrap())))
+            }
+        },
+        None => {
+            let profile_path = PathBuf::from_str("fhttp-config.json").unwrap();
+            match profile_path.exists() {
+                true => Ok(profile_path),
+                false => return Ok(Profile::empty(env::current_dir().unwrap()))
+            }
+        }
+    }?;
+
+    let mut profiles = Profiles::parse(&path)?;
+    let mut default = profiles.remove("default")
+        .unwrap_or(Profile::empty(&path));
+    let profile = match profile {
+        Some(ref name) => profiles.remove(name).ok_or(FhttpError::new("profile not found"))?,
+        None => Profile::empty(&path),
+    };
+
+    default.override_with(profile);
+    Ok(default)
 }

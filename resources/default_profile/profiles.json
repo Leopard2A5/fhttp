@@ -1,0 +1,13 @@
+{
+  "default": {
+    "variables": {
+      "A": "default-a",
+      "B": "default-b"
+    }
+  },
+  "test": {
+    "variables": {
+      "B": "test-b"
+    }
+  }
+}
