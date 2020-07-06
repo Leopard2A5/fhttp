@@ -3,6 +3,12 @@ name = "fhttp-core"
 version = "0.1.7"
 authors = ["René Perschon <rene.perschon@akelius.de>"]
 edition = "2018"
+license = "MIT"
+description = "core library for the fhttp tool"
+homepage = "https://github.com/Leopard2A5/fhttp"
+documentation = "https://docs.rs/fhttp-core"
+repository = "https://github.com/Leopard2A5/fhttp"
+readme = "../README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
