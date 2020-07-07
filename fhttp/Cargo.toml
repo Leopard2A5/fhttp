@@ -3,6 +3,12 @@ name = "fhttp"
 version = "0.1.7"
 authors = ["René Perschon <rperschon85@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "File-based command line http client"
+homepage = "https://github.com/Leopard2A5/fhttp"
+documentation = "https://github.com/Leopard2A5/fhttp"
+repository = "https://github.com/Leopard2A5/fhttp"
+readme = "../README.md"
 
 [dependencies]
 fhttp-core = { path = "../fhttp-core" }
