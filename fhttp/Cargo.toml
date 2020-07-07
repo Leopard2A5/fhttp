@@ -11,7 +11,7 @@ repository = "https://github.com/Leopard2A5/fhttp"
 readme = "../README.md"
 
 [dependencies]
-fhttp-core = { version = "0.1.7", path = "../fhttp-core" }
+fhttp-core = { version = "0.1.8", path = "../fhttp-core" }
 clap = "2.33.0"
 
 [dev-dependencies]
