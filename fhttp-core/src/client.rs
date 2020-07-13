@@ -27,7 +27,7 @@ impl Client {
 
         let req_builder = match req_body {
             Body::Plain(body) => req_builder.body(body.into_owned()),
-            Body::File { name, path } => unimplemented!(),
+            Body::Files(_) => unimplemented!(),
         };
 
         let response = req_builder.send()?;

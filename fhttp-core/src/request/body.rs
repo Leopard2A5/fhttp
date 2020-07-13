@@ -4,7 +4,13 @@ use std::path::PathBuf;
 #[derive(Debug, Eq, PartialEq)]
 pub enum Body<'a> {
     Plain(Cow<'a, str>),
-    File { name: String, path: PathBuf },
+    Files(Vec<File>),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct File {
+    name: String,
+    path: PathBuf,
 }
 
 impl Body<'_> {
