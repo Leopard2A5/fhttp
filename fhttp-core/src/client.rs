@@ -1,4 +1,5 @@
 use reqwest::Url;
+use reqwest::blocking::multipart;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
 use crate::request::body::Body;
@@ -26,7 +27,7 @@ impl Client {
 
         let req_builder = match req_body {
             Body::Plain(body) => req_builder.body(body.into_owned()),
-            Body::File(_) => unimplemented!(),
+            Body::File { name, path } => unimplemented!(),
         };
 
         let response = req_builder.send()?;

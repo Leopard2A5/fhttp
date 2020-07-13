@@ -4,7 +4,7 @@ use std::path::PathBuf;
 #[derive(Debug, Eq, PartialEq)]
 pub enum Body<'a> {
     Plain(Cow<'a, str>),
-    File(PathBuf),
+    File { name: String, path: PathBuf },
 }
 
 impl Body<'_> {
