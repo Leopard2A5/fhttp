@@ -1,4 +1,3 @@
-use reqwest::blocking::Client as InnerClient;
 use reqwest::Url;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
@@ -16,8 +15,8 @@ impl Client {
         &self,
         request: Request
     ) -> Result<Response> {
-        let client: InnerClient = InnerClient::new();
-        let url = &request.url()?;
+        let client = reqwest::blocking::Client::new();
+        let url = request.url()?;
         let url = Url::parse(url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
         let req_body = request.body()?;
