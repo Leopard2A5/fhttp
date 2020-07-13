@@ -2,6 +2,7 @@ use reqwest::blocking::Client as InnerClient;
 use reqwest::Url;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
+use crate::request::body::Body;
 
 pub struct Client;
 
@@ -18,11 +19,17 @@ impl Client {
         let url = &request.url()?;
         let url = Url::parse(url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
-        let req = client
+        let req_body = request.body()?;
+        let req_builder = client
             .request(request.method()?, url)
-            .headers(request.headers()?)
-            .body(request.body()?.into_owned());
-        let response = req.send()?;
+            .headers(request.headers()?);
+
+        let req_builder = match req_body {
+            Body::Plain(body) => req_builder.body(body.into_owned()),
+            Body::File(_) => unimplemented!(),
+        };
+
+        let response = req_builder.send()?;
         let status = response.status();
         let headers = response.headers().clone();
         let text = response.text().unwrap();

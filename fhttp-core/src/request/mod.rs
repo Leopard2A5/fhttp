@@ -12,9 +12,11 @@ use serde_json::Value;
 use crate::errors::Result;
 use crate::path_utils::get_dependency_path;
 use crate::errors::FhttpError;
+use crate::request::body::Body;
 
 pub mod response_handler;
 pub mod variable_support;
+pub mod body;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -114,12 +116,13 @@ impl Request {
         Ok(ret)
     }
 
-    pub fn body(&self) -> Result<Cow<str>> {
-        if self.gql_file() {
-            Ok(Cow::Owned(self._gql_body()?))
-        } else {
-            Ok(Cow::Borrowed(self._body()?))
-        }
+    pub fn body(&self) -> Result<Body> {
+        Ok(Body::Plain(
+            match self.gql_file() {
+                true => Cow::Owned(self._gql_body()?),
+                false => Cow::Borrowed(self._body()?),
+            }
+        ))
     }
 
     pub fn dependencies(&self) -> Vec<PathBuf> {
@@ -300,11 +303,11 @@ mod test {
 
         assert_eq!(
             req.body()?,
-            indoc!(r##"
+            Body::plain(indoc!(r##"
                 this is the body
 
                 this as well
-            "##)
+            "##))
         );
 
         Ok(())
@@ -316,7 +319,7 @@ mod test {
             POST http://localhost:8080
         "##));
 
-        assert_eq!(req.body()?, "");
+        assert_eq!(req.body()?, Body::plain(""));
 
         Ok(())
     }
@@ -331,7 +334,7 @@ mod test {
             %}
         "##));
 
-        assert_eq!(req.body()?, "");
+        assert_eq!(req.body()?, Body::plain(""));
 
         Ok(())
     }
@@ -386,7 +389,10 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!")
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -430,7 +436,10 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -472,7 +481,10 @@ mod gql {
             "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}\n",
             "variables": {}
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -514,7 +526,10 @@ mod gql {
             "variables": {}
         });
 
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -544,10 +559,18 @@ mod gql {
             fs::read_to_string(&gql_http_extension).unwrap(),
         );
 
-        assert!(&http_extension_result.body()?.starts_with("query"));
+        match http_extension_result.body()? {
+            Body::Plain(body) => assert!(&body.starts_with("query")),
+            _ => panic!("aaaah!"),
+        };
 
-        assert!(serde_json::from_str::<Value>(&gql_http_extension_result.body()?).is_ok());
-        match serde_json::from_str::<Value>(&gql_http_extension_result.body()?).unwrap() {
+        let json_body = match gql_http_extension_result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body),
+            _ => panic!("aaaaah!"),
+        };
+
+        assert!(json_body.is_ok());
+        match json_body.unwrap() {
             Value::Object(map) => {
                 assert!(map.contains_key("query"));
                 assert!(map.contains_key("variables"));
