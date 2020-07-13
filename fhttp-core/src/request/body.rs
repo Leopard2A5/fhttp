@@ -8,6 +8,7 @@ pub enum Body<'a> {
 }
 
 impl Body<'_> {
+    #[cfg(test)]
     pub fn plain<'a, S: Into<Cow<'a, str>>>(body: S) -> Body<'a> {
         Body::Plain(body.into())
     }

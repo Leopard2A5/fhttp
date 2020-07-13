@@ -3,6 +3,7 @@ use reqwest::Url;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
 use crate::request::body::Body;
+use crate::request::has_body::HasBody;
 
 pub struct Client;
 
