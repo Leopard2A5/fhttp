@@ -276,6 +276,47 @@ mod test {
 }
 
 #[cfg(test)]
+mod fileupload {
+    use indoc::indoc;
+
+    use crate::request::body::{Body, File};
+    use crate::request::has_body::HasBody;
+
+    use super::*;
+    use crate::test_utils::root;
+
+    #[test]
+    fn test() -> Result<()> {
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
+            POST http://localhost:8080
+
+            ${file("partname", "../resources/it/profiles.json")}
+            ${file(
+                "file",
+                "../resources/it/profiles2.json"
+            )}
+        "##));
+
+        assert_eq!(
+            req.body()?,
+            Body::Files(vec![
+                File {
+                    name: String::from("partname"),
+                    path: root().join("resources/it/profiles.json")
+                },
+                File {
+                    name: String::from("file"),
+                    path: root().join("resources/it/profiles2.json")
+                }
+            ])
+        );
+
+        Ok(())
+    }
+
+}
+
+#[cfg(test)]
 mod gql {
     use std::fs;
 

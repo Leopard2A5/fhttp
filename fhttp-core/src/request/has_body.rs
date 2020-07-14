@@ -1,9 +1,11 @@
 use std::borrow::Cow;
 
-use crate::{Request, Result, FhttpError};
-use crate::request::body::Body;
-use serde_json::Value;
+use regex::Regex;
 use serde_json::map::Map;
+use serde_json::Value;
+
+use crate::{FhttpError, path_utils, Request, Result};
+use crate::request::body::{Body, File};
 
 pub trait HasBody {
     fn body(&self) -> Result<Body>;
@@ -60,16 +62,39 @@ impl Request {
 
         Ok(serde_json::to_string(&body).unwrap())
     }
+
+    fn get_files_or_plain_body(&self) -> Result<Body> {
+        lazy_static! {
+            static ref RE_FILE: Regex = Regex::new(r##"(?m)\$\{\s*file\s*\(\s*"([^}]+)"\s*,\s*"([^}]+)"\s*\)\s*\}"##).unwrap();
+        };
+
+        let captures = RE_FILE.captures_iter(self._body()?)
+            .collect::<Vec<_>>();
+
+        Ok(
+            if captures.len() == 0 {
+                Body::Plain(Cow::Borrowed(self._body()?))
+            } else {
+                let files = RE_FILE.captures_iter(self._body()?)
+                    .map(|capture| {
+                        let name = capture.get(1).unwrap().as_str().to_owned();
+                        let path = capture.get(2).unwrap().as_str();
+                        let path = path_utils::get_dependency_path(&self.source_path, path);
+                        File { name, path }
+                    })
+                    .collect::<Vec<_>>();
+                Body::Files(files)
+            }
+        )
+    }
 }
 
 impl HasBody for Request {
     fn body(&self) -> Result<Body> {
-        Ok(Body::Plain(
-            match self.gql_file() {
-                true => Cow::Owned(self._gql_body()?),
-                false => Cow::Borrowed(self._body()?),
-            }
-        ))
+        match self.gql_file() {
+            true => Ok(Body::Plain(Cow::Owned(self._gql_body()?))),
+            false => self.get_files_or_plain_body(),
+        }
     }
 }
 

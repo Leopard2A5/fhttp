@@ -9,8 +9,8 @@ pub enum Body<'a> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct File {
-    name: String,
-    path: PathBuf,
+    pub name: String,
+    pub path: PathBuf,
 }
 
 impl Body<'_> {
