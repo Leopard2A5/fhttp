@@ -1,0 +1,4 @@
+POST ${env(URL)}/
+
+${file("file", "multipart_content_1.txt")}
+${file("data", "multipart_content_2.txt")}

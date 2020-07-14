@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -6,15 +5,15 @@ use std::str::FromStr;
 use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
-use serde_json::map::Map;
-use serde_json::Value;
 
+use crate::errors::FhttpError;
 use crate::errors::Result;
 use crate::path_utils::get_dependency_path;
-use crate::errors::FhttpError;
 
 pub mod response_handler;
 pub mod variable_support;
+pub mod body;
+pub mod has_body;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
@@ -114,14 +113,6 @@ impl Request {
         Ok(ret)
     }
 
-    pub fn body(&self) -> Result<Cow<str>> {
-        if self.gql_file() {
-            Ok(Cow::Owned(self._gql_body()?))
-        } else {
-            Ok(Cow::Borrowed(self._body()?))
-        }
-    }
-
     pub fn dependencies(&self) -> Vec<PathBuf> {
         let mut ret = vec![];
         for capture in RE_REQUEST.captures_iter(&self.text) {
@@ -132,57 +123,6 @@ impl Request {
         ret
     }
 
-    fn _body(&self) -> Result<&str> {
-        let mut body_start = None;
-        let mut body_end = None;
-        let mut text_index: usize = 0;
-        let mut last_char = None;
-
-        for (index, chr) in self.text.chars().enumerate() {
-            if body_start.is_none() && chr == '\n' && last_char == Some('\n') {
-                body_start = Some(text_index + 1);
-            } else if body_end.is_none() && chr == '%' && &self.text[(index - 4)..index] == "\n> {" {
-                body_end = Some(index - 4);
-                break;
-            }
-
-            last_char = Some(chr);
-            text_index += 1;
-        }
-
-        match body_start {
-            Some(start) => {
-                let end = body_end.unwrap_or(text_index);
-                if start < end {
-                    Ok(&self.text[start..body_end.unwrap_or(text_index)])
-                } else {
-                    Ok("")
-                }
-            },
-            None => Ok(""),
-        }
-    }
-
-    fn _gql_body(&self) -> Result<String> {
-        let body = self._body()?;
-        let parts: Vec<&str> = body.split("\n\n").collect();
-
-        let (query, variables) = match parts.len() {
-            1 => (parts[0], None),
-            2 => (parts[0], Some(parse_variables(parts[1])?)),
-            _ => return Err(FhttpError::new("GraphQL requests can only have 1 or 2 body parts")),
-        };
-
-        let query = Value::String(query.to_owned());
-
-        let mut map = Map::new();
-        map.insert("query".into(), query);
-        map.insert("variables".into(), variables.unwrap_or(Value::Object(Map::new())));
-        let body = Value::Object(map);
-
-        Ok(serde_json::to_string(&body).unwrap())
-    }
-
     fn first_line(&self) -> Result<&str> {
         self.text.lines()
             .map(|line| line.trim())
@@ -191,7 +131,7 @@ impl Request {
             .ok_or(FhttpError::new("Could not find first line"))
     }
 
-    fn gql_file(&self) -> bool {
+    pub fn gql_file(&self) -> bool {
         let filename = self.source_path.file_name().unwrap().to_str().unwrap();
 
         filename.ends_with(".gql.http") || filename.ends_with(".graphql.http")
@@ -217,14 +157,12 @@ impl PartialEq for Request {
     }
 }
 
-fn parse_variables(text: &str) -> Result<Value> {
-    serde_json::from_str::<Value>(&text)
-        .map_err(|_| FhttpError::new("Error parsing variables"))
-}
-
 #[cfg(test)]
 mod test {
     use indoc::indoc;
+
+    use crate::request::body::Body;
+    use crate::request::has_body::HasBody;
 
     use super::*;
 
@@ -300,11 +238,11 @@ mod test {
 
         assert_eq!(
             req.body()?,
-            indoc!(r##"
+            Body::plain(indoc!(r##"
                 this is the body
 
                 this as well
-            "##)
+            "##))
         );
 
         Ok(())
@@ -316,7 +254,7 @@ mod test {
             POST http://localhost:8080
         "##));
 
-        assert_eq!(req.body()?, "");
+        assert_eq!(req.body()?, Body::plain(""));
 
         Ok(())
     }
@@ -331,10 +269,51 @@ mod test {
             %}
         "##));
 
-        assert_eq!(req.body()?, "");
+        assert_eq!(req.body()?, Body::plain(""));
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod fileupload {
+    use indoc::indoc;
+
+    use crate::request::body::{Body, File};
+    use crate::request::has_body::HasBody;
+
+    use super::*;
+    use crate::test_utils::root;
+
+    #[test]
+    fn test() -> Result<()> {
+        let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
+            POST http://localhost:8080
+
+            ${file("partname", "../resources/it/profiles.json")}
+            ${file(
+                "file",
+                "../resources/it/profiles2.json"
+            )}
+        "##));
+
+        assert_eq!(
+            req.body()?,
+            Body::Files(vec![
+                File {
+                    name: String::from("partname"),
+                    path: root().join("resources/it/profiles.json")
+                },
+                File {
+                    name: String::from("file"),
+                    path: root().join("resources/it/profiles2.json")
+                }
+            ])
+        );
+
+        Ok(())
+    }
+
 }
 
 #[cfg(test)]
@@ -344,10 +323,14 @@ mod gql {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use reqwest::Method;
     use serde_json::json;
-    use crate::test_utils::root;
-    use response_handler::RequestResponseHandlerExt;
+    use serde_json::value::Value;
 
     use indoc::indoc;
+    use response_handler::RequestResponseHandlerExt;
+
+    use crate::request::body::Body;
+    use crate::request::has_body::HasBody;
+    use crate::test_utils::root;
 
     use super::*;
 
@@ -386,7 +369,10 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!")
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -430,7 +416,10 @@ mod gql {
                 "var": "entity-id"
             }
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -472,7 +461,10 @@ mod gql {
             "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}\n",
             "variables": {}
         });
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -514,7 +506,10 @@ mod gql {
             "variables": {}
         });
 
-        let body = serde_json::from_str::<Value>(&result.body()?).unwrap();
+        let body = match result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body).unwrap(),
+            _ => panic!("aaaaah!"),
+        };
 
         assert_eq!(result.method()?, Method::POST);
         assert_eq!(result.url()?, "http://server:8080/graphql");
@@ -544,10 +539,18 @@ mod gql {
             fs::read_to_string(&gql_http_extension).unwrap(),
         );
 
-        assert!(&http_extension_result.body()?.starts_with("query"));
+        match http_extension_result.body()? {
+            Body::Plain(body) => assert!(&body.starts_with("query")),
+            _ => panic!("aaaah!"),
+        };
 
-        assert!(serde_json::from_str::<Value>(&gql_http_extension_result.body()?).is_ok());
-        match serde_json::from_str::<Value>(&gql_http_extension_result.body()?).unwrap() {
+        let json_body = match gql_http_extension_result.body()? {
+            Body::Plain(body) => serde_json::from_str::<Value>(&body),
+            _ => panic!("aaaaah!"),
+        };
+
+        assert!(json_body.is_ok());
+        match json_body.unwrap() {
             Value::Object(map) => {
                 assert!(map.contains_key("query"));
                 assert!(map.contains_key("variables"));
@@ -597,9 +600,9 @@ mod gql {
 
 #[cfg(test)]
 mod dependencies {
-    use super::*;
-
     use crate::test_utils::root;
+
+    use super::*;
 
     #[test]
     fn should_find_dependencies() -> Result<()> {

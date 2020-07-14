@@ -1,7 +1,9 @@
-use reqwest::blocking::Client as InnerClient;
 use reqwest::Url;
+use reqwest::blocking::multipart;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
+use crate::request::body::{Body, File};
+use crate::request::has_body::HasBody;
 
 pub struct Client;
 
@@ -14,15 +16,28 @@ impl Client {
         &self,
         request: Request
     ) -> Result<Response> {
-        let client: InnerClient = InnerClient::new();
-        let url = &request.url()?;
+        let client = reqwest::blocking::Client::new();
+        let url = request.url()?;
         let url = Url::parse(url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
-        let req = client
+        let req_body = request.body()?;
+        let req_builder = client
             .request(request.method()?, url)
-            .headers(request.headers()?)
-            .body(request.body()?.into_owned());
-        let response = req.send()?;
+            .headers(request.headers()?);
+
+        let req_builder = match req_body {
+            Body::Plain(body) => req_builder.body(body.into_owned()),
+            Body::Files(files) => {
+                let mut multipart = multipart::Form::new();
+                for File { name, path } in files {
+                    multipart = multipart.file(name, path.clone())
+                        .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
+                }
+                req_builder.multipart(multipart)
+            },
+        };
+
+        let response = req_builder.send()?;
         let status = response.status();
         let headers = response.headers().clone();
         let text = response.text().unwrap();
