@@ -26,8 +26,10 @@ There are multiple ways to install fhttp:
 * Save a collection of requests right in your project repository
 * Use profiles to easily switch between environments
 * Resolve (environment) variables in your requests
+* Resolve secrets stored in [pass](https://www.passwordstore.org/)
 * Add dependencies between requests
 * Support for graphql requests
+* multipart file uploads
 
 ## Getting started
 An http file consists of up to three parts:
@@ -177,6 +179,19 @@ In a profile, you can define a variable through a request file. The path is eith
 ```
 
 Requests referenced by variables will only be executed if they're actually used.
+
+## Multipart file uploads
+You can create multipart requests to upload files to the server.
+
+```
+POST http://server
+
+${file("partname", "path_to_file")}
+${file("another_part", "path_to_another_file")}
+```
+
+Every `file(...)` expression becomes a part in the request. Note that the appearance of one or more `file(...)` expressions
+overrides any other content you might specify in the body. Only the files will be part of the request.
 
 ## Random numbers
 Fhttp supports the generation of random, signed 32 bit integers.
