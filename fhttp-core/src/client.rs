@@ -2,7 +2,7 @@ use reqwest::Url;
 use reqwest::blocking::multipart;
 
 use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
-use crate::request::body::Body;
+use crate::request::body::{Body, File};
 use crate::request::has_body::HasBody;
 
 pub struct Client;
@@ -27,7 +27,14 @@ impl Client {
 
         let req_builder = match req_body {
             Body::Plain(body) => req_builder.body(body.into_owned()),
-            Body::Files(_) => unimplemented!(),
+            Body::Files(files) => {
+                let mut multipart = multipart::Form::new();
+                for File { name, path } in files {
+                    multipart = multipart.file(name, path.clone())
+                        .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
+                }
+                req_builder.multipart(multipart)
+            },
         };
 
         let response = req_builder.send()?;
