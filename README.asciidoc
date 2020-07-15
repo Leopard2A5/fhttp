@@ -131,8 +131,7 @@ graphql request file would look like this:
 
 [source]
 ----
-POST
-http://graphqlserver
+POST http://graphqlserver
 Content-Type: application/json
 
 {
@@ -145,7 +144,7 @@ Content-Type: application/json
 
 That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, fhttp supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
 
-[source,http]
+[source]
 ----
 POST http://graphqlserver
 
