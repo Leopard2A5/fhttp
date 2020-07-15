@@ -45,28 +45,45 @@ ____
 
 === Getting started
 
-An http file consists of up to three parts: * the method, url and
-headers * body (optional) * response handler (optional)
+An http file consists of up to three parts:
+
+* the method, url and headers
+* body (optional)
+* response handler (optional)
 
 The method and url are the only mandatory parts. They follow the pattern
 of `<METHOD> <URL>`, e.g. `GET www.google.com`. You can specify headers
 by listing them underneath the first line:
 
-`http request GET http://google.com Content-Type: application/json # ignored: foobar Api-key: 12345`
+[source,http]
+----
+GET http://google.com
+Content-Type: application/json
+# ignored: foobar
+Api-key: 12345`
+----
 
 To add a body, add an empty line after the headers part and write your
-body _without blank lines_ in it:
+body:
 
-```http request POST http://localhost Content-Type: application/json
+[source,http]
+----
+POST http://localhost
+Content-Type: application/json
 
-\{ ``foo'': \{ ``bar'': 5 } }
+{
+  "foo": {
+    "bar": 5
+  }
+}
+----
 
-....
 ## Response handlers
 Suppose you've written a request file to get a JWT for authenticating yourself to another server:
-```http request
+[source,http]
+----
 POST http://authserver/authenticate
-....
+----
 
 and this returns a json like this:
 
@@ -82,13 +99,14 @@ and this returns a json like this:
 If you’re only interested in the access token you can add a response
 handler:
 
-....
+[source,http]
+----
 POST http://authserver/authenticate
 
 > {%
   json $.access_token
 %}
-....
+----
 
 This will apply a json path expression to the response body and extract
 the `access_token` field.
@@ -96,7 +114,11 @@ the `access_token` field.
 With this, you can use your authentication request file in other request
 files:
 
-`http request GET http://protectedserver/resources Authentication: Bearer ${request("authentication.http")}`
+[source,http]
+----
+GET http://protectedserver/resources
+Authentication: Bearer ${request("authentication.http")}
+----
 
 When you now run `fhttp <file>`, fhttp will first run the authentication
 request, apply the response handler and then insert that value in place
@@ -105,28 +127,45 @@ of the `${request("authentication.http")}` and run that.
 === GraphQL requests
 
 GraphQL requests are transmitted to the server as json, so naively a
-graphql request file would look like this: ```http request POST
-http://graphqlserver Content-Type: application/json
+graphql request file would look like this:
 
-\{ ``query'': ``query($var1: String!) \{ foo(var1: $var1) \{ field1 }
-}'', ``variables'': \{ ``var1'': ``val1'' } }
+[source,http]
+----
+POST
+http://graphqlserver
+Content-Type: application/json
 
-....
-That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json. However, fhttp supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
-....
+{
+  "query": "query($var1: String!) { foo(var1: $var1) { field1 } }",
+  "variables": {
+    "var1": "val1"
+  }
+}
+----
 
+That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, fhttp supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
+
+[source,http]
+----
 POST http://graphqlserver
 
-query($var1: String!) \{ foo(var1: $var1) \{ field1 } }
+query($var1: String!) {
+  foo(var1: $var1) {
+    field1
+  }
+}
 
-\{ ``var1'': ``val1'' }
+{
+  "var1": "val1"
+}
+----
 
-....
 Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
 
 ## Profiles
 In the directory where you execute fhttp, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
-```json
+[source,json]
+----
 {
   "testing": {
     "variables": {
@@ -139,7 +178,7 @@ In the directory where you execute fhttp, you can create a file called `fhttp-co
     }
   }
 }
-....
+----
 
 When you invoke fhttp with your requests you can call it with
 `-p <profile>` to use the corresponding variable definitions. These
@@ -147,8 +186,8 @@ override existing environment variables.
 
 ==== Default profile
 
-When you name your profile ``default'' it will always be used. When
-paired with the –profile argument, the selected profile will be merged
+When you name your profile "default" it will always be used. When
+paired with the –-profile argument, the selected profile will be merged
 with and override variables set in the default.
 
 ==== Pass secrets
@@ -200,12 +239,13 @@ actually used.
 
 You can create multipart requests to upload files to the server.
 
-....
+[source,http]
+----
 POST http://server
 
 ${file("partname", "path_to_file")}
 ${file("another_part", "path_to_another_file")}
-....
+----
 
 Every `file(...)` expression becomes a part in the request. Note that
 the appearance of one or more `file(...)` expressions overrides any
