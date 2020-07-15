@@ -1,18 +1,18 @@
 = FHTTP
 :toc:
 
-File-based command line http client.
-
 == What’s this?
 
-fhttp is not a curl replacement. It’s meant to be a developer’s tool to
+The file-based command line http client.
+
+FHTTP is not a curl replacement. It’s meant to be a developer’s tool to
 make http requests and store them as files, usually in a source code
 repository along with an application accepting http requests. It’s
 inspired by tools like Postman, Insomnia and the IntelliJ http client.
 
 == Installation
 
-There are multiple ways to install fhttp:
+There are multiple ways to install FHTTP:
 
 * through cargo
 [arabic]
@@ -121,7 +121,7 @@ GET http://protectedserver/resources
 Authentication: Bearer ${request("authentication.http")}
 ----
 
-When you now run `fhttp <file>`, fhttp will first run the authentication
+When you now run `fhttp <file>`, FHTTP will first run the authentication
 request, apply the response handler and then insert that value in place
 of the `${request("authentication.http")}` and run that.
 
@@ -143,7 +143,7 @@ Content-Type: application/json
 }
 ----
 
-That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, fhttp supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
+That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, FHTTP supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
 
 [source]
 ----
@@ -163,7 +163,7 @@ query($var1: String!) {
 Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
 
 == Profiles
-In the directory where you execute fhttp, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
+In the directory where you execute FHTTP, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
 [source,json]
 ----
 {
@@ -180,7 +180,7 @@ In the directory where you execute fhttp, you can create a file called `fhttp-co
 }
 ----
 
-When you invoke fhttp with your requests you can call it with
+When you invoke FHTTP with your requests you can call it with
 `-p <profile>` to use the corresponding variable definitions. These
 override existing environment variables.
 
@@ -210,7 +210,7 @@ file and enables you to safely commit it.
 }
 ----
 
-fhttp will call the pass executable (must be in your PATH) to resolve
+FHTTP will call the pass executable (must be in your PATH) to resolve
 the secret and insert it in your request wherever you’ve referenced the
 variable with `${env(variable)}`.
 
