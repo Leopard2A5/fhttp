@@ -12,12 +12,12 @@ jobs:
       cargo login $CRATESIO_APIKEY
       for dir in fhttp-core fhttp; do
         cd $dir
-        cargo publish
+        travis_retry cargo publish
         cd -
       done
   - stage: release MacOS
     os: osx
-    script: cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.macosx
+    script: travis_retry cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.macosx
     if: tag IS present
     deploy:
       provider: releases
@@ -30,7 +30,7 @@ jobs:
         tags: true
   - stage: release linux x64
     os: linux
-    script: cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.linux_x64
+    script: travis_retry cargo build --release --workspace && mv target/release/fhttp target/release/fhttp.linux_x64
     if: tag IS present
     deploy:
       provider: releases
