@@ -1,15 +1,16 @@
-== FHTTP
+= FHTTP
+:toc:
 
 File-based command line http client.
 
-=== What’s this?
+== What’s this?
 
 fhttp is not a curl replacement. It’s meant to be a developer’s tool to
 make http requests and store them as files, usually in a source code
 repository along with an application accepting http requests. It’s
 inspired by tools like Postman, Insomnia and the IntelliJ http client.
 
-=== Installation
+== Installation
 
 There are multiple ways to install fhttp:
 
@@ -32,7 +33,7 @@ Linux users: if you get
 you need to install libssl1.0.0: `sudo apt-get install libssl1.0.0`
 ____
 
-=== Features
+== Features
 
 * Simply author a request in a *.http file
 * Save a collection of requests right in your project repository
@@ -43,7 +44,7 @@ ____
 * Support for graphql requests
 * multipart file uploads
 
-=== Getting started
+== Getting started
 
 An http file consists of up to three parts:
 
@@ -78,7 +79,7 @@ Content-Type: application/json
 }
 ----
 
-## Response handlers
+== Response handlers
 Suppose you've written a request file to get a JWT for authenticating yourself to another server:
 [source,http]
 ----
@@ -124,7 +125,7 @@ When you now run `fhttp <file>`, fhttp will first run the authentication
 request, apply the response handler and then insert that value in place
 of the `${request("authentication.http")}` and run that.
 
-=== GraphQL requests
+== GraphQL requests
 
 GraphQL requests are transmitted to the server as json, so naively a
 graphql request file would look like this:
@@ -161,7 +162,7 @@ query($var1: String!) {
 
 Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
 
-## Profiles
+== Profiles
 In the directory where you execute fhttp, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
 [source,json]
 ----
@@ -183,13 +184,13 @@ When you invoke fhttp with your requests you can call it with
 `-p <profile>` to use the corresponding variable definitions. These
 override existing environment variables.
 
-==== Default profile
+=== Default profile
 
 When you name your profile "default" it will always be used. When
 paired with the –-profile argument, the selected profile will be merged
 with and override variables set in the default.
 
-==== Pass secrets
+=== Pass secrets
 
 If you use the popular password store
 https://www.passwordstore.org/[pass], you can reference secrets from
@@ -213,7 +214,7 @@ fhttp will call the pass executable (must be in your PATH) to resolve
 the secret and insert it in your request wherever you’ve referenced the
 variable with `${env(variable)}`.
 
-==== Request-defined variables
+=== Request-defined variables
 
 In a profile, you can define a variable through a request file. The path
 is either absolute or relative to the location of the profile file.
@@ -234,7 +235,7 @@ is either absolute or relative to the location of the profile file.
 Requests referenced by variables will only be executed if they’re
 actually used.
 
-=== Multipart file uploads
+== Multipart file uploads
 
 You can create multipart requests to upload files to the server.
 
@@ -251,7 +252,7 @@ the appearance of one or more `file(...)` expressions overrides any
 other content you might specify in the body. Only the files will be part
 of the request.
 
-=== Random numbers
+== Random numbers
 
 Fhttp supports the generation of random, signed 32 bit integers.
 
@@ -268,6 +269,6 @@ ____
 Note: The first parameter needs to be smaller or equal to the second.
 ____
 
-=== UUIDs
+== UUIDs
 
 Generate a random UUID with `${uuid()}`.
