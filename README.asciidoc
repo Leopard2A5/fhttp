@@ -172,7 +172,7 @@ You can create profiles to avoid having to provide variables manually every time
             "URL": "https://testing.myapp.com",
             "CLIENT_ID": "clientid",
             "CLIENT_SECRET": {
-                "path": "path/to/clientsecret/in/passwordstore"
+                "pass": "path/to/clientsecret/in/passwordstore"
             },
             "token": {
                 "request": "get_token.http"
@@ -205,7 +205,7 @@ a|
 a|[source,json]
 ----
 {
-    "path": "path/in/pass"
+    "pass": "path/in/pass"
 }
 ----
 

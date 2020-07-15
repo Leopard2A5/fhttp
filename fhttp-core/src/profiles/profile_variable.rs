@@ -8,7 +8,7 @@ use std::process::Command;
 pub enum ProfileVariable {
     StringValue(String),
     PassSecret {
-        path: String,
+        pass: String,
         #[serde(skip)]
         cache: RefCell<Option<String>>
     },
@@ -24,7 +24,7 @@ impl ProfileVariable {
     ) -> Result<String> {
         match self {
             ProfileVariable::StringValue(ref value) => Ok(value.to_owned()),
-            ProfileVariable::PassSecret { path, cache } => {
+            ProfileVariable::PassSecret { pass: path, cache } => {
                 if cache.borrow().is_none() {
                     let value = resolve_pass(&path)?.trim().to_owned();
                     cache.borrow_mut().replace(value);
@@ -71,11 +71,11 @@ mod test {
     fn deserialize_pass_secret() {
         let input = indoc!(r##"
             {
-                "path": "foo/bar"
+                "pass": "foo/bar"
             }
         "##);
         let result = serde_json::from_str::<ProfileVariable>(&input).unwrap();
-        assert_eq!(result, ProfileVariable::PassSecret { path: "foo/bar".into(), cache: RefCell::new(None) });
+        assert_eq!(result, ProfileVariable::PassSecret { pass: "foo/bar".into(), cache: RefCell::new(None) });
     }
 
 }
