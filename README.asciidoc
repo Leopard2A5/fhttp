@@ -99,7 +99,7 @@ and this returns a json like this:
 If you’re only interested in the access token you can add a response
 handler:
 
-[source,http]
+[source]
 ----
 POST http://authserver/authenticate
 
@@ -129,7 +129,7 @@ of the `${request("authentication.http")}` and run that.
 GraphQL requests are transmitted to the server as json, so naively a
 graphql request file would look like this:
 
-[source,http]
+[source]
 ----
 POST
 http://graphqlserver
@@ -239,7 +239,7 @@ actually used.
 
 You can create multipart requests to upload files to the server.
 
-[source,http]
+[source]
 ----
 POST http://server
 
