@@ -1,0 +1,274 @@
+= FHTTP
+:toc:
+
+== What’s this?
+
+The file-based command line http client.
+
+FHTTP is not a curl replacement. It’s meant to be a developer’s tool to
+make http requests and store them as files, usually in a source code
+repository along with an application accepting http requests. It’s
+inspired by tools like Postman, Insomnia and the IntelliJ http client.
+
+== Installation
+
+There are multiple ways to install FHTTP:
+
+* through cargo
+[arabic]
+. run `cargo install fhttp` and you’re done
+* manually
+[arabic]
+. download the latest version
+https://github.com/Leopard2A5/fhttp/releases[here]
+. rename the downloaded file?
+. make the file executable
+. make sure it’s on your PATH
+
+____
+Linux users: if you get
+
+`error while loading shared libraries: libssl.so.1.0.0: cannot open shared object file: No such file or directory`
+
+you need to install libssl1.0.0: `sudo apt-get install libssl1.0.0`
+____
+
+== Features
+
+* Simply author a request in a *.http file
+* Save a collection of requests right in your project repository
+* Use profiles to easily switch between environments
+* Resolve (environment) variables in your requests
+* Resolve secrets stored in https://www.passwordstore.org/[pass]
+* Add dependencies between requests
+* Support for graphql requests
+* multipart file uploads
+
+== Getting started
+
+An http file consists of up to three parts:
+
+* the method, url and headers
+* body (optional)
+* response handler (optional)
+
+The method and url are the only mandatory parts. They follow the pattern
+of `<METHOD> <URL>`, e.g. `GET www.google.com`. You can specify headers
+by listing them underneath the first line:
+
+[source,http]
+----
+GET http://google.com
+Content-Type: application/json
+# ignored: foobar
+Api-key: 12345`
+----
+
+To add a body, add an empty line after the headers part and write your
+body:
+
+[source,http]
+----
+POST http://localhost
+Content-Type: application/json
+
+{
+  "foo": {
+    "bar": 5
+  }
+}
+----
+
+== Response handlers
+Suppose you've written a request file to get a JWT for authenticating yourself to another server:
+[source,http]
+----
+POST http://authserver/authenticate
+----
+
+and this returns a json like this:
+
+[source,json]
+----
+{
+  "access_token": "token",
+  "expires": "2020-12-31T23:59:59Z",
+  "roles": ["admin"]
+}
+----
+
+If you’re only interested in the access token you can add a response
+handler:
+
+[source]
+----
+POST http://authserver/authenticate
+
+> {%
+  json $.access_token
+%}
+----
+
+This will apply a json path expression to the response body and extract
+the `access_token` field.
+
+With this, you can use your authentication request file in other request
+files:
+
+[source,http]
+----
+GET http://protectedserver/resources
+Authentication: Bearer ${request("authentication.http")}
+----
+
+When you now run `fhttp <file>`, FHTTP will first run the authentication
+request, apply the response handler and then insert that value in place
+of the `${request("authentication.http")}` and run that.
+
+== GraphQL requests
+
+GraphQL requests are transmitted to the server as json, so naively a
+graphql request file would look like this:
+
+[source]
+----
+POST http://graphqlserver
+Content-Type: application/json
+
+{
+  "query": "query($var1: String!) { foo(var1: $var1) { field1 } }",
+  "variables": {
+    "var1": "val1"
+  }
+}
+----
+
+That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, FHTTP supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
+
+[source]
+----
+POST http://graphqlserver
+
+query($var1: String!) {
+  foo(var1: $var1) {
+    field1
+  }
+}
+
+{
+  "var1": "val1"
+}
+----
+
+Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
+
+== Profiles
+In the directory where you execute FHTTP, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
+[source,json]
+----
+{
+  "testing": {
+    "variables": {
+      "var1": "val1-testing"
+    }
+  },
+  "production": {
+    "variables": {
+      "var1": "val1-production"
+    }
+  }
+}
+----
+
+When you invoke FHTTP with your requests you can call it with
+`-p <profile>` to use the corresponding variable definitions. These
+override existing environment variables.
+
+=== Default profile
+
+When you name your profile "default" it will always be used. When
+paired with the –-profile argument, the selected profile will be merged
+with and override variables set in the default.
+
+=== Pass secrets
+
+If you use the popular password store
+https://www.passwordstore.org/[pass], you can reference secrets from
+your profiles file. This allows you to keep secrets out of the profiles
+file and enables you to safely commit it.
+
+[source,json]
+----
+{
+  "testing": {
+    "variables": {
+      "var1": {
+        "path": "/path/inside/pass"
+      }
+    }
+  }
+}
+----
+
+FHTTP will call the pass executable (must be in your PATH) to resolve
+the secret and insert it in your request wherever you’ve referenced the
+variable with `${env(variable)}`.
+
+=== Request-defined variables
+
+In a profile, you can define a variable through a request file. The path
+is either absolute or relative to the location of the profile file.
+
+[source,json]
+----
+{
+  "testing": {
+    "variables": {
+      "var1": {
+        "request": "../requests/foo.http"
+      }
+    }
+  }
+}
+----
+
+Requests referenced by variables will only be executed if they’re
+actually used.
+
+== Multipart file uploads
+
+You can create multipart requests to upload files to the server.
+
+[source]
+----
+POST http://server
+
+${file("partname", "path_to_file")}
+${file("another_part", "path_to_another_file")}
+----
+
+Every `file(...)` expression becomes a part in the request. Note that
+the appearance of one or more `file(...)` expressions overrides any
+other content you might specify in the body. Only the files will be part
+of the request.
+
+== Random numbers
+
+Fhttp supports the generation of random, signed 32 bit integers.
+
+Given that the number generated is signed 32 bit, the lower and upper
+bounds are `-2.147.483.648` and `2.147.483.647`.
+
+The synopsis is `randomInt(min = 0, max = upper_bound)`. This results in
+three different ways of calling the function: 1. `${randomInt()}`
+generates a number between 0 and the upper bound. 1. `${randomInt(-12)}`
+generates a number between -12 and the upper bound. 1.
+`${randomInt(-1, 1)}` generates a number between -1 and 1.
+
+____
+Note: The first parameter needs to be smaller or equal to the second.
+____
+
+== UUIDs
+
+Generate a random UUID with `${uuid()}`.
