@@ -1,26 +1,20 @@
 = FHTTP
 :toc:
+:imagesdir: doc
 
-== What’s this?
-
+== What's this?
 The file-based command line http client.
 
-FHTTP is not a curl replacement. It’s meant to be a developer’s tool to
-make http requests and store them as files, usually in a source code
-repository along with an application accepting http requests. It’s
-inspired by tools like Postman, Insomnia and the IntelliJ http client.
+FHTTP is not a curl replacement. It’s meant to be a developer’s tool to make http requests and store them as files, usually in a source code repository along with an application accepting http requests. It’s inspired by tools like Postman, Insomnia and the IntelliJ http client.
 
 == Installation
 
 There are multiple ways to install FHTTP:
 
 * through cargo
-[arabic]
 . run `cargo install fhttp` and you’re done
 * manually
-[arabic]
-. download the latest version
-https://github.com/Leopard2A5/fhttp/releases[here]
+. download the latest version https://github.com/Leopard2A5/fhttp/releases[here]
 . rename the downloaded file?
 . make the file executable
 . make sure it’s on your PATH
@@ -44,89 +38,189 @@ ____
 * Support for graphql requests
 * multipart file uploads
 
-== Getting started
-
-An http file consists of up to three parts:
-
-* the method, url and headers
-* body (optional)
-* response handler (optional)
-
-The method and url are the only mandatory parts. They follow the pattern
-of `<METHOD> <URL>`, e.g. `GET www.google.com`. You can specify headers
-by listing them underneath the first line:
-
-[source,http]
+== Anatomy of a request file
+A request file looks like this:
+[source]
 ----
-GET http://google.com
-Content-Type: application/json
-# ignored: foobar
-Api-key: 12345`
+METHOD URL
+HEADERS?
+
+BODY?
+
+RESPONSE_HANDLER?
 ----
 
-To add a body, add an empty line after the headers part and write your
-body:
+The only mandatory parts are the method (get, post, patch, ...) and the url. You can prefix header lines with `#` to ignore that line.
 
-[source,http]
+Example request:
+[source]
 ----
-POST http://localhost
-Content-Type: application/json
+POST https://oauth2tokenendpoint
+content-type: application/json; charset=UTF-8
 
 {
-  "foo": {
-    "bar": 5
-  }
+    "client_id": "foo",
+    "client_secret": "bar"
+}
+
+> {%
+    json $.access_token
+%}
+----
+
+== Output
+FHTTP conveniently prints log messages to stderr and response bodies to stdout. For example:
+[source]
+----
+> fhttp request.http
+calling `/users/me/token.http`... 200
+calling `/Users/me/request.http`... 200
+{
+    "payload": 123
 }
 ----
+In this example `request.http` has a dependency on the `token.http` request, which is executed first. FHTTP then preprocesses `request.http` with the data from `token.http` and executes it, printing the result to stdout.
 
-== Response handlers
-Suppose you've written a request file to get a JWT for authenticating yourself to another server:
-[source,http]
+== How does it work?
+
+image::process.png[]
+
+When you invoke FHTTP, the following will happen:
+
+1. find profile file, load default profile, load requested profile, if any
+2. for every given request, find referenced requests, find best execution order
+3. for every request
+    . resolve variables
+    . insert dependency results
+    . send request
+    . apply response handler, if any
+    . save result
+    . print result, unless this request is a dependency and the user didn't explicitly specify it when invoking FHTTP
+
+== Request preprocessing
+You can use expressions in your request files. Expressions have the form `${expression}`. The following table gives an overview of what's currently supported.
+
+.Preprocessing expressions
+|===
+| Expression | Description | Usable in
+
+| `${env(NAME)}`
+| Insert the environment variable NAME, or a profile variable with that name. If the variable is not found, FHTTP will prompt you for it, unless you've activated the `--no-prompt` option.
+| method, url, headers, body
+
+| `${randomInt(lower, upper)}`
+| Insert a random integer. Lower and upper bounds are optional; you have to give a lower if you want to give an upper bound.
+| method, url, headers, body
+
+| `${uuid()}`
+| Insert a randomly generated UUID.
+| method, url, headers, body
+
+| `${request("PATH")}`
+| Insert the postprocessed body of the request file denoted by PATH. PATH can be absolute or relative to the location of the file containing the `request(...)` expression.
+| method, url, headers, body
+
+| `${file("NAME", "PATH")}`
+| Only supported in the body segment of a request. replaces all other body content except for other `file(...)` expressions. Use this to send a multipart request, uploading the given file(s).
+| body
+|===
+
+
+## Response handlers / postprocessing
+
+Every request can contain a single response handler expression. To specify a response handler, leave an empty line after the body, then put the expression in `> {% handler %}`. For example:
+
+[source]
 ----
-POST http://authserver/authenticate
+POST http://localhost:8080
+
+{
+    "foo": "bar"
+}
+
+> {%
+    json $.path.inside.response
+%}
 ----
 
-and this returns a json like this:
+.Supported response handlers
+|===
+| Handler | Description
+
+| json | Accepts a https://support.smartbear.com/readyapi/docs/testing/jsonpath-reference.html[jsonpath] expression that is applied to the response body.
+
+|===
+
+## Profiles
+You can create profiles to avoid having to provide variables manually every time you invoke FHTTP. Profiles allow you to easily switch the target environment of a request. By default, FHTTP will use a file called `fhttp-config.json` if present. A profile file could look like this:
 
 [source,json]
 ----
 {
-  "access_token": "token",
-  "expires": "2020-12-31T23:59:59Z",
-  "roles": ["admin"]
+    "default": {
+        "variables": {
+            "URL": "http://localhost:8080"
+        }
+    },
+    "localhost": {
+        "variables": {
+            "token": "NO_AUTH"
+        }
+    },
+    "testing": {
+        "variables": {
+            "URL": "https://testing.myapp.com",
+            "CLIENT_ID": "clientid",
+            "CLIENT_SECRET": {
+                "path": "path/to/clientsecret/in/passwordstore"
+            },
+            "token": {
+                "request": "get_token.http"
+            }
+        }
+    }
 }
 ----
 
-If you’re only interested in the access token you can add a response
-handler:
+You can change which profile file to use by using the `--profile-file` option.
 
+You can specify which profile to use with the `--profile` option. The default profile is always loaded if one is present and its values are overwritten by any other profile you specify.
+
+Variables in profiles can have different forms:
+
+.Profile variables
+|===
+| Variable | Description | Example
+
+| String
+| Sets the variable to this string.
+a| 
 [source]
 ----
-POST http://authserver/authenticate
-
-> {%
-  json $.access_token
-%}
+"var": "string"
 ----
 
-This will apply a json path expression to the response body and extract
-the `access_token` field.
-
-With this, you can use your authentication request file in other request
-files:
-
-[source,http]
+| Pass secret
+| Resolves the variable using the https://www.passwordstore.org/[pass] password store.
+a|[source,json]
 ----
-GET http://protectedserver/resources
-Authentication: Bearer ${request("authentication.http")}
+{
+    "path": "path/in/pass"
+}
 ----
 
-When you now run `fhttp <file>`, FHTTP will first run the authentication
-request, apply the response handler and then insert that value in place
-of the `${request("authentication.http")}` and run that.
+| Request
+| Resolve a request and use the postprocessed response body for the variable. Absolute path or relative from the location of the profile file.
+a| 
+[source,json]
+----
+{
+    "request": "path/to/request/file"
+}
+----
+|===
 
-== GraphQL requests
-
+== Graphql
 GraphQL requests are transmitted to the server as json, so naively a
 graphql request file would look like this:
 
@@ -143,7 +237,7 @@ Content-Type: application/json
 }
 ----
 
-That's not very pretty, because it's a json payload and the query is transmitted as a string, we need to make it valid json, without line breaks. However, FHTTP supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
+That's not very pretty, especially with longer graphql queries, as we need to escape line breaks in json. However, FHTTP supports graphql requests directly. Just change the file's extension to *.gql.http or *.graphql.http and change it like this:
 
 [source]
 ----
@@ -160,115 +254,4 @@ query($var1: String!) {
 }
 ----
 
-Fhttp automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests.
-
-== Profiles
-In the directory where you execute FHTTP, you can create a file called `fhttp-config.json`, which allows you to create profiles to use in your requests. This file would typically look something like this:
-[source,json]
-----
-{
-  "testing": {
-    "variables": {
-      "var1": "val1-testing"
-    }
-  },
-  "production": {
-    "variables": {
-      "var1": "val1-production"
-    }
-  }
-}
-----
-
-When you invoke FHTTP with your requests you can call it with
-`-p <profile>` to use the corresponding variable definitions. These
-override existing environment variables.
-
-=== Default profile
-
-When you name your profile "default" it will always be used. When
-paired with the –-profile argument, the selected profile will be merged
-with and override variables set in the default.
-
-=== Pass secrets
-
-If you use the popular password store
-https://www.passwordstore.org/[pass], you can reference secrets from
-your profiles file. This allows you to keep secrets out of the profiles
-file and enables you to safely commit it.
-
-[source,json]
-----
-{
-  "testing": {
-    "variables": {
-      "var1": {
-        "path": "/path/inside/pass"
-      }
-    }
-  }
-}
-----
-
-FHTTP will call the pass executable (must be in your PATH) to resolve
-the secret and insert it in your request wherever you’ve referenced the
-variable with `${env(variable)}`.
-
-=== Request-defined variables
-
-In a profile, you can define a variable through a request file. The path
-is either absolute or relative to the location of the profile file.
-
-[source,json]
-----
-{
-  "testing": {
-    "variables": {
-      "var1": {
-        "request": "../requests/foo.http"
-      }
-    }
-  }
-}
-----
-
-Requests referenced by variables will only be executed if they’re
-actually used.
-
-== Multipart file uploads
-
-You can create multipart requests to upload files to the server.
-
-[source]
-----
-POST http://server
-
-${file("partname", "path_to_file")}
-${file("another_part", "path_to_another_file")}
-----
-
-Every `file(...)` expression becomes a part in the request. Note that
-the appearance of one or more `file(...)` expressions overrides any
-other content you might specify in the body. Only the files will be part
-of the request.
-
-== Random numbers
-
-Fhttp supports the generation of random, signed 32 bit integers.
-
-Given that the number generated is signed 32 bit, the lower and upper
-bounds are `-2.147.483.648` and `2.147.483.647`.
-
-The synopsis is `randomInt(min = 0, max = upper_bound)`. This results in
-three different ways of calling the function: 1. `${randomInt()}`
-generates a number between 0 and the upper bound. 1. `${randomInt(-12)}`
-generates a number between -12 and the upper bound. 1.
-`${randomInt(-1, 1)}` generates a number between -1 and 1.
-
-____
-Note: The first parameter needs to be smaller or equal to the second.
-____
-
-== UUIDs
-
-Generate a random UUID with `${uuid()}`.
+FHTTP automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests. Graphql requests also support the full range of preprocessing expressions.
