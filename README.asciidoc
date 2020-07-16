@@ -1,6 +1,10 @@
 = FHTTP
 :toc:
+
 :imagesdir: doc
+ifdef::env-github[]
+:imagesdir: https://raw.githubusercontent.com/Leopard2A5/fhttp/readme-images/doc
+endif::[]
 
 == What's this?
 The file-based command line http client.
