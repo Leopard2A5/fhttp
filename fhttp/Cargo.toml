@@ -8,7 +8,7 @@ description = "File-based command line http client"
 homepage = "https://github.com/Leopard2A5/fhttp"
 documentation = "https://github.com/Leopard2A5/fhttp"
 repository = "https://github.com/Leopard2A5/fhttp"
-readme = "../README.md"
+readme = "../README.asciidoc"
 
 [dependencies]
 fhttp-core = { version = "1.1.0", path = "../fhttp-core" }
