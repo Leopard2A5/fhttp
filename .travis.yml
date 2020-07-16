@@ -13,6 +13,7 @@ jobs:
       for dir in fhttp-core fhttp; do
         cd $dir
         travis_retry cargo publish
+        sleep 5
         cd -
       done
   - stage: release MacOS
