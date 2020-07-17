@@ -9,6 +9,10 @@ impl Config {
     pub fn print_request_paths_and_status(&self) -> bool {
         self.verbosity >= 1
     }
+
+    pub fn print_secret_lookups(&self) -> bool {
+        self.verbosity >= 2
+    }
 }
 
 impl Default for Config {

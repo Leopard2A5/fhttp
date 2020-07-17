@@ -86,7 +86,7 @@ impl Profile {
 
         match self.variables.get(key) {
             Some(ProfileVariable::Request { request }) => Ok(response_store.get(&get_dependency_path(&self.source_path, request))),
-            Some(var) => var.get(),
+            Some(var) => var.get(&config),
             None => get_from_environment(&key, config)
         }
     }
