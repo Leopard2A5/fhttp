@@ -2,17 +2,27 @@ use std::fmt::Display;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
-    pub prompt_missing_env_vars: bool,
-    pub verbosity: u8,
+    prompt_missing_env_vars: bool,
+    verbosity: u8,
 }
 
 impl Config {
-    pub fn print_request_paths_and_status(&self) -> bool {
-        self.verbosity >= 1
+    pub fn new(
+        prompt_missing_env_vars: bool,
+        verbosity: u8,
+    ) -> Self {
+        Config {
+            prompt_missing_env_vars,
+            verbosity,
+        }
     }
 
-    pub fn print_secret_lookups(&self) -> bool {
-        self.verbosity >= 2
+    pub fn prompt_missing_env_vars(&self) -> bool {
+        self.prompt_missing_env_vars
+    }
+
+    pub fn verbosity(&self) -> u8 {
+        self.verbosity
     }
 
     pub fn log<S: Display>(

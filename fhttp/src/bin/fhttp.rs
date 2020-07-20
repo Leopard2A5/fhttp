@@ -39,10 +39,10 @@ fn main() {
             .help("sets the level of verbosity"))
         .get_matches();
 
-    let config = Config {
-        prompt_missing_env_vars: !matches.is_present("no-prompt"),
-        verbosity: matches.occurrences_of("v") as u8 + 1,
-    };
+    let config = Config::new(
+        !matches.is_present("no-prompt"),
+        matches.occurrences_of("v") as u8 + 1,
+    );
 
     let profile_path = matches.value_of("profile-file")
         .map(str::to_owned)

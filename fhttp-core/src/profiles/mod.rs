@@ -116,7 +116,7 @@ fn get_from_environment(
     match env::var(&key) {
         Ok(value) => Ok(value),
         Err(VarError::NotUnicode(_)) => Err(FhttpError::new(format!("environment variable {} is not unicode!", key))),
-        Err(VarError::NotPresent) => match config.prompt_missing_env_vars {
+        Err(VarError::NotPresent) => match config.prompt_missing_env_vars() {
             true => {
                 let value = prompt::<String, _>(&key).unwrap();
                 env::set_var(&key, &value);
