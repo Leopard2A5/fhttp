@@ -37,12 +37,18 @@ fn main() {
             .short("v")
             .multiple(true)
             .help("sets the level of verbosity"))
+        .arg(Arg::with_name("quiet")
+            .short("q")
+            .long("quiet")
+            .help("suppress log outputs")
+            .conflicts_with("v"))
         .get_matches();
 
-    let config = Config {
-        prompt_missing_env_vars: !matches.is_present("no-prompt"),
-        verbosity: matches.occurrences_of("v") as u8 + 1,
-    };
+    let config = Config::new(
+        !matches.is_present("no-prompt"),
+        matches.occurrences_of("v") as u8 + 1,
+        matches.is_present("quiet")
+    );
 
     let profile_path = matches.value_of("profile-file")
         .map(str::to_owned)
