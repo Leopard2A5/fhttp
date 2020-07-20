@@ -91,14 +91,10 @@ fn do_it(
         let dependency = req.dependency;
 
         let path = req.source_path.clone();
-        if config.print_request_paths_and_status() {
-            eprint!("calling '{}'... ", path.to_str().unwrap());
-        }
-        let resp = client.exec(req)?;
 
-        if config.print_request_paths_and_status() {
-            eprintln!("{}", resp.status());
-        }
+        config.log(1, format!("calling '{}'... ", path.to_str().unwrap()));
+        let resp = client.exec(req)?;
+        config.logln(1, format!("{}", resp.status()));
 
         if !resp.status().is_success() {
             if resp.body().trim().is_empty() {

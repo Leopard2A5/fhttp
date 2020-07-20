@@ -27,13 +27,9 @@ impl ProfileVariable {
             ProfileVariable::StringValue(ref value) => Ok(value.to_owned()),
             ProfileVariable::PassSecret { pass: path, cache } => {
                 if cache.borrow().is_none() {
-                    if config.print_secret_lookups() {
-                        eprint!("resolving pass secret '{}'... ", &path);
-                    }
+                    config.log(2, format!("resolving pass secret '{}'... ", &path));
                     let value = resolve_pass(&path)?.trim().to_owned();
-                    if config.print_secret_lookups() {
-                        eprintln!("done");
-                    }
+                    config.logln(2, "done");
                     cache.borrow_mut().replace(value);
                 }
 

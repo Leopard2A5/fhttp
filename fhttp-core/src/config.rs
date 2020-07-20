@@ -1,3 +1,4 @@
+use std::fmt::Display;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -12,6 +13,26 @@ impl Config {
 
     pub fn print_secret_lookups(&self) -> bool {
         self.verbosity >= 2
+    }
+
+    pub fn log<S: Display>(
+        &self,
+        level: u8,
+        message: S
+    ) {
+        if self.verbosity >= level {
+            eprint!("{}", message);
+        }
+    }
+
+    pub fn logln<S: Display>(
+        &self,
+        level: u8,
+        message: S
+    ) {
+        if self.verbosity >= level {
+            eprintln!("{}", message);
+        }
     }
 }
 
