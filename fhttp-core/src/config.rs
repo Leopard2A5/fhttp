@@ -4,16 +4,29 @@ use std::fmt::Display;
 pub struct Config {
     prompt_missing_env_vars: bool,
     verbosity: u8,
+    quiet: bool,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            prompt_missing_env_vars: false,
+            verbosity: 1,
+            quiet: false
+        }
+    }
 }
 
 impl Config {
     pub fn new(
         prompt_missing_env_vars: bool,
         verbosity: u8,
+        quiet: bool
     ) -> Self {
         Config {
             prompt_missing_env_vars,
             verbosity,
+            quiet,
         }
     }
 
@@ -22,7 +35,10 @@ impl Config {
     }
 
     pub fn verbosity(&self) -> u8 {
-        self.verbosity
+        match self.quiet {
+            true => 0,
+            false => self.verbosity
+        }
     }
 
     pub fn log<S: Display>(
@@ -30,7 +46,7 @@ impl Config {
         level: u8,
         message: S
     ) {
-        if self.verbosity >= level {
+        if self.verbosity() >= level {
             eprint!("{}", message);
         }
     }
@@ -40,17 +56,8 @@ impl Config {
         level: u8,
         message: S
     ) {
-        if self.verbosity >= level {
+        if self.verbosity() >= level {
             eprintln!("{}", message);
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            prompt_missing_env_vars: false,
-            verbosity: 1,
         }
     }
 }
