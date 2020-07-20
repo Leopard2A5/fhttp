@@ -33,10 +33,15 @@ fn main() {
             .short("f")
             .takes_value(true)
             .help("profile file to use. can be overridden by env var FHTTP_PROFILE_FILE. defaults to fhttp-config.json"))
+        .arg(Arg::with_name("v")
+            .short("v")
+            .multiple(true)
+            .help("sets the level of verbosity"))
         .get_matches();
 
     let config = Config {
         prompt_missing_env_vars: !matches.is_present("no-prompt"),
+        verbosity: matches.occurrences_of("v") as u8 + 1,
     };
 
     let profile_path = matches.value_of("profile-file")
@@ -86,10 +91,10 @@ fn do_it(
         let dependency = req.dependency;
 
         let path = req.source_path.clone();
-        eprint!("calling '{}'... ", path.to_str().unwrap());
-        let resp = client.exec(req)?;
 
-        eprintln!("{}", resp.status());
+        config.log(1, format!("calling '{}'... ", path.to_str().unwrap()));
+        let resp = client.exec(req)?;
+        config.logln(1, format!("{}", resp.status()));
 
         if !resp.status().is_success() {
             if resp.body().trim().is_empty() {

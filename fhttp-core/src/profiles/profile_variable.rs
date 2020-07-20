@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use crate::{Result, FhttpError};
+use crate::{Result, FhttpError, Config};
 use std::process::Command;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -20,13 +20,16 @@ pub enum ProfileVariable {
 impl ProfileVariable {
 
     pub fn get(
-        &self
+        &self,
+        config: &Config,
     ) -> Result<String> {
         match self {
             ProfileVariable::StringValue(ref value) => Ok(value.to_owned()),
             ProfileVariable::PassSecret { pass: path, cache } => {
                 if cache.borrow().is_none() {
+                    config.log(2, format!("resolving pass secret '{}'... ", &path));
                     let value = resolve_pass(&path)?.trim().to_owned();
+                    config.logln(2, "done");
                     cache.borrow_mut().replace(value);
                 }
 

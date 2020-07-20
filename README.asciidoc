@@ -85,6 +85,9 @@ calling `/Users/me/request.http`... 200
 ----
 In this example `request.http` has a dependency on the `token.http` request, which is executed first. FHTTP then preprocesses `request.http` with the data from `token.http` and executes it, printing the result to stdout.
 
+=== Verbose option
+By increasing the verbosity with the `-v` option, you can tell FHTTP to also log usage of pass secrets. This can be useful if FHTTP seems slow, because the pass lookup can take some time.
+
 == How does it work?
 
 image::process.png[]
