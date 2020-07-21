@@ -35,6 +35,7 @@ fn main() {
             .help("profile file to use. can be overridden by env var FHTTP_PROFILE_FILE. defaults to fhttp-config.json"))
         .arg(Arg::with_name("v")
             .short("v")
+            .long("--verbose")
             .multiple(true)
             .help("sets the level of verbosity"))
         .arg(Arg::with_name("quiet")
