@@ -136,6 +136,10 @@ You can use expressions in your request files. Expressions have the form `${expr
 | Insert the postprocessed body of the request file denoted by PATH. PATH can be absolute or relative to the location of the file containing the `request(...)` expression.
 | method, url, headers, body
 
+| `${include("PATH")}`
+| Insert the content of the file denoted by PATH. FHTTP will remove a single trailing newline character when doing this.
+| method, url, headers, body
+
 | `${file("NAME", "PATH")}`
 | Only supported in the body segment of a request. replaces all other body content except for other `file(...)` expressions. Use this to send a multipart request, uploading the given file(s).
 | body
