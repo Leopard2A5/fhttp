@@ -1,14 +1,14 @@
 use std::ops::Range;
 
-use regex::{Captures, Regex, Match};
-
-use crate::{Config, path_utils, Profile, Request, ResponseStore, Result, FhttpError};
-use crate::random_numbers::random_int;
-use crate::RE_REQUEST;
+use regex::{Captures, Match, Regex};
 use uuid::Uuid;
 
+use crate::{Config, FhttpError, path_utils, Profile, Request, ResponseStore, Result};
+use crate::random_numbers::random_int;
+use crate::RE_REQUEST;
+
 pub trait VariableSupport {
-    fn get_env_vars(&self) -> Vec<(&str, Range<usize>)>;
+    fn get_env_vars(&self) -> Vec<EnvVarOccurrence>;
 
     fn replace_variables(
         &mut self,
@@ -18,20 +18,33 @@ pub trait VariableSupport {
     ) -> Result<()>;
 }
 
+#[derive(Debug)]
+pub struct EnvVarOccurrence<'a> {
+    pub name: &'a str,
+    pub range: Range<usize>,
+    pub default: Option<&'a str>,
+}
+
 impl VariableSupport for Request {
-    fn get_env_vars(&self) -> Vec<(&str, Range<usize>)> {
+    fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
         lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{env\(([^}]+)\)}").unwrap();
+            static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)}"##).unwrap();
         };
 
         RE_ENV.captures_iter(&self.text)
             .collect::<Vec<Captures>>()
             .into_iter()
             .rev()
-            .map(|capture| {
+            .map(|capture: Captures| {
                 let group = capture.get(0).unwrap();
                 let key = capture.get(1).unwrap().as_str();
-                (key, group.start()..group.end())
+                let default = capture.get(3)
+                    .map(|m| m.as_str());
+                EnvVarOccurrence {
+                    name: key,
+                    range: group.start()..group.end(),
+                    default,
+                }
             })
             .collect()
     }
@@ -62,9 +75,9 @@ fn _replace_env_vars(
     if !variables.is_empty() {
         let mut buffer = req.text.clone();
 
-        for (key, range) in variables {
-            let value = profile.get(key, config, response_store)?;
-            buffer.replace_range(range, &value);
+        for occurrence in variables {
+            let value = profile.get(occurrence.name, config, response_store, occurrence.default)?;
+            buffer.replace_range(occurrence.range, &value);
         }
         req.text = buffer;
     }
@@ -219,6 +232,37 @@ mod replace_variables {
                 Authorization: token
 
                 XbodyX
+            "##)
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_handle_env_var_default_values() -> Result<()> {
+        env::set_var("BODY", "body");
+
+        let mut req = Request::new(
+            env::current_dir().unwrap(),
+            indoc!(r##"
+                GET ${env(SRV, "http://localhost:8080")}
+
+                ${env(BODY, "default body")}
+            "##)
+        );
+
+        req.replace_variables(
+            &Profile::empty(env::current_dir().unwrap()),
+            &Config::default(),
+            &ResponseStore::new()
+        )?;
+
+        assert_eq!(
+            &req.text,
+            indoc!(r##"
+                GET http://localhost:8080
+
+                body
             "##)
         );
 
