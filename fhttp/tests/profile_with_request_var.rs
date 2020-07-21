@@ -6,14 +6,10 @@ use std::env;
 use assert_cmd::Command;
 use mockito::mock;
 
-use fhttp_core::test_utils::root;
-
 #[test]
 fn should_resolve() {
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-
-    let base = root().to_str().unwrap().to_owned();
 
     let token = mock("POST", "/token")
         .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
@@ -37,10 +33,10 @@ fn should_resolve() {
 
     assert
         .success()
-        .stderr(format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
-calling '{base}/resources/it/requests/create.http'... 201 Created
-calling '{base}/resources/it/requests/delete_by_env_var.http'... 200 OK
-"##, base=base
+        .stderr(format!(r##"POST {base}/token... 200 OK
+POST {base}/resources... 201 Created
+DELETE {base}/resources/123456... 200 OK
+"##, base=url
         ));
 
     token.assert();

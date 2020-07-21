@@ -6,12 +6,8 @@ use std::env;
 use assert_cmd::Command;
 use mockito::mock;
 
-use fhttp_core::test_utils::root;
-
 #[test]
 fn should_stop_execution_on_status_400() {
-    let base = root().to_str().unwrap().to_owned();
-
     let url = &mockito::server_url();
     env::set_var("URL", &url);
 
@@ -32,8 +28,8 @@ fn should_stop_execution_on_status_400() {
     assert
         .failure()
         .stderr(format!(
-            "calling '{base}/resources/it/requests/1.http'... 400 Bad Request\ninvalid param\n",
-            base=base
+            "GET {base}/1... 400 Bad Request\ninvalid param\n",
+            base=url
         ));
 
     one.assert();
@@ -42,8 +38,8 @@ fn should_stop_execution_on_status_400() {
 
 #[test]
 fn should_stop_execution_on_connection_issues() {
-    let base = root().to_str().unwrap().to_owned();
-    env::set_var("URL", "http://unreachableurl.foobar");
+    let url = "http://unreachableurl.foobar";
+    env::set_var("URL", url);
 
     let mut cmd = Command::cargo_bin("fhttp").unwrap();
     cmd.arg("../resources/it/requests/1.http");
@@ -56,8 +52,8 @@ fn should_stop_execution_on_connection_issues() {
     assert.failure();
 
     let expectation = format!(
-        "calling '{base}/resources/it/requests/1.http'... error sending request for url (http://unreachableurl.foobar/1): error trying to connect:",
-        base=base
+        "GET {base}/1... error sending request for url (http://unreachableurl.foobar/1): error trying to connect:",
+        base=url
     );
 
     assert!(stderr.contains(&expectation));

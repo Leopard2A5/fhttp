@@ -6,12 +6,8 @@ use std::env;
 use assert_cmd::Command;
 use mockito::mock;
 
-use fhttp_core::test_utils::root;
-
 #[test]
 fn complex_test() {
-    let base = root().to_str().unwrap().to_owned();
-
     let url = &mockito::server_url();
     env::set_var("URL", &url);
     env::set_var("USERNAME", "gordon.shumway");
@@ -50,11 +46,11 @@ fn complex_test() {
     assert
         .success()
         .stdout("123456\n\n\n")
-        .stderr(format!(r##"calling '{base}/resources/it/requests/token.http'... 200 OK
-calling '{base}/resources/it/requests/create.http'... 201 Created
-calling '{base}/resources/it/requests/update.http'... 200 OK
-calling '{base}/resources/it/requests/delete.http'... 200 OK
-"##, base=base
+        .stderr(format!(r##"POST {base}/token... 200 OK
+POST {base}/resources... 201 Created
+PATCH {base}/resources/123456... 200 OK
+DELETE {base}/resources/123456... 200 OK
+"##, base=url
     ));
 
     token.assert();

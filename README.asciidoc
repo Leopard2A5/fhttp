@@ -74,16 +74,21 @@ content-type: application/json; charset=UTF-8
 
 == Output
 FHTTP conveniently prints log messages to stderr and response bodies to stdout. For example:
+
+`> fhttp get-entities.http`
+
 [source]
 ----
 > fhttp request.http
-calling `/users/me/token.http`... 200
-calling `/Users/me/request.http`... 200
+POST https://auth-server/token... 200 OK
+GET https://server/entities... 200 OK
 {
     "payload": 123
 }
 ----
-In this example `request.http` has a dependency on the `token.http` request, which is executed first. FHTTP then preprocesses `request.http` with the data from `token.http` and executes it, printing the result to stdout.
+In this example `get-entities.http` has a dependency on another request to fetch an authentication token, which is executed first. FHTTP then preprocesses `get-entities.http` with the data from `token.http` and executes it, printing the result to stdout.
+
+You can tell FHTTP to print the paths to the executed request files instead of methods and urls, by passing the `-P` or `--print-paths` flag. This is particularly useful when working with graphql servers that combine several queries and mutations under a single path (/graphql).
 
 === Verbose option
 By increasing the verbosity with the `-v` option, you can tell FHTTP to also log usage of pass secrets. This can be useful if FHTTP seems slow, because the pass lookup can take some time.
