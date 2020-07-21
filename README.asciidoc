@@ -115,6 +115,10 @@ You can use expressions in your request files. Expressions have the form `${expr
 | Insert the environment variable NAME, or a profile variable with that name. If the variable is not found, FHTTP will prompt you for it, unless you've activated the `--no-prompt` option.
 | method, url, headers, body
 
+| `${env(NAME, "default")}`
+| Insert the environment variable NAME, or the given default value if the environment variable is not set.
+| method, url, headers, body
+
 | `${randomInt(lower, upper)}`
 | Insert a random integer. Lower and upper bounds are optional; you have to give a lower if you want to give an upper bound.
 | method, url, headers, body
