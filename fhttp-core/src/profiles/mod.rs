@@ -7,8 +7,9 @@ use std::str::FromStr;
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
-use crate::{FhttpError, Result, Config, ResponseStore};
 pub use profile_variable::ProfileVariable;
+
+use crate::{Config, FhttpError, ResponseStore, Result};
 use crate::path_utils::get_dependency_path;
 
 mod profile_variable;
@@ -81,13 +82,14 @@ impl Profile {
         key: K,
         config: &Config,
         response_store: &ResponseStore,
+        default: Option<&'a str>,
     ) -> Result<String> {
         let key = key.into();
 
         match self.variables.get(key) {
             Some(ProfileVariable::Request { request }) => Ok(response_store.get(&get_dependency_path(&self.source_path, request))),
             Some(var) => var.get(&config),
-            None => get_from_environment(&key, config)
+            None => get_from_environment(&key, config, default)
         }
     }
 
@@ -111,18 +113,22 @@ impl Profile {
 
 fn get_from_environment(
     key: &str,
-    config: &Config
+    config: &Config,
+    default: Option<&str>,
 ) -> Result<String> {
     match env::var(&key) {
         Ok(value) => Ok(value),
         Err(VarError::NotUnicode(_)) => Err(FhttpError::new(format!("environment variable {} is not unicode!", key))),
-        Err(VarError::NotPresent) => match config.prompt_missing_env_vars() {
-            true => {
-                let value = prompt::<String, _>(&key).unwrap();
-                env::set_var(&key, &value);
-                Ok(value)
-            },
-            false => Err(FhttpError::new(format!("missing environment variable {}", key)))
+        Err(VarError::NotPresent) => match default {
+            Some(default) => Ok(default.to_owned()),
+            None => match config.prompt_missing_env_vars() {
+                true => {
+                    let value = prompt::<String, _>(&key).unwrap();
+                    env::set_var(&key, &value);
+                    Ok(value)
+                },
+                false => Err(FhttpError::new(format!("missing environment variable {}", key)))
+            }
         }
     }
 }
@@ -133,9 +139,8 @@ mod test {
 
     use maplit::hashmap;
 
-    use crate::test_utils::root;
-
     use crate::profiles::ProfileVariable;
+    use crate::test_utils::root;
 
     use super::*;
 
@@ -173,7 +178,7 @@ mod test {
         };
 
         assert_eq!(
-            profile.get("a", &Config::default(), &ResponseStore::new())?,
+            profile.get("a", &Config::default(), &ResponseStore::new(), None)?,
             String::from("b")
         );
 
@@ -190,7 +195,7 @@ mod test {
         };
 
         assert_eq!(
-            profile.get("a", &Config::default(), &ResponseStore::new())?,
+            profile.get("a", &Config::default(), &ResponseStore::new(), None)?,
             String::from("A")
         );
 
@@ -218,9 +223,9 @@ mod test {
         );
 
         default.override_with(local);
-        assert_eq!(default.get("a", &config, &response_store)?, "A");
-        assert_eq!(default.get("b", &config, &response_store)?, "BBB");
-        assert_eq!(default.get("c", &config, &response_store)?, "CCC");
+        assert_eq!(default.get("a", &config, &response_store, None)?, "A");
+        assert_eq!(default.get("b", &config, &response_store, None)?, "BBB");
+        assert_eq!(default.get("c", &config, &response_store, None)?, "CCC");
 
         Ok(())
     }

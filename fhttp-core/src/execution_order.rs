@@ -1,9 +1,8 @@
-use std::ops::Range;
 use std::path::PathBuf;
 
 use crate::{Config, FhttpError, path_utils, Request};
 use crate::Profile;
-use crate::request::variable_support::VariableSupport;
+use crate::request::variable_support::{VariableSupport, EnvVarOccurrence};
 use crate::Result;
 
 pub fn plan_request_order(
@@ -67,9 +66,9 @@ fn get_env_vars_defined_through_requests(
     profile: &Profile,
     req: &Request
 ) -> Vec<PathBuf> {
-    let vars: Vec<(&str, Range<usize>)> = req.get_env_vars();
+    let vars: Vec<EnvVarOccurrence> = req.get_env_vars();
     vars.into_iter()
-        .map(|(key, _)| profile.defined_through_request(key))
+        .map(|occ| profile.defined_through_request(occ.name))
         .filter(|it| it.is_some())
         .map(|it| it.unwrap())
         .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
