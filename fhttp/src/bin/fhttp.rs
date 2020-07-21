@@ -92,13 +92,11 @@ fn do_it(
     let client = Client::new();
 
     while !preprocessor.is_empty() {
-        let req: Result<Request> = preprocessor.next().unwrap();
-        let req = req?;
+        let req: Request = preprocessor.next().unwrap()?;
         let dependency = req.dependency;
-
         let path = req.source_path.clone();
 
-        config.log(1, format!("calling '{}'... ", path.to_str().unwrap()));
+        config.log(1, format!("{} {}... ", req.method()?, req.url()?));
         let resp = client.exec(req)?;
         config.logln(1, format!("{}", resp.status()));
 
