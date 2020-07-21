@@ -9,6 +9,7 @@ extern crate indoc;
 extern crate promptly;
 extern crate uuid;
 extern crate rand;
+extern crate apply;
 
 pub mod path_utils;
 pub mod random_numbers;
