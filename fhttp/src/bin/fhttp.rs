@@ -42,12 +42,17 @@ fn main() {
             .long("quiet")
             .help("suppress log outputs")
             .conflicts_with("v"))
+        .arg(Arg::with_name("print-paths")
+            .short("P")
+            .long("print-paths")
+            .help("print request file paths instead of method and url"))
         .get_matches();
 
     let config = Config::new(
         !matches.is_present("no-prompt"),
         matches.occurrences_of("v") as u8 + 1,
-        matches.is_present("quiet")
+        matches.is_present("quiet"),
+        matches.is_present("print-paths")
     );
 
     let profile_path = matches.value_of("profile-file")
@@ -96,7 +101,12 @@ fn do_it(
         let dependency = req.dependency;
         let path = req.source_path.clone();
 
-        config.log(1, format!("{} {}... ", req.method()?, req.url()?));
+        let msg = match config.print_file_paths() {
+            true => format!("{}... ", path.to_str().unwrap()),
+            false => format!("{} {}... ", req.method()?, req.url()?),
+        };
+
+        config.log(1, msg);
         let resp = client.exec(req)?;
         config.logln(1, format!("{}", resp.status()));
 

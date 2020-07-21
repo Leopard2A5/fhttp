@@ -6,8 +6,6 @@ use std::env;
 use assert_cmd::Command;
 use mockito::mock;
 
-use fhttp_core::test_utils::root;
-
 #[test]
 fn should_stop_execution_on_status_400() {
     let url = &mockito::server_url();
