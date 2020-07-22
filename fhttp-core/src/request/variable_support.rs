@@ -337,7 +337,7 @@ mod replace_variables {
         let mut req = Request::new(
             env::current_dir().unwrap(),
             indoc!(r##"
-                GET http://${env(SERVER)}
+                GET http://server
 
                 ${include("../resources/it/requests/include_1.txt")}
                 ${include("../resources/it/requests/include_2.txt")}
