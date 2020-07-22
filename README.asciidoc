@@ -3,7 +3,7 @@
 
 :imagesdir: doc
 ifdef::env-github[]
-:imagesdir: https://raw.githubusercontent.com/Leopard2A5/fhttp/readme-images/doc
+:imagesdir: https://raw.githubusercontent.com/Leopard2A5/fhttp/master/doc
 endif::[]
 
 == What's this?
