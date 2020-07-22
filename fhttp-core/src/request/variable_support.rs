@@ -1,9 +1,11 @@
 use std::ops::Range;
 
+use apply::Also;
 use regex::{Captures, Match, Regex};
 use uuid::Uuid;
 
 use crate::{Config, FhttpError, path_utils, Profile, Request, ResponseStore, Result};
+use crate::path_utils::get_dependency_path;
 use crate::random_numbers::random_int;
 use crate::RE_REQUEST;
 
@@ -58,6 +60,7 @@ impl VariableSupport for Request {
         _replace_env_vars(self, profile, config, response_store)?;
         _replace_uuids(self);
         _replace_random_ints(self)?;
+        _replace_includes(self)?;
         _replace_request_dependencies(self, &response_store);
 
         Ok(())
@@ -195,6 +198,41 @@ fn _replace_request_dependencies(
     }
 }
 
+fn _replace_includes(req: &mut Request) -> Result<()> {
+    lazy_static! {
+        static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{include\("([^"]*)"\)}"##).unwrap();
+    };
+
+    let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(&req.text)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+
+    if !reversed_captures.is_empty() {
+        let mut buffer = req.text.clone();
+
+        for capture in reversed_captures {
+            let group = capture.get(0).unwrap();
+            let range = group.start()..group.end();
+            let path = capture.get(1).unwrap().as_str();
+            let path = get_dependency_path(&req.source_path, path);
+            let content = std::fs::read_to_string(&path)
+                .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
+            let content = match content.chars().last() {
+                Some('\n') => content.also(|it| it.truncate(it.len() - 1)),
+                _ => content,
+            };
+
+            buffer.replace_range(range, &content);
+        }
+
+        req.text = buffer;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod replace_variables {
     use std::env;
@@ -290,6 +328,37 @@ mod replace_variables {
         )?;
 
         assert!(REGEX.is_match(&req.text));
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_include_files() -> Result<()> {
+        let mut req = Request::new(
+            env::current_dir().unwrap(),
+            indoc!(r##"
+                GET http://server
+
+                ${include("../resources/it/requests/include_1.txt")}
+                ${include("../resources/it/requests/include_2.txt")}
+            "##)
+        );
+
+        req.replace_variables(
+            &Profile::empty(env::current_dir().unwrap()),
+            &Config::default(),
+            &ResponseStore::new()
+        )?;
+
+        assert_eq!(
+            &req.text,
+            indoc!(r##"
+                GET http://server
+
+                111
+                2222
+            "##)
+        );
 
         Ok(())
     }
