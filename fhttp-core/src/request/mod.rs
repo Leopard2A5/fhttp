@@ -2,13 +2,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use regex::Regex;
+use regex::{Regex, Captures};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
 use crate::errors::FhttpError;
 use crate::errors::Result;
 use crate::path_utils::get_dependency_path;
+use apply::Also;
 
 pub mod response_handler;
 pub mod variable_support;
@@ -31,14 +32,14 @@ impl Request {
     pub fn new<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
-    ) -> Self {
+    ) -> Result<Self> {
         Request::_new(path, text, false)
     }
 
     pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
-    ) -> Self {
+    ) -> Result<Self> {
         Request::_new(path, text, true)
     }
 
@@ -51,24 +52,26 @@ impl Request {
         let content = fs::read_to_string(&path)
             .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
 
-        Ok(
-            match dependency {
-                true => Request::depdendency(&path, content),
-                false => Request::new(&path, content),
-            }
-        )
+        match dependency {
+            true => Request::depdendency(&path, content),
+            false => Request::new(&path, content),
+        }
     }
 
     fn _new<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T,
         dependency: bool
-    ) -> Self {
-        Request {
+    ) -> Result<Self> {
+        let mut ret = Request {
             source_path: path.into(),
             text: text.into(),
             dependency,
-        }
+        };
+
+        ret._replace_includes()?;
+
+        Ok(ret)
     }
 
     pub fn method(&self) -> Result<Method> {
@@ -150,6 +153,41 @@ impl Request {
             path
         )
     }
+
+    fn _replace_includes(&mut self) -> Result<()> {
+        lazy_static! {
+            static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{include\("([^"]*)"\)}"##).unwrap();
+        };
+
+        let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(&self.text)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+
+        if !reversed_captures.is_empty() {
+            let mut buffer = self.text.clone();
+
+            for capture in reversed_captures {
+                let group = capture.get(0).unwrap();
+                let range = group.start()..group.end();
+                let path = capture.get(1).unwrap().as_str();
+                let path = get_dependency_path(&self.source_path, path);
+                let content = std::fs::read_to_string(&path)
+                    .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
+                let content = match content.chars().last() {
+                    Some('\n') => content.also(|it| it.truncate(it.len() - 1)),
+                    _ => content,
+                };
+
+                buffer.replace_range(range, &content);
+            }
+
+            self.text = buffer;
+        }
+
+        Ok(())
+    }
 }
 
 impl PartialEq for Request {
@@ -175,7 +213,7 @@ mod test {
         let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             POST http://localhost:8080
-        "##));
+        "##))?;
 
         assert_eq!(req.method()?, Method::POST);
 
@@ -187,7 +225,7 @@ mod test {
         let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             # POST http://localhost:8080
-        "##));
+        "##))?;
 
         assert_eq!(req.method(), Err(FhttpError::new("Could not find first line")));
 
@@ -199,7 +237,7 @@ mod test {
         let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             # comment
             POST http://localhost:8080
-        "##));
+        "##))?;
 
         assert_eq!(req.url()?, "http://localhost:8080");
 
@@ -216,7 +254,7 @@ mod test {
             accept: application/json
 
             not-a-header: not-a-header-value
-        "##));
+        "##))?;
 
         let mut expected_headers = HeaderMap::new();
         expected_headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json; charset=UTF-8").unwrap());
@@ -238,7 +276,7 @@ mod test {
             > {%
                 json $
             %}
-        "##));
+        "##))?;
 
         assert_eq!(
             req.body()?,
@@ -256,7 +294,7 @@ mod test {
     fn no_body_should_return_empty_string() -> Result<()> {
         let req = Request::new(std::env::current_dir().unwrap(), indoc!(r##"
             POST http://localhost:8080
-        "##));
+        "##))?;
 
         assert_eq!(req.body()?, Body::plain(""));
 
@@ -271,7 +309,7 @@ mod test {
             > {%
                 json $
             %}
-        "##));
+        "##))?;
 
         assert_eq!(req.body()?, Body::plain(""));
 
@@ -285,9 +323,9 @@ mod fileupload {
 
     use crate::request::body::{Body, File};
     use crate::request::has_body::HasBody;
+    use crate::test_utils::root;
 
     use super::*;
-    use crate::test_utils::root;
 
     #[test]
     fn test() -> Result<()> {
@@ -299,7 +337,7 @@ mod fileupload {
                 "file",
                 "../resources/it/profiles2.json"
             )}
-        "##));
+        "##))?;
 
         assert_eq!(
             req.body()?,
@@ -361,7 +399,7 @@ mod gql {
             %}
         "##).to_owned();
 
-        let result = Request::new(&source_path, input);
+        let result = Request::new(&source_path, input)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
@@ -408,7 +446,7 @@ mod gql {
             }
         "##).to_owned();
 
-        let result = Request::new(&source_path, input);
+        let result = Request::new(&source_path, input)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
@@ -455,7 +493,7 @@ mod gql {
             %}
         "##).to_owned();
 
-        let result = Request::new(&source_path, input);
+        let result = Request::new(&source_path, input)?;
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
@@ -499,7 +537,7 @@ mod gql {
         let result = Request::new(
             &source_path,
             input
-        );
+        )?;
 
         let mut headers = HeaderMap::new();
         headers.insert(HeaderName::from_str("Authorization").unwrap(), HeaderValue::from_str("Bearer token").unwrap());
@@ -536,12 +574,12 @@ mod gql {
         let http_extension_result = Request::new(
             &http_extension,
             fs::read_to_string(&http_extension).unwrap()
-        );
+        )?;
 
         let gql_http_extension_result = Request::new(
             &gql_http_extension,
             fs::read_to_string(&gql_http_extension).unwrap(),
-        );
+        )?;
 
         match http_extension_result.body()? {
             Body::Plain(body) => assert!(&body.starts_with("query")),
@@ -581,7 +619,7 @@ mod gql {
                 foo
             }
             "##)
-        );
+        )?;
         assert!(req.headers()?.contains_key(&HeaderName::from_str("content-type").unwrap()));
         assert_eq!(req.headers()?.get(&HeaderName::from_str("content-type").unwrap()), Some(&json));
 
@@ -595,7 +633,7 @@ mod gql {
                 foo
             }
             "##),
-        );
+        )?;
         assert_eq!(req.headers()?.get(&HeaderName::from_str("content-type").unwrap()), Some(&xml));
 
         Ok(())
@@ -619,7 +657,7 @@ ${{request("{}")}}
             source_path.join("resources/test/requests/nested_dependencies/3.http").to_str().unwrap()
         );
 
-        let req = Request::new(&source_path, input);
+        let req = Request::new(&source_path, input)?;
         let dependencies = req.dependencies();
 
         assert_eq!(
@@ -633,4 +671,41 @@ ${{request("{}")}}
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+mod includes {
+    use std::env;
+
+    use indoc::indoc;
+
+    use crate::Result;
+
+    use super::*;
+
+    #[test]
+    fn should_include_files_on_instantiation() -> Result<()> {
+        let req = Request::new(
+            env::current_dir().unwrap(),
+            indoc!(r##"
+                GET http://server
+
+                ${include("../resources/it/requests/include_1.txt")}
+                ${include("../resources/it/requests/include_2.txt")}
+            "##)
+        )?;
+
+        assert_eq!(
+            &req.text,
+            indoc!(r##"
+                GET http://server
+
+                111
+                2222
+            "##)
+        );
+
+        Ok(())
+    }
+
 }
