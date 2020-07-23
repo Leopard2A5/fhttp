@@ -49,7 +49,7 @@ mod tests {
             > {%
                 json $
             %}
-        "##));
+        "##))?;
 
         assert!(req.response_handler()?.is_some());
 
