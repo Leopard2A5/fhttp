@@ -32,22 +32,14 @@ impl Request {
         path: P,
         text: T
     ) -> Self {
-        Request {
-            source_path: path.into(),
-            text: text.into(),
-            dependency: false,
-        }
+        Request::_new(path, text, false)
     }
 
     pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
         path: P,
         text: T
     ) -> Self {
-        Request {
-            source_path: path.into(),
-            text: text.into(),
-            dependency: true,
-        }
+        Request::_new(path, text, true)
     }
 
     pub fn from_file(
@@ -65,6 +57,18 @@ impl Request {
                 false => Request::new(&path, content),
             }
         )
+    }
+
+    fn _new<P: Into<PathBuf>, T: Into<String>>(
+        path: P,
+        text: T,
+        dependency: bool
+    ) -> Self {
+        Request {
+            source_path: path.into(),
+            text: text.into(),
+            dependency,
+        }
     }
 
     pub fn method(&self) -> Result<Method> {
