@@ -1,0 +1,66 @@
+on:
+  push:
+    tags: '*'
+
+jobs:
+  create_release:
+    name: create release
+    runs-on: macos-10.15
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  release:
+    name: release osx
+    runs-on: macos-10.15
+    needs: create_release
+    steps:
+      - uses: actions/checkout@v2
+      - name: install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: build
+        run: cargo build --release --workspace
+      - name: tarball binary
+        run: tar -czf target/release/fhttp.macosx.tar.gz target/release/fhttp
+      - name: create tarball sha
+        id: tarball_sha
+        run: echo "::set-output name=tarball_sha::$(shasum -a 256 target/release/fhttp.macosx.tar.gz |cut -f1 -d ' ')"
+      - name: rename file
+        run: mv target/release/fhttp target/release/fhttp.macosx
+      - name: Upload binary OSX
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: target/release/fhttp.macosx
+          asset_name: fhttp.macosx
+          asset_content_type: application/octet-stream
+      - name: Upload tarball OSX
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: target/release/fhttp.macosx.tar.gz
+          asset_name: fhttp.macosx.tar.gz
+          asset_content_type: application/octet-stream
+      - name: trigger homebrew-fhttp
+        uses: peter-evans/repository-dispatch@v1
+        with:
+          repository: Leopard2A5/homebrew-fhttp
+          token: ${{ secrets.HOMEBREW_TRIGGER_KEY }}
+          event-type: new-release
+          client-payload: '{ "tag": "${{ github.ref }}", "sha": "${{ steps.tarball_sha.outputs.tarball_sha }}" }'
