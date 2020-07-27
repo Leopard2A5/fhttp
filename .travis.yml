@@ -18,8 +18,22 @@ jobs:
       done
   - stage: release MacOS
     os: osx
-    script: travis_retry cargo build --release --workspace && cp target/release/fhttp
-      target/release/fhttp.macosx && tar -czf fhttp.macosx.tar.gz fhttp
+    script: >-
+      travis_retry cargo build --release --workspace
+      && cp target/release/fhttp target/release/fhttp.macosx
+      && tar -czf fhttp.macosx.tar.gz fhttp
+      && openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
+      && echo "Host github.com" >> ~/.ssh/config
+      && echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
+      && chmod 400 travis_key
+      && git clone git@github.com:Leopard2A5/homebrew-fhttp.git
+      && cd homebrew-fhttp/Formula
+      && sh write_formula.sh "${TRAVIS_TAG}" "$(shasum -a 256 ../../target/release/fhttp.macos.tar.gz |cut -f1 -d ' ')" > fhttp.rb
+      && cat fhttp.rb
+      && git add fhttp.rb
+      && git commit -m "release version ${TRAVIS_TAG}"
+      && git push
+      && cd -
     if: tag IS present
     deploy:
       provider: releases
