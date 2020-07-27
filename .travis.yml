@@ -26,7 +26,7 @@ jobs:
       && echo "Host github.com" >> ~/.ssh/config
       && echo "  IdentityFile  $(pwd)/travis_key" >> ~/.ssh/config
       && chmod 400 travis_key
-      && git clone git@github.com:Leopard2A5/homebrew-fhttp.git
+      && git clone --quiet git@github.com:Leopard2A5/homebrew-fhttp.git
       && cd homebrew-fhttp/Formula
       && sh write_formula.sh "${TRAVIS_TAG}" "$(shasum -a 256 ../../target/release/fhttp.macos.tar.gz |cut -f1 -d ' ')" > fhttp.rb
       && cat fhttp.rb
