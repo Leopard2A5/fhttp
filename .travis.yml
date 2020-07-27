@@ -4,6 +4,8 @@ rust:
 jobs:
   include:
   - stage: test
+    script: travis_retry cargo test --workspace --release
+  - stage: test
     script: >-
       openssl aes-256-cbc -k "$travis_key_password" -d -md sha256 -a -in travis_key.enc -out travis_key
       && echo "Host github.com" >> ~/.ssh/config
@@ -14,7 +16,6 @@ jobs:
       && cd homebrew-fhttp/Formula
       && sh write_formula.sh "TRAVIS_TAG" "checksum" > fhttp.rb
       && cat fhttp.rb
-      && travis_retry cargo test --workspace --release
   - stage: release crates-io
     os: linux
     if: tag IS present
