@@ -20,7 +20,7 @@ jobs:
           draft: false
           prerelease: false
 
-  release:
+  release_osx:
     name: release osx
     runs-on: macos-10.15
     needs: create_release
@@ -39,7 +39,7 @@ jobs:
         run: echo "::set-output name=tarball_sha::$(shasum -a 256 target/release/fhttp.macosx.tar.gz |cut -f1 -d ' ')"
       - name: rename file
         run: mv target/release/fhttp target/release/fhttp.macosx
-      - name: Upload binary OSX
+      - name: Upload binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,7 +48,7 @@ jobs:
           asset_path: target/release/fhttp.macosx
           asset_name: fhttp.macosx
           asset_content_type: application/octet-stream
-      - name: Upload tarball OSX
+      - name: Upload tarball
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,3 +64,27 @@ jobs:
           token: ${{ secrets.HOMEBREW_TRIGGER_KEY }}
           event-type: new-release
           client-payload: '{ "tag": "${{ github.ref }}", "sha": "${{ steps.tarball_sha.outputs.tarball_sha }}" }'
+
+  release_linux:
+    name: release linux
+    runs-on: ubuntu-20.04
+    needs: create_release
+    steps:
+      - uses: actions/checkout@v2
+      - name: install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: build
+        run: cargo build --release --workspace
+      - name: rename file
+        run: mv target/release/fhttp target/release/fhttp.linux_x64
+      - name: Upload binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: target/release/fhttp.linux_x64
+          asset_name: fhttp.linux_x64
+          asset_content_type: application/octet-stream
