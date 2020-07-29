@@ -44,7 +44,7 @@ impl Client {
 
         let body = match request.response_handler()? {
             Some(handler) => {
-                handler.process_body(&text)
+                handler.process_body(&text)?
             },
             None => text
         };

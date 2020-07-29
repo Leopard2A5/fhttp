@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use crate::{Result, FhttpError};
 
 #[derive(Debug)]
 pub enum ResponseHandler {
@@ -9,7 +10,7 @@ impl ResponseHandler {
     pub fn process_body(
         &self,
         body: &str
-    ) -> String {
+    ) -> Result<String> {
         match self {
             ResponseHandler::Json { json_path } => process_body_json(json_path, body)
         }
@@ -19,11 +20,16 @@ impl ResponseHandler {
 fn process_body_json(
     json_path: &str,
     body: &str
-) -> String {
+) -> Result<String> {
     use jsonpath::Selector;
     use serde_json::Value;
 
-    let value: Value = serde_json::from_str(body).unwrap();
+    let value: Value = serde_json::from_str(body)
+        .map_err(|e| FhttpError::new(format!(
+            "Error parsing response body as json: {}. Body was '{}'",
+            e.to_string(),
+            body
+        )))?;
 
     let mut selector = Selector::new();
     let json_path_results = selector
@@ -37,8 +43,8 @@ fn process_body_json(
     };
 
     match result {
-        Value::String(string) => string,
-        _ => serde_json::to_string(&result).unwrap()
+        Value::String(string) => Ok(string),
+        _ => Ok(serde_json::to_string(&result).unwrap())
     }
 }
 
@@ -62,7 +68,7 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(body);
 
-        assert_eq!(result, "success");
+        assert_eq!(result, Ok("success"));
     }
 
     #[test]
@@ -79,6 +85,6 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(body);
 
-        assert_eq!(result, "3.141");
+        assert_eq!(result, Ok("3.141"));
     }
 }

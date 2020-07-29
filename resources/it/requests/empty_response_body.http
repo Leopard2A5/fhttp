@@ -1,0 +1,5 @@
+POST ${env(URL)}/
+
+> {%
+    json $.data.numbers
+%}
