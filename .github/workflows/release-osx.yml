@@ -3,6 +3,26 @@ on:
     tags: '*'
 
 jobs:
+  publish_crates:
+    name: publish crates
+    runs-on: macos-10.15
+    steps:
+      - uses: actions/checkout@v2
+      - name: install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: publish
+        run: |
+          cargo login ${{ secrets.CRATESIO_APIKEY }}
+          cd fhttp-core
+          cargo publish
+          cd -
+          sleep 5
+          cd fhttp
+          cargo publish
+          cd -
+
   create_release:
     name: create release
     runs-on: macos-10.15
