@@ -15,8 +15,10 @@ FHTTP is not a curl replacement. It’s meant to be a developer’s tool to make
 
 There are multiple ways to install FHTTP:
 
+* homebrew
+. run `brew tap Leopard2A5/fhttp && brew install fhttp`
 * through cargo
-. run `cargo install fhttp` and you’re done
+. run `cargo install fhttp`
 * manually
 . download the latest version https://github.com/Leopard2A5/fhttp/releases[here]
 . rename the downloaded file?
