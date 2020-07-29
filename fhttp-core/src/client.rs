@@ -42,11 +42,14 @@ impl Client {
         let headers = response.headers().clone();
         let text = response.text().unwrap();
 
-        let body = match request.response_handler()? {
-            Some(handler) => {
-                handler.process_body(&text)?
+        let body = match status.is_success() {
+            true => match request.response_handler()? {
+                Some(handler) => {
+                    handler.process_body(&text)?
+                },
+                None => text
             },
-            None => text
+            false => text,
         };
 
         Ok(

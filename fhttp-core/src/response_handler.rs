@@ -68,7 +68,7 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(body);
 
-        assert_eq!(result, Ok("success"));
+        assert_eq!(result, Ok(String::from("success")));
     }
 
     #[test]
@@ -85,6 +85,6 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(body);
 
-        assert_eq!(result, Ok("3.141"));
+        assert_eq!(result, Ok(String::from("3.141")));
     }
 }
