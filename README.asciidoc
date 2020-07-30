@@ -6,11 +6,8 @@ ifdef::env-github[]
 :imagesdir: https://raw.githubusercontent.com/Leopard2A5/fhttp/master/doc
 endif::[]
 
-++++
-<a class="twitter-follow-button"
-  href="https://twitter.com/fhttp_tool">
-Follow @fhttp_tool</a>
-++++
+image:https://github.com/Leopard2A5/fhttp/workflows/.github/workflows/test.yml/badge.svg[]
+image:https://img.shields.io/twitter/follow/fhttp_tool?style=social[]
 
 == What's this?
 The file-based command line http client.
