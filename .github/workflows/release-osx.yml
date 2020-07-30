@@ -16,11 +16,11 @@ jobs:
         run: |
           cargo login ${{ secrets.CRATESIO_APIKEY }}
           cd fhttp-core
-          cargo publish
+          for i in 1 2; do cargo publish && break; done
           cd -
           sleep 5
           cd fhttp
-          cargo publish
+          for i in 1 2; do cargo publish; done
           cd -
 
   create_release:
@@ -51,7 +51,7 @@ jobs:
         with:
           toolchain: stable
       - name: build
-        run: cargo build --release --workspace
+        run: for i in 1 2; do cargo build --release --workspace; done
       - name: tarball binary
         run: |
           cd target/release
@@ -99,7 +99,7 @@ jobs:
         with:
           toolchain: stable
       - name: build
-        run: cargo build --release --workspace
+        run: for i in 1 2; do cargo build --release --workspace; done
       - name: rename file
         run: mv target/release/fhttp target/release/fhttp.linux_x64
       - name: Upload binary
