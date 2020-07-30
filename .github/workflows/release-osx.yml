@@ -53,7 +53,10 @@ jobs:
       - name: build
         run: cargo build --release --workspace
       - name: tarball binary
-        run: tar -czf target/release/fhttp.macosx.tar.gz target/release/fhttp
+        run: |
+          cd target/release
+          tar -czf fhttp.macosx.tar.gz fhttp
+          cd -
       - name: create tarball sha
         id: tarball_sha
         run: echo "::set-output name=tarball_sha::$(shasum -a 256 target/release/fhttp.macosx.tar.gz |cut -f1 -d ' ')"
