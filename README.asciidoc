@@ -7,7 +7,7 @@ ifdef::env-github[]
 endif::[]
 
 image:https://github.com/Leopard2A5/fhttp/workflows/.github/workflows/test.yml/badge.svg[]
-image:https://img.shields.io/twitter/follow/fhttp_tool?style=social[]
+image:https://img.shields.io/twitter/follow/fhttp_tool?style=social[link=https://twitter.com/fhttp_tool]
 
 == What's this?
 The file-based command line http client.
