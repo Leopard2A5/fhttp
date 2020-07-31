@@ -14,6 +14,27 @@ The file-based command line http client.
 
 FHTTP is not a curl replacement. It’s meant to be a developer’s tool to make http requests and store them as files, usually in a source code repository along with an application accepting http requests. It’s inspired by tools like Postman, Insomnia and the IntelliJ http client.
 
+|===
+|Feature |CUrl |FHTTP |Postman |Insomnia |Intellij
+
+|GUI                                            |✕   |✕   |✓   |✓   |✕
+|Request collections                            |✕*  |✓   |✓   |✓   |✓
+|Versioning                                     |✕*  |✓   |✕   |✕   |✓
+|Scriptable                                     |✓   |✓   |✕   |✕   |✕
+|Env vars                                       |✓   |✓   |✕   |✕   |✓
+|Profiles                                       |✕   |✓   |✓   |✓   |✕
+|https://www.passwordstore.org/[Pass] secrets   |✕*  |✓   |✕   |✕   |✕
+|Run multiple requests in one operation         |✕   |✓   |✓   |✕   |✕
+|Share collections                              |✕*  |✓   |✓** |✕   |✓
+|Full JavaScript response processing            |✕   |✕   |✓   |✕   |✓
+|Plugins                                        |✕   |✕   |✕   |✓   |✕
+|GraphQL schema autocompletion                  |✕   |✕   |✕   |✓   |✕
+
+|===
+$$*$$ available if you use CUrl with shell scripts
+
+$$**$$ requires account
+
 == Installation
 
 There are multiple ways to install FHTTP:
