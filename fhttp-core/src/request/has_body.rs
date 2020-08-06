@@ -100,5 +100,5 @@ impl HasBody for Request {
 
 fn parse_variables(text: &str) -> Result<Value> {
     serde_json::from_str::<Value>(&text)
-        .map_err(|_| FhttpError::new("Error parsing variables"))
+        .map_err(|_| FhttpError::new("Error parsing variables section, seems to be invalid JSON?"))
 }
