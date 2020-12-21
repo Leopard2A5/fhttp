@@ -3,7 +3,8 @@ use std::ops::Range;
 use regex::{Captures, Match, Regex};
 use uuid::Uuid;
 
-use crate::{Config, FhttpError, path_utils, Profile, Request, ResponseStore, Result};
+use crate::{Config, FhttpError, Profile, Request, ResponseStore, Result};
+use crate::path_utils::RelativePath;
 use crate::random_numbers::random_int;
 use crate::RE_REQUEST;
 
@@ -55,6 +56,8 @@ impl VariableSupport for Request {
         config: &Config,
         response_store: &ResponseStore,
     ) -> Result<()> {
+        // self.parsed_request.replace(None);
+
         _replace_env_vars(self, profile, config, response_store)?;
         _replace_uuids(self);
         _replace_random_ints(self)?;
@@ -186,7 +189,7 @@ fn _replace_request_dependencies(
             let range = whole_match.start()..whole_match.end();
 
             let group = capture.get(1).unwrap();
-            let path = path_utils::get_dependency_path(&req.source_path, &group.as_str());
+            let path = req.get_dependency_path(&group.as_str());
 
             buffer.replace_range(range, &response_store.get(&path));
         }

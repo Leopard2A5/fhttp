@@ -12,7 +12,7 @@ fn should_resolve() {
     env::set_var("URL", &url);
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
     let create = mock("POST", "/resources")

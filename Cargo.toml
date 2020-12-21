@@ -1,5 +1,5 @@
 [workspace]
 members = [
     "fhttp",
-    "fhttp-core"
+    "fhttp-core",
 ]

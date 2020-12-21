@@ -13,7 +13,7 @@ fn should_always_load_default_profile() {
 
     let request = mock("POST", "/foo")
         .expect(1)
-        .match_body("A=default-a\nB=default-b\n")
+        .match_body("A=default-a\nB=default-b")
         .with_body("OK")
         .create();
 
@@ -33,7 +33,7 @@ fn should_override_default_profile_with_specified_one() {
 
     let request = mock("POST", "/foo")
         .expect(1)
-        .match_body("A=default-a\nB=test-b\n")
+        .match_body("A=default-a\nB=test-b")
         .with_body("OK")
         .create();
 

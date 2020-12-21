@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use crate::{Config, FhttpError, path_utils, Request};
+use crate::{Config, FhttpError, Request};
+use crate::path_utils::RelativePath;
 use crate::Profile;
-use crate::request::variable_support::{VariableSupport, EnvVarOccurrence};
+use crate::request::variable_support::{EnvVarOccurrence, VariableSupport};
 use crate::Result;
 
 pub fn plan_request_order(
@@ -71,7 +72,7 @@ fn get_env_vars_defined_through_requests(
         .map(|occ| profile.defined_through_request(occ.name))
         .filter(|it| it.is_some())
         .map(|it| it.unwrap())
-        .map(|path| path_utils::get_dependency_path(profile.source_path(), path.to_str().unwrap()))
+        .map(|path| profile.get_dependency_path(path.to_str().unwrap()))
         .collect()
 }
 
@@ -79,9 +80,9 @@ fn get_env_vars_defined_through_requests(
 mod tests {
     use std::env;
 
-    use crate::{Request, Profile, Config, Result, ResponseStore};
-    use crate::test_utils::root;
+    use crate::{Config, Profile, Request, ResponseStore, Result};
     use crate::execution_order::plan_request_order;
+    use crate::test_utils::root;
 
     #[test]
     fn should_resolve_nested_dependencies() -> Result<()> {

@@ -1,17 +1,19 @@
+use std::cell::RefCell;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
-use regex::{Regex, Captures};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use apply::Also;
+use regex::{Captures, Regex};
+use reqwest::header::HeaderMap;
 use reqwest::Method;
 
-use crate::errors::FhttpError;
-use crate::errors::Result;
-use crate::path_utils::get_dependency_path;
-use apply::Also;
+use crate::errors::{FhttpError, Result};
+use crate::parsers::{parse_gql_str, parse_str, ParsedRequest};
+use crate::path_utils::RelativePath;
+use crate::request::body::Body;
+use crate::request::has_body::HasBody;
+use crate::response_handler::ResponseHandler;
 
-pub mod response_handler;
 pub mod variable_support;
 pub mod body;
 pub mod has_body;
@@ -20,11 +22,12 @@ lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)\$\{request\("([^"]+)"\)}"#).unwrap();
 }
 
-#[derive(Debug, Eq)]
+// #[derive(Debug, Eq)]
 pub struct Request {
     pub source_path: PathBuf,
     pub text: String,
     pub dependency: bool,
+    parsed_request: RefCell<Option<ParsedRequest>>,
 }
 
 impl Request {
@@ -67,6 +70,7 @@ impl Request {
             source_path: path.into(),
             text: text.into(),
             dependency,
+            parsed_request: RefCell::new(None),
         };
 
         ret._replace_includes()?;
@@ -75,49 +79,15 @@ impl Request {
     }
 
     pub fn method(&self) -> Result<Method> {
-        let first_line = self.first_line()?;
-        let split: Vec<&str> = first_line.splitn(2, ' ').collect();
-        let method_string = split[0];
-
-        Method::from_str(method_string)
-            .map_err(|_| FhttpError::new(format!("Couldn't parse method '{}'", method_string)))
+        self.parsed_request(|pr| pr.method.clone())
     }
 
-    pub fn url(&self) -> Result<&str> {
-        let first_line = self.first_line()?;
-        let mut split: Vec<&str> = first_line.splitn(2, ' ').collect();
-
-        split.pop()
-            .ok_or(FhttpError::new("Malformed url line"))
+    pub fn url(&self) -> Result<String> {
+        self.parsed_request(|pr| pr.url.clone())
     }
 
     pub fn headers(&self) -> Result<HeaderMap> {
-        let lines = self.text.lines()
-            .map(|line| line.trim())
-            .filter(|line| !line.starts_with('#'))
-            .skip(1)
-            .collect::<Vec<&str>>();
-
-        let mut ret = HeaderMap::new();
-        for line in lines {
-            if line.is_empty() {
-                break;
-            }
-
-            let split: Vec<&str> = line.splitn(2, ':').collect();
-            let key = HeaderName::from_str(split[0].trim())
-                .expect("couldn't create HeaderName");
-            let value_text = split[1].trim();
-            let value = HeaderValue::from_str(value_text).unwrap();
-            ret.insert(key, value);
-        }
-
-        if self.gql_file() {
-            ret.entry("content-type")
-                .or_insert(HeaderValue::from_static("application/json"));
-        }
-
-        Ok(ret)
+        self.parsed_request(|pr| pr.headers.clone())
     }
 
     pub fn dependencies(&self) -> Vec<PathBuf> {
@@ -130,28 +100,42 @@ impl Request {
         ret
     }
 
-    fn first_line(&self) -> Result<&str> {
-        self.text.lines()
-            .map(|line| line.trim())
-            .filter(|line| !line.starts_with("#"))
-            .nth(0)
-            .ok_or(FhttpError::new("Could not find first line"))
-    }
-
     pub fn gql_file(&self) -> bool {
         let filename = self.source_path.file_name().unwrap().to_str().unwrap();
 
         filename.ends_with(".gql.http") || filename.ends_with(".graphql.http")
     }
 
-    pub fn get_dependency_path(
+    pub fn response_handler(&self) -> Result<Option<ResponseHandler>> {
+        self.parsed_request(|pr| pr.response_handler.clone())
+    }
+
+    fn parsed_request<F, R>(
         &self,
-        path: &str
-    ) -> PathBuf {
-        get_dependency_path(
-            &self.source_path,
-            path
-        )
+        func: F,
+    ) -> Result<R>
+    where F: Fn(&ParsedRequest) -> R {
+        if RefCell::borrow(&self.parsed_request).is_none() {
+            self.parse()?;
+        }
+
+        match RefCell::borrow(&self.parsed_request).as_ref() {
+            None => unreachable!(),
+            Some(pr) => Ok(func(pr)),
+        }
+    }
+
+    fn parse(&self) -> Result<()> {
+        self.parsed_request.replace(
+            Some(
+                match self.gql_file() {
+                    true => parse_gql_str(&self.text)?,
+                    false => parse_str(&self.source_path, &self.text)?,
+                }
+            )
+        );
+
+        Ok(())
     }
 
     fn _replace_includes(&mut self) -> Result<()> {
@@ -172,7 +156,7 @@ impl Request {
                 let group = capture.get(0).unwrap();
                 let range = group.start()..group.end();
                 let path = capture.get(1).unwrap().as_str();
-                let path = get_dependency_path(&self.source_path, path);
+                let path = self.get_dependency_path(path);
                 let content = std::fs::read_to_string(&path)
                     .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
                 let content = match content.chars().last() {
@@ -188,6 +172,49 @@ impl Request {
 
         Ok(())
     }
+
+    fn _body(&self) -> Result<&str> {
+        let mut body_start = None;
+        let mut body_end = None;
+        let mut text_index: usize = 0;
+        let mut last_char = None;
+
+        for (index, chr) in self.text.chars().enumerate() {
+            if body_start.is_none() && chr == '\n' && last_char == Some('\n') {
+                body_start = Some(text_index + 1);
+            } else if body_end.is_none() && chr == '%' && &self.text[(index - 4)..index] == "\n> {" {
+                body_end = Some(index - 4);
+                break;
+            }
+
+            last_char = Some(chr);
+            text_index += 1;
+        }
+
+        match body_start {
+            Some(start) => {
+                let end = body_end.unwrap_or(text_index);
+                if start < end {
+                    Ok(&self.text[start..body_end.unwrap_or(text_index)])
+                } else {
+                    Ok("")
+                }
+            },
+            None => Ok(""),
+        }
+    }
+}
+
+impl HasBody for Request {
+    fn body(&self) -> Result<Body> {
+        self.parsed_request(|pr| pr.body.clone())
+    }
+}
+
+impl AsRef<Path> for Request {
+    fn as_ref(&self) -> &Path {
+        &self.source_path
+    }
 }
 
 impl PartialEq for Request {
@@ -201,10 +228,15 @@ impl PartialEq for Request {
 
 #[cfg(test)]
 mod test {
-    use indoc::indoc;
+    use std::str::FromStr;
 
+    use indoc::indoc;
+    use reqwest::header::{HeaderName, HeaderValue};
+
+    use crate::errors::Result;
     use crate::request::body::Body;
     use crate::request::has_body::HasBody;
+    use crate::test_utils::errmsg;
 
     use super::*;
 
@@ -227,7 +259,7 @@ mod test {
             # POST http://localhost:8080
         "##))?;
 
-        assert_eq!(req.method(), Err(FhttpError::new("Could not find first line")));
+        assert!(errmsg(req.method()).contains("expected method"));
 
         Ok(())
     }
@@ -270,7 +302,6 @@ mod test {
             POST http://localhost:8080
 
             this is the body
-
             this as well
 
             > {%
@@ -282,9 +313,8 @@ mod test {
             req.body()?,
             Body::plain(indoc!(r##"
                 this is the body
-
-                this as well
-            "##))
+                this as well"##
+            ))
         );
 
         Ok(())
@@ -321,6 +351,7 @@ mod test {
 mod fileupload {
     use indoc::indoc;
 
+    use crate::errors::Result;
     use crate::request::body::{Body, File};
     use crate::request::has_body::HasBody;
     use crate::test_utils::root;
@@ -361,15 +392,15 @@ mod fileupload {
 #[cfg(test)]
 mod gql {
     use std::fs;
+    use std::str::FromStr;
 
+    use indoc::indoc;
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
     use reqwest::Method;
     use serde_json::json;
     use serde_json::value::Value;
 
-    use indoc::indoc;
-    use response_handler::RequestResponseHandlerExt;
-
+    use crate::errors::Result;
     use crate::request::body::Body;
     use crate::request::has_body::HasBody;
     use crate::test_utils::root;
@@ -500,7 +531,7 @@ mod gql {
         headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let expected_body = json!({
-            "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}\n",
+            "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
             "variables": {}
         });
         let body = match result.body()? {
@@ -544,7 +575,7 @@ mod gql {
         headers.insert(HeaderName::from_str("content-type").unwrap(), HeaderValue::from_str("application/json").unwrap());
 
         let expected_body = json!({
-            "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}\n",
+            "query": "query($var: String!) {\n    entity(id: $var, foo: \"bar\") {\n        field1\n        field2\n    }\n}",
             "variables": {}
         });
 
@@ -642,6 +673,7 @@ mod gql {
 
 #[cfg(test)]
 mod dependencies {
+    use crate::errors::Result;
     use crate::test_utils::root;
 
     use super::*;

@@ -5,3 +5,11 @@ pub fn root() -> PathBuf {
         .parent().unwrap()
         .into()
 }
+
+#[cfg(test)]
+pub fn errmsg<T>(r: crate::errors::Result<T>) -> String {
+    match r {
+        Ok(_) => panic!("expected an Err!"),
+        Err(crate::errors::FhttpError { msg }) => msg,
+    }
+}

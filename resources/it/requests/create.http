@@ -8,4 +8,4 @@ Content-Type: application/json
 
 > {%
   json $.id
-%}}
+%}

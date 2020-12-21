@@ -1,7 +1,7 @@
-use reqwest::Url;
 use reqwest::blocking::multipart;
+use reqwest::Url;
 
-use crate::{Result, FhttpError, Response, Request, RequestResponseHandlerExt};
+use crate::{FhttpError, Request, Response, Result};
 use crate::request::body::{Body, File};
 use crate::request::has_body::HasBody;
 
@@ -18,7 +18,7 @@ impl Client {
     ) -> Result<Response> {
         let client = reqwest::blocking::Client::new();
         let url = request.url()?;
-        let url = Url::parse(url)
+        let url = Url::parse(&url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
         let req_body = request.body()?;
         let req_builder = client
@@ -26,7 +26,7 @@ impl Client {
             .headers(request.headers()?);
 
         let req_builder = match req_body {
-            Body::Plain(body) => req_builder.body(body.into_owned()),
+            Body::Plain(body) => req_builder.body(body),
             Body::Files(files) => {
                 let mut multipart = multipart::Form::new();
                 for File { name, path } in files {

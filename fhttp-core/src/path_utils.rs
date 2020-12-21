@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-pub fn get_dependency_path(
+fn get_dependency_path(
     origin_path: &Path,
     path: &str
 ) -> PathBuf {
@@ -14,4 +14,14 @@ pub fn get_dependency_path(
     };
 
     std::fs::canonicalize(&ret).unwrap()
+}
+
+pub trait RelativePath {
+    fn get_dependency_path(&self, path: &str) -> PathBuf;
+}
+
+impl <T: AsRef<Path>> RelativePath for T {
+    fn get_dependency_path(&self, path: &str) -> PathBuf {
+        get_dependency_path(&self.as_ref(), path)
+    }
 }

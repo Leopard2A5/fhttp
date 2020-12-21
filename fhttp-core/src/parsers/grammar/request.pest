@@ -1,0 +1,37 @@
+WHITESPACE = _{ " " }
+COMMENT = _{ "#" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
+
+method = @{ ASCII_ALPHANUMERIC+ }
+url = @{ (!NEWLINE ~ ANY)+ }
+
+first_line = { method ~ url }
+header_name = { (ASCII_ALPHANUMERIC | "-" | "_" )+ }
+header_value = { (LETTER | NUMBER | PUNCTUATION | SYMBOL | " ")+ }
+header_line = { header_name ~ ":" ~ header_value }
+
+body = { (!NEWLINE{2,} ~ ANY)* }
+
+body_and_response_handler = _{ body ~ NEWLINE{2,} ~ response_handler }
+
+response_handler_end = _{ "%}" }
+response_handler_exp = { (!response_handler_end ~ ANY)+ }
+response_handler_json = { "json" ~ response_handler_exp }
+response_handler = _{
+	">" ~ "{%" ~ NEWLINE* ~
+	response_handler_json ~
+	response_handler_end
+}
+
+file = {
+	SOI ~
+	first_line ~ NEWLINE? ~
+	(header_line ~ NEWLINE?)* ~
+	NEWLINE* ~
+	(
+		(response_handler) |
+		(body_and_response_handler) |
+		body
+	) ~
+	NEWLINE* ~
+	EOI
+}

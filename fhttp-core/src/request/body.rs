@@ -1,21 +1,20 @@
-use std::borrow::Cow;
 use std::path::PathBuf;
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum Body<'a> {
-    Plain(Cow<'a, str>),
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub enum Body {
+    Plain(String),
     Files(Vec<File>),
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct File {
     pub name: String,
     pub path: PathBuf,
 }
 
-impl Body<'_> {
-    #[cfg(test)]
-    pub fn plain<'a, S: Into<Cow<'a, str>>>(body: S) -> Body<'a> {
+#[cfg(test)]
+impl Body {
+    pub fn plain<S: Into<String>>(body: S) -> Body {
         Body::Plain(body.into())
     }
 }

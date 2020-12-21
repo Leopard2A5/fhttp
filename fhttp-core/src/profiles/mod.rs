@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 
 pub use profile_variable::ProfileVariable;
 
-use crate::{Config, FhttpError, ResponseStore, Result};
-use crate::path_utils::get_dependency_path;
+use crate::{Config, ResponseStore};
+use crate::errors::{FhttpError, Result};
+use crate::path_utils::RelativePath;
 
 mod profile_variable;
 
@@ -87,7 +88,7 @@ impl Profile {
         let key = key.into();
 
         match self.variables.get(key) {
-            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&get_dependency_path(&self.source_path, request))),
+            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&self.get_dependency_path(request))),
             Some(var) => var.get(&config),
             None => get_from_environment(&key, config, default)
         }
@@ -108,6 +109,12 @@ impl Profile {
         for (key, value) in other.variables {
             self.variables.insert(key, value);
         }
+    }
+}
+
+impl AsRef<Path> for Profile {
+    fn as_ref(&self) -> &Path {
+        &self.source_path
     }
 }
 

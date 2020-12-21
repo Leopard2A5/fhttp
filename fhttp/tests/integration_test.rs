@@ -15,7 +15,7 @@ fn complex_test() {
 
     let token = mock("POST", "/token")
         .expect(1)
-        .match_body("{\n  \"username\": \"gordon.shumway\",\n  \"password\": \"ilikelucky\"\n}\n")
+        .match_body("{\n  \"username\": \"gordon.shumway\",\n  \"password\": \"ilikelucky\"\n}")
         .match_header("content-type", "application/json")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
@@ -23,7 +23,7 @@ fn complex_test() {
         .expect(1)
         .match_header("authorization", "Bearer secret_token")
         .match_header("content-type", "application/json")
-        .match_body("{\n  \"name\": \"resource\"\n}\n")
+        .match_body("{\n  \"name\": \"resource\"\n}")
         .with_status(201)
         .with_body("{\n  \"id\": \"123456\",\n  \"name\": \"resource\"\n}")
         .create();
@@ -31,7 +31,7 @@ fn complex_test() {
         .expect(1)
         .match_header("authorization", "Bearer secret_token")
         .match_header("content-type", "application/json")
-        .match_body("{\n  \"name\": \"changed resource\"\n}\n")
+        .match_body("{\n  \"name\": \"changed resource\"\n}")
         .create();
     let delete = mock("DELETE", "/resources/123456")
         .expect(1)

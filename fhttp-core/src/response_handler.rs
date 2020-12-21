@@ -1,7 +1,8 @@
 use std::fmt::Debug;
-use crate::{Result, FhttpError};
 
-#[derive(Debug)]
+use crate::errors::{FhttpError, Result};
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ResponseHandler {
     Json { json_path: String },
 }
@@ -50,8 +51,9 @@ fn process_body_json(
 
 #[cfg(test)]
 mod json_tests {
-    use super::*;
     use indoc::indoc;
+
+    use super::*;
 
     #[test]
     fn should_apply_the_jsonpath_expression() {

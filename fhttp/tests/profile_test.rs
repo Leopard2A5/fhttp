@@ -12,7 +12,7 @@ fn use_custom_profile_file_through_cli_option() {
     env::set_var("URL", &url);
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
@@ -34,7 +34,7 @@ fn use_custom_profile_file_through_env_var() {
     env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
@@ -55,7 +55,7 @@ fn profile_file_cli_should_override_env_var() {
     env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles2.json");
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
@@ -78,7 +78,7 @@ fn profile_through_env_var() {
     env::set_var("FHTTP_PROFILE", "it");
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}\n")
+        .match_body("{\n  \"username\": \"username_from_profile\",\n  \"password\": \"password_from_profile\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
@@ -99,7 +99,7 @@ fn profile_through_cli_option_should_precede_env_var() {
     env::set_var("FHTTP_PROFILE", "it");
 
     let token = mock("POST", "/token")
-        .match_body("{\n  \"username\": \"username2\",\n  \"password\": \"password2\"\n}\n")
+        .match_body("{\n  \"username\": \"username2\",\n  \"password\": \"password2\"\n}")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
