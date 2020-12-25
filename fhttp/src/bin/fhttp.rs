@@ -1,13 +1,13 @@
+use std::env;
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
-use std::env;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp_core::{Config, Request, Result, FhttpError, Profiles, Profile};
-use fhttp_core::Requestpreprocessor;
+use fhttp_core::{Config, FhttpError, Profile, Profiles, Request, Result};
 use fhttp_core::Client;
+use fhttp_core::Requestpreprocessor;
 
 fn main() {
     let matches = App::new("fhttp")

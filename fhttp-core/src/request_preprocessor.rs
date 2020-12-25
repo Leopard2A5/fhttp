@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::Path;
 
 use crate::Config;
@@ -8,6 +7,7 @@ use crate::VariableSupport;
 use crate::Result;
 use crate::execution_order::plan_request_order;
 use crate::Profile;
+use crate::path_utils::canonicalize;
 
 // #[derive(Debug)]
 pub struct Requestpreprocessor {
@@ -45,7 +45,7 @@ impl Requestpreprocessor {
         path: &Path,
         response: &str
     ) {
-        let path = fs::canonicalize(&path).unwrap();
+        let path = canonicalize(&path).unwrap();
 
         self.response_data.store(path, response);
     }

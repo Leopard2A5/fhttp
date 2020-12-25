@@ -1,4 +1,11 @@
 use std::path::{Path, PathBuf};
+use std::fs;
+use crate::{FhttpError, Result};
+
+pub fn canonicalize(p: &Path) -> Result<PathBuf> {
+    fs::canonicalize(&p)
+        .map_err(|_| FhttpError::new(format!("cannot convert {} to an absolute path", p.to_str().unwrap())))
+}
 
 fn get_dependency_path(
     origin_path: &Path,
@@ -13,7 +20,7 @@ fn get_dependency_path(
         origin_path.parent().unwrap().join(path).to_path_buf()
     };
 
-    std::fs::canonicalize(&ret).unwrap()
+    canonicalize(&ret).unwrap()
 }
 
 pub trait RelativePath {

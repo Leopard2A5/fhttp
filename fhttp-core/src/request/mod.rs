@@ -1,18 +1,17 @@
 use std::cell::RefCell;
-use std::fs;
 use std::path::{Path, PathBuf};
 
-use apply::Also;
-use regex::{Captures, Regex};
+use regex::Regex;
 use reqwest::header::HeaderMap;
 use reqwest::Method;
 
-use crate::errors::{FhttpError, Result};
+use crate::errors::Result;
 use crate::parsers::{parse_gql_str, parse_str, ParsedRequest};
-use crate::path_utils::RelativePath;
+use crate::path_utils::{RelativePath, canonicalize};
 use crate::request::body::Body;
 use crate::request::has_body::HasBody;
 use crate::response_handler::ResponseHandler;
+use crate::file_includes::load_file_recursively;
 
 pub mod variable_support;
 pub mod body;
@@ -32,33 +31,22 @@ pub struct Request {
 
 impl Request {
 
-    pub fn new<P: Into<PathBuf>, T: Into<String>>(
-        path: P,
-        text: T
-    ) -> Result<Self> {
-        Request::_new(path, text, false)
-    }
-
-    pub fn depdendency<P: Into<PathBuf>, T: Into<String>>(
-        path: P,
-        text: T
-    ) -> Result<Self> {
-        Request::_new(path, text, true)
-    }
-
     pub fn from_file(
         path: &Path,
         dependency: bool,
     ) -> Result<Self> {
-        let path = fs::canonicalize(&path)
-            .map_err(|_| FhttpError::new(format!("cannot convert {} to an absolute path", path.to_str().unwrap())))?;
-        let content = fs::read_to_string(&path)
-            .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
+        let path = canonicalize(&path)?;
+        let content = load_file_recursively(&path)?;
 
-        match dependency {
-            true => Request::depdendency(&path, content),
-            false => Request::new(&path, content),
-        }
+        Request::_new(&path, content, dependency)
+    }
+
+    #[cfg(test)]
+    fn new<P: Into<PathBuf>, T: Into<String>>(
+        path: P,
+        text: T
+    ) -> Result<Self> {
+        Request::_new(path, text, false)
     }
 
     fn _new<P: Into<PathBuf>, T: Into<String>>(
@@ -66,14 +54,12 @@ impl Request {
         text: T,
         dependency: bool
     ) -> Result<Self> {
-        let mut ret = Request {
+        let ret = Request {
             source_path: path.into(),
             text: text.into(),
             dependency,
             parsed_request: RefCell::new(None),
         };
-
-        ret._replace_includes()?;
 
         Ok(ret)
     }
@@ -134,41 +120,6 @@ impl Request {
                 }
             )
         );
-
-        Ok(())
-    }
-
-    fn _replace_includes(&mut self) -> Result<()> {
-        lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{include\("([^"]*)"\)}"##).unwrap();
-        };
-
-        let reversed_captures: Vec<Captures> = RE_ENV.captures_iter(&self.text)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev()
-            .collect();
-
-        if !reversed_captures.is_empty() {
-            let mut buffer = self.text.clone();
-
-            for capture in reversed_captures {
-                let group = capture.get(0).unwrap();
-                let range = group.start()..group.end();
-                let path = capture.get(1).unwrap().as_str();
-                let path = self.get_dependency_path(path);
-                let content = std::fs::read_to_string(&path)
-                    .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
-                let content = match content.chars().last() {
-                    Some('\n') => content.also(|it| it.truncate(it.len() - 1)),
-                    _ => content,
-                };
-
-                buffer.replace_range(range, &content);
-            }
-
-            self.text = buffer;
-        }
 
         Ok(())
     }
@@ -703,41 +654,4 @@ ${{request("{}")}}
 
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod includes {
-    use std::env;
-
-    use indoc::indoc;
-
-    use crate::Result;
-
-    use super::*;
-
-    #[test]
-    fn should_include_files_on_instantiation() -> Result<()> {
-        let req = Request::new(
-            env::current_dir().unwrap(),
-            indoc!(r##"
-                GET http://server
-
-                ${include("../resources/it/requests/include_1.txt")}
-                ${include("../resources/it/requests/include_2.txt")}
-            "##)
-        )?;
-
-        assert_eq!(
-            &req.text,
-            indoc!(r##"
-                GET http://server
-
-                111
-                2222
-            "##)
-        );
-
-        Ok(())
-    }
-
 }
