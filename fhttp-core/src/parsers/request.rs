@@ -3,11 +3,11 @@ use reqwest::Method;
 #[cfg(test)]
 use serde_json::Value;
 
-use crate::request::body::Body;
+use crate::request_def::body::Body;
 use crate::response_handler::ResponseHandler;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ParsedRequest {
+pub struct Request {
     pub method: Method,
     pub url: String,
     pub headers: HeaderMap,
@@ -16,14 +16,14 @@ pub struct ParsedRequest {
 }
 
 #[cfg(test)]
-impl ParsedRequest {
+impl Request {
     pub fn basic(
         method: &'static str,
         url: &'static str
     ) -> Self {
         use std::str::FromStr;
 
-        ParsedRequest {
+        Request {
             method: Method::from_str(method).unwrap(),
             url: url.to_owned(),
             headers: HeaderMap::new(),
@@ -63,6 +63,24 @@ impl ParsedRequest {
     ) -> Self {
         self.body = Body::Plain(
             serde_json::to_string(&body).unwrap()
+        );
+
+        self
+    }
+
+    pub fn file_body(
+        mut self,
+        files: &[(&str, &str)],
+    ) -> Self {
+        use crate::request_def::body::File;
+        use crate::test_utils::root;
+
+        self.body = Body::Files(
+            files.into_iter()
+                .map(|it| (it.0.to_owned(), it.1))
+                .map(|(name, path)| (name, root().join(path)))
+                .map(|(name, path)| File { name, path })
+                .collect()
         );
 
         self

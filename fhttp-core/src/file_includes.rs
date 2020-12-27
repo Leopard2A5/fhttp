@@ -2,20 +2,20 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use regex::{Captures, Regex};
 
 use crate::{FhttpError, Result};
-use crate::path_utils::{RelativePath, canonicalize};
+use crate::path_utils::{RelativePath, canonicalize, CanonicalizedPathBuf};
 
-pub fn load_file_recursively(path: &Path) -> Result<String> {
-    RecursiveFileLoader::new().load_file_recursively(path)
+pub fn load_file_recursively<P: AsRef<Path>>(path: P) -> Result<String> {
+    RecursiveFileLoader::new().load_file_recursively(canonicalize(path.as_ref())?)
 }
 
 struct RecursiveFileLoader {
-    resolved_paths: RefCell<HashMap<PathBuf, String>>,
-    resolution_stack: RefCell<Vec<PathBuf>>,
+    resolved_paths: RefCell<HashMap<CanonicalizedPathBuf, String>>,
+    resolution_stack: RefCell<Vec<CanonicalizedPathBuf>>,
 }
 
 impl RecursiveFileLoader {
@@ -28,23 +28,21 @@ impl RecursiveFileLoader {
 
     fn load_file_recursively(
         &self,
-        path: &Path,
+        path: CanonicalizedPathBuf,
     ) -> Result<String> {
-        let path = canonicalize(&path)?;
-
         self.get_text_for_path(path)
     }
 
     fn find_includes(
         &self,
-        source_path: &Path,
+        source_path: &CanonicalizedPathBuf,
         text: &str,
     ) -> Result<Vec<Include>> {
         lazy_static! {
             static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{include\("([^"]*)"\)}"##).unwrap();
         };
 
-        let reversed_captures: Vec<Include> = RE_ENV.captures_iter(text)
+        let reversed_captures: Result<Vec<Include>> = RE_ENV.captures_iter(text)
             .collect::<Vec<Captures>>()
             .into_iter()
             .rev()
@@ -52,21 +50,23 @@ impl RecursiveFileLoader {
                 let group = capture.get(0).unwrap();
                 let range = group.start()..group.end();
                 let path = capture.get(1).unwrap().as_str();
-                let path = source_path.get_dependency_path(path);
+                let path = source_path.get_dependency_path(path)?;
 
-                Include {
-                    range,
-                    path,
-                }
+                Ok(
+                    Include {
+                        range,
+                        path,
+                    }
+                )
             })
             .collect();
 
-        Ok(reversed_captures)
+        reversed_captures
     }
 
     fn get_text_for_path(
         &self,
-        path: PathBuf,
+        path: CanonicalizedPathBuf,
     ) -> Result<String> {
         if let Some(content) = self.resolved_paths.borrow().get(&path) {
             return Ok(content.clone())
@@ -74,18 +74,18 @@ impl RecursiveFileLoader {
 
         if self.resolution_stack.borrow().contains(&path) {
             let stack = self.resolution_stack.borrow();
-            let last = stack.last().unwrap().to_str().unwrap();
+            let last = stack.last().unwrap().to_str();
             return Err(FhttpError::new(format!(
                 "cyclic dependency detected between '{}' and '{}'",
                 last,
-                path.to_str().unwrap(),
+                path.to_str(),
             )))
         } else {
             self.resolution_stack.borrow_mut().push(path.clone());
         }
 
         let mut content = fs::read_to_string(&path)
-            .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str().unwrap())))?;
+            .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str())))?;
 
         let includes = self.find_includes(&path, &content)?;
         for include in includes {
@@ -107,7 +107,7 @@ impl RecursiveFileLoader {
 #[derive(Debug)]
 struct Include {
     range: Range<usize>,
-    path: PathBuf,
+    path: CanonicalizedPathBuf,
 }
 
 #[cfg(test)]
@@ -152,8 +152,8 @@ mod test {
             Err(FhttpError::new(
                 format!(
                     "cyclic dependency detected between '{}' and '{}'",
-                    three.to_str().unwrap(),
-                    one.to_str().unwrap(),
+                    three.to_str(),
+                    one.to_str(),
                 )
             ))
         );

@@ -1,9 +1,12 @@
 use std::path::PathBuf;
+use crate::path_utils::{CanonicalizedPathBuf, canonicalize};
 
-pub fn root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap()
-        .into()
+pub fn root() -> CanonicalizedPathBuf {
+    canonicalize(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap()
+            .into()
+    ).unwrap()
 }
 
 #[cfg(test)]

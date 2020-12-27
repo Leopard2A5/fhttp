@@ -1,9 +1,9 @@
 use reqwest::blocking::multipart;
-use reqwest::Url;
+use reqwest::{Url, Method};
 
-use crate::{FhttpError, Request, Response, Result};
-use crate::request::body::{Body, File};
-use crate::request::has_body::HasBody;
+use crate::{FhttpError, Response, Result, ResponseHandler};
+use crate::request_def::body::{Body, File};
+use reqwest::header::HeaderMap;
 
 pub struct Client;
 
@@ -14,24 +14,26 @@ impl Client {
 
     pub fn exec(
         &self,
-        request: Request
+        method: Method,
+        url: &str,
+        headers: HeaderMap,
+        body: Body,
+        response_handler: Option<ResponseHandler>,
     ) -> Result<Response> {
         let client = reqwest::blocking::Client::new();
-        let url = request.url()?;
         let url = Url::parse(&url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
-        let req_body = request.body()?;
         let req_builder = client
-            .request(request.method()?, url)
-            .headers(request.headers()?);
+            .request(method, url)
+            .headers(headers);
 
-        let req_builder = match req_body {
+        let req_builder = match body {
             Body::Plain(body) => req_builder.body(body),
             Body::Files(files) => {
                 let mut multipart = multipart::Form::new();
                 for File { name, path } in files {
                     multipart = multipart.file(name, path.clone())
-                        .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
+                        .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str())))?;
                 }
                 req_builder.multipart(multipart)
             },
@@ -43,7 +45,7 @@ impl Client {
         let text = response.text().unwrap();
 
         let body = match status.is_success() {
-            true => match request.response_handler()? {
+            true => match response_handler {
                 Some(handler) => {
                     handler.process_body(&text)?
                 },

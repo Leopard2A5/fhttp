@@ -2,15 +2,49 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use crate::{FhttpError, Result};
 
-pub fn canonicalize(p: &Path) -> Result<PathBuf> {
+pub fn canonicalize(p: &Path) -> Result<CanonicalizedPathBuf> {
     fs::canonicalize(&p)
-        .map_err(|_| FhttpError::new(format!("cannot convert {} to an absolute path", p.to_str().unwrap())))
+        .map_err(|e| FhttpError::new(format!("error opening file {}: {:?}", p.to_str().unwrap(), e.kind())))
+        .map(|p| CanonicalizedPathBuf(p))
 }
 
-fn get_dependency_path(
-    origin_path: &Path,
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Default)]
+pub struct CanonicalizedPathBuf(PathBuf);
+
+impl CanonicalizedPathBuf {
+    pub fn to_str(&self) -> &str {
+        self.0.to_str().unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn join<P: AsRef<Path>>(
+        &self,
+        path: P
+    ) -> Self {
+        canonicalize(&self.0.join(path)).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn path_buf(self) -> PathBuf {
+        self.0
+    }
+
+    pub fn file_name(&self) -> &str {
+        self.0.file_name().unwrap().to_str().unwrap()
+    }
+}
+
+impl AsRef<Path> for CanonicalizedPathBuf {
+    fn as_ref(&self) -> &Path {
+        &self.0
+    }
+}
+
+fn get_dependency_path<O: AsRef<Path>>(
+    origin_path: O,
     path: &str
-) -> PathBuf {
+) -> Result<CanonicalizedPathBuf> {
+    let origin_path = origin_path.as_ref();
     let path = Path::new(path);
     let ret = if path.is_absolute() {
         path.to_path_buf()
@@ -20,15 +54,15 @@ fn get_dependency_path(
         origin_path.parent().unwrap().join(path).to_path_buf()
     };
 
-    canonicalize(&ret).unwrap()
+    canonicalize(&ret)
 }
 
 pub trait RelativePath {
-    fn get_dependency_path(&self, path: &str) -> PathBuf;
+    fn get_dependency_path(&self, path: &str) -> Result<CanonicalizedPathBuf>;
 }
 
 impl <T: AsRef<Path>> RelativePath for T {
-    fn get_dependency_path(&self, path: &str) -> PathBuf {
+    fn get_dependency_path(&self, path: &str) -> Result<CanonicalizedPathBuf> {
         get_dependency_path(&self.as_ref(), path)
     }
 }

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::path::{PathBuf};
+use crate::path_utils::CanonicalizedPathBuf;
 
 #[derive(Debug)]
 pub struct ResponseStore {
-    response_data: HashMap<PathBuf, String>,
+    response_data: HashMap<CanonicalizedPathBuf, String>,
 }
 
 impl ResponseStore {
@@ -11,17 +11,17 @@ impl ResponseStore {
         ResponseStore { response_data: HashMap::new(), }
     }
 
-    pub fn store<P: Into<PathBuf>, V: Into<String>>(
+    pub fn store<V: Into<String>>(
         &mut self,
-        path: P,
+        path: CanonicalizedPathBuf,
         value: V
     ) {
-        self.response_data.insert(path.into(), value.into());
+        self.response_data.insert(path, value.into());
     }
 
     /// # Panics
     /// panics when key not found.
-    pub fn get(&self, path: &PathBuf) -> String {
+    pub fn get(&self, path: &CanonicalizedPathBuf) -> String {
         self.response_data[path].clone()
     }
 }

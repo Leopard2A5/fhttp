@@ -31,5 +31,5 @@ async fn async_test() {
         .arg("-P")
         .assert()
         .success()
-        .stderr(format!("{}/resources/it/requests/1.http... 200 OK\n", root().to_str().unwrap()));
+        .stderr(format!("{}/resources/it/requests/1.http... 200 OK\n", root().to_str()));
 }

@@ -3,21 +3,21 @@ use std::str::FromStr;
 
 use pest::iterators::Pair;
 use pest::Parser;
-use regex::Regex;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
 use crate::errors::{FhttpError, Result};
 use crate::parsers::normal_parser::{RequestParser, Rule};
-use crate::parsers::ParsedRequest;
+use crate::parsers::Request;
 use crate::path_utils::RelativePath;
-use crate::request::body::{Body, File};
+use crate::request_def::body::{Body, File};
 use crate::response_handler::ResponseHandler;
 
-pub fn parse_str<T: AsRef<str>>(
-    path: &Path,
+pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
+    path: P,
     source: T
-) -> Result<ParsedRequest> {
+) -> Result<Request> {
+    let path = path.as_ref();
     let file = RequestParser::parse(Rule::file, source.as_ref())
         .map_err(|e| {
             FhttpError::new(format!("failed to parse file {} {}", path.to_str().unwrap(), e.to_string()))
@@ -41,11 +41,11 @@ pub fn parse_str<T: AsRef<str>>(
     }
 
     Ok(
-        ParsedRequest {
+        Request {
             method,
             url,
             headers,
-            body: plain_body_or_files(&path, body),
+            body: plain_body_or_files(&path, body)?,
             response_handler,
         }
     )
@@ -113,26 +113,23 @@ fn parse_json_response_handler(
 fn plain_body_or_files(
     source_path: &Path,
     body: String,
-) -> Body {
-    lazy_static! {
-        static ref RE_FILE: Regex = Regex::new(r##"(?m)\$\{\s*file\s*\(\s*"([^}]+)"\s*,\s*"([^}]+)"\s*\)\s*\}"##).unwrap();
-    };
-
-    let captures = RE_FILE.captures_iter(&body)
+) -> Result<Body> {
+    use crate::parsers::file_upload_regex;
+    let captures = file_upload_regex::RE_FILE.captures_iter(&body)
         .collect::<Vec<_>>();
 
     if captures.len() == 0 {
-        Body::Plain(body)
+        Ok(Body::Plain(body))
     } else {
-        let files = RE_FILE.captures_iter(&body)
+        let files = file_upload_regex::RE_FILE.captures_iter(&body)
             .map(|capture| {
                 let name = capture.get(1).unwrap().as_str().to_owned();
                 let path = capture.get(2).unwrap().as_str();
-                let path = source_path.get_dependency_path(path);
-                File { name, path }
+                let path = source_path.get_dependency_path(path)?;
+                Ok(File { name, path })
             })
-            .collect::<Vec<_>>();
-        Body::Files(files)
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Body::Files(files))
     }
 }
 
@@ -150,7 +147,7 @@ mod parse_normal_requests {
             DELETE http://localhost:9000/foo
         "##))?;
 
-        assert_eq!(result, ParsedRequest::basic("DELETE", "http://localhost:9000/foo"));
+        assert_eq!(result, Request::basic("DELETE", "http://localhost:9000/foo"));
 
         Ok(())
     }
@@ -165,7 +162,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
         );
@@ -183,7 +180,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .body("body")
         );
 
@@ -202,7 +199,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .response_handler_json("$.data")
         );
 
@@ -224,7 +221,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .body("body\nbody")
                 .response_handler_json("$.data")
         );
@@ -245,7 +242,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("foo", "bar")
                 .body("body")
         );
@@ -266,7 +263,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("foo", "bar")
                 .response_handler_json("foo")
         );
@@ -288,7 +285,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .body("body")
                 .response_handler_json("foo")
         );
@@ -305,7 +302,7 @@ mod parse_normal_requests {
 
         "##))?;
 
-        assert_eq!(result, ParsedRequest::basic("DELETE", "http://localhost:9000/foo"));
+        assert_eq!(result, Request::basic("DELETE", "http://localhost:9000/foo"));
 
         Ok(())
     }
@@ -323,7 +320,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
         );
@@ -345,7 +342,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .body("body")
@@ -369,7 +366,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .response_handler_json("handler")
@@ -395,7 +392,7 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .body("body")
@@ -415,8 +412,29 @@ mod parse_normal_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("accept", "application/xml")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_file_bodies() -> Result<()> {
+        let result = parse_str(&current_dir().unwrap(), indoc!(r##"
+            GET http://localhost:9000/foo
+
+            ${file("partname", "../resources/it/profiles.json")}
+            ${file("file", "../resources/it/profiles2.json")}
+        "##))?;
+
+        assert_eq!(
+            result,
+            Request::basic("GET", "http://localhost:9000/foo")
+                .file_body(&[
+                    ("partname", "resources/it/profiles.json"),
+                    ("file", "resources/it/profiles2.json"),
+                ])
         );
 
         Ok(())

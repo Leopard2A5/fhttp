@@ -5,7 +5,7 @@ use std::str::FromStr;
 
 use clap::{App, Arg, crate_authors, crate_version, Values};
 
-use fhttp_core::{Config, FhttpError, Profile, Profiles, Request, Result};
+use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestDef, Result};
 use fhttp_core::Client;
 use fhttp_core::Requestpreprocessor;
 
@@ -93,22 +93,30 @@ fn do_it(
     profile_name: Option<String>
 ) -> Result<()> {
     let profile = parse_profile(profile_path, profile_name)?;
-    let requests: Vec<Request> = validate_and_parse_files(file_values)?;
+    let requests: Vec<RequestDef> = validate_and_parse_files(file_values)?;
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();
 
     while !preprocessor.is_empty() {
-        let req: Request = preprocessor.next().unwrap()?;
+        let req = preprocessor.next().unwrap()?;
         let dependency = req.dependency;
-        let path = req.source_path.clone();
+        let req = req.parse()?;
+        let path = req.source_path;
+        let req = req.request;
 
         let msg = match config.print_file_paths() {
-            true => format!("{}... ", path.to_str().unwrap()),
-            false => format!("{} {}... ", req.method()?, req.url()?),
+            true => format!("{}... ", &path.to_str()),
+            false => format!("{} {}... ", &req.method, req.url),
         };
 
         config.log(1, msg);
-        let resp = client.exec(req)?;
+        let resp = client.exec(
+            req.method,
+            &req.url,
+            req.headers,
+            req.body,
+            req.response_handler,
+        )?;
         config.logln(1, format!("{}", resp.status()));
 
         if !resp.status().is_success() {
@@ -130,7 +138,7 @@ fn do_it(
     Ok(())
 }
 
-fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
+fn validate_and_parse_files(values: Values) -> Result<Vec<RequestDef>> {
     let files = values
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
@@ -159,7 +167,7 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<Request>> {
 
     let mut ret = vec![];
     for file in files {
-        ret.push(Request::from_file(&file, false)?);
+        ret.push(RequestDef::from_file(&file, false)?);
     }
 
     Ok(ret)

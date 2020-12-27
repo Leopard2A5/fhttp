@@ -1,22 +1,20 @@
-use std::path::PathBuf;
-
-use crate::{Config, FhttpError, Request};
-use crate::path_utils::RelativePath;
+use crate::{Config, FhttpError, RequestDef};
+use crate::path_utils::{RelativePath, CanonicalizedPathBuf};
 use crate::Profile;
-use crate::request::variable_support::{EnvVarOccurrence, VariableSupport};
+use crate::request_def::variable_support::{EnvVarOccurrence, VariableSupport};
 use crate::Result;
 
 pub fn plan_request_order(
-    initial_requests: Vec<Request>,
+    initial_requests: Vec<RequestDef>,
     profile: &Profile,
     config: &Config,
-) -> Result<Vec<Request>> {
+) -> Result<Vec<RequestDef>> {
     let mut preprocessor_stack = vec![];
     let mut requests_with_dependencies = vec![];
 
     for req in &initial_requests {
-        for path in get_env_vars_defined_through_requests(&profile, &req) {
-            let req = Request::from_file(&path, true)?;
+        for path in get_env_vars_defined_through_requests(&profile, &req)? {
+            let req = RequestDef::from_file(&path, true)?;
             preprocess_request(
                 req,
                 &mut requests_with_dependencies,
@@ -39,9 +37,9 @@ pub fn plan_request_order(
 }
 
 fn preprocess_request(
-    req: Request,
-    mut list: &mut Vec<Request>,
-    mut preprocessor_stack: &mut Vec<PathBuf>,
+    req: RequestDef,
+    mut list: &mut Vec<RequestDef>,
+    mut preprocessor_stack: &mut Vec<CanonicalizedPathBuf>,
     config: &Config
 ) -> Result<()> {
     if list.contains(&req) {
@@ -52,8 +50,8 @@ fn preprocess_request(
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    for dep in req.dependencies() {
-        let dep = Request::from_file(&dep, true)?;
+    for dep in req.dependencies()? {
+        let dep = RequestDef::from_file(dep, true)?;
         preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
     }
 
@@ -65,8 +63,8 @@ fn preprocess_request(
 
 fn get_env_vars_defined_through_requests(
     profile: &Profile,
-    req: &Request
-) -> Vec<PathBuf> {
+    req: &RequestDef
+) -> Result<Vec<CanonicalizedPathBuf>> {
     let vars: Vec<EnvVarOccurrence> = req.get_env_vars();
     vars.into_iter()
         .map(|occ| profile.defined_through_request(occ.name))
@@ -80,7 +78,7 @@ fn get_env_vars_defined_through_requests(
 mod tests {
     use std::env;
 
-    use crate::{Config, Profile, Request, ResponseStore, Result};
+    use crate::{Config, Profile, RequestDef, ResponseStore, Result};
     use crate::execution_order::plan_request_order;
     use crate::test_utils::root;
 
@@ -90,7 +88,7 @@ mod tests {
             .join("resources/test/requests/nested_dependencies");
         let init_path = root.join("1.http");
 
-        let init_request = Request::from_file(&init_path, false)?;
+        let init_request = RequestDef::from_file(&init_path, false)?;
 
         let profile = Profile::empty(env::current_dir().unwrap());
         let mut response_store = ResponseStore::new();
@@ -98,7 +96,7 @@ mod tests {
 
         for i in 2..=5 {
             let path = root.join(format!("{}.http", i));
-            response_store.store(&path, &format!("{}", i));
+            response_store.store(path, &format!("{}", i));
         }
 
         let coll = plan_request_order(vec![init_request], &profile, &config)?
@@ -123,14 +121,14 @@ mod tests {
         let path2 = root.join("2.http");
         let dep_path = root.join("dependency.http");
 
-        let req1 = Request::from_file(&path1, false)?;
-        let req2 = Request::from_file(&path2, false)?;
+        let req1 = RequestDef::from_file(&path1, false)?;
+        let req2 = RequestDef::from_file(&path2, false)?;
 
         let profile = Profile::empty(env::current_dir().unwrap());
         let mut response_store = ResponseStore::new();
         let config = Config::default();
 
-        response_store.store(&dep_path, "");
+        response_store.store(dep_path.clone(), "");
         let coll = plan_request_order(vec![req1, req2], &profile, &config)?
             .into_iter()
             .map(|req| req.source_path)
@@ -147,7 +145,7 @@ mod tests {
         let root = root()
             .join("resources/test/requests/cyclic_dependencies");
         let path1 = root.join("1.http");
-        let req1 = Request::from_file(&path1, false).unwrap();
+        let req1 = RequestDef::from_file(&path1, false).unwrap();
 
         plan_request_order(
             vec![req1],

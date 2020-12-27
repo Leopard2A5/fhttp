@@ -9,11 +9,11 @@ use serde_json::Value;
 
 use crate::errors::{FhttpError, Result};
 use crate::parsers::gql_parser::{RequestParser, Rule};
-use crate::parsers::ParsedRequest;
-use crate::request::body::Body;
+use crate::parsers::Request;
+use crate::request_def::body::Body;
 use crate::response_handler::ResponseHandler;
 
-pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<ParsedRequest> {
+pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<Request> {
     let file = RequestParser::parse(Rule::file, source.as_ref())
         .expect("unsuccessful parse") // unwrap the parse result
         .next().unwrap(); // get and unwrap the `file` rule; never fails
@@ -42,6 +42,8 @@ pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<ParsedRequest> {
             .map_err(|_| FhttpError::new("Error parsing variables section, seems to be invalid JSON?"))?,
     };
 
+    disallow_file_uploads(&query)?;
+
     let mut map = Map::new();
     map.insert("query".into(), Value::String(query));
     map.insert("variables".into(), variables);
@@ -51,7 +53,7 @@ pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<ParsedRequest> {
     let body = Body::Plain(body);
 
     Ok(
-        ParsedRequest {
+        Request {
             method,
             url,
             headers: ensure_content_type_json(headers),
@@ -126,6 +128,18 @@ fn ensure_content_type_json(mut map: HeaderMap) -> HeaderMap {
     map
 }
 
+fn disallow_file_uploads(body: &str) -> Result<()> {
+    use crate::parsers::file_upload_regex;
+
+    let captures = file_upload_regex::RE_FILE.captures_iter(&body)
+        .collect::<Vec<_>>();
+
+    match captures.len() {
+        0 => Ok(()),
+        _ => Err(FhttpError::new("file uploads are not allowed in graphql requests"))
+    }
+}
+
 #[cfg(test)]
 mod parse_gql_requests {
     use indoc::indoc;
@@ -145,7 +159,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .gql_body(json!({
@@ -168,7 +182,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/xml")
                 .gql_body(json!({
                     "query": "query",
@@ -194,7 +208,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .gql_body(json!({
                     "query": "query\nquery",
@@ -220,7 +234,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .gql_body(json!({
                     "query": "query",
@@ -250,7 +264,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .body("query\nquery")
                 .response_handler_json("$.data")
@@ -278,7 +292,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .add_header("foo", "bar")
                 .gql_body(json!({
@@ -304,7 +318,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("DELETE", "http://localhost:9000/foo")
+            Request::basic("DELETE", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .gql_body(json!({
                     "query": "query",
@@ -330,7 +344,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .gql_body(json!({
@@ -359,7 +373,7 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
                 .gql_body(json!({
@@ -383,12 +397,29 @@ mod parse_gql_requests {
 
         assert_eq!(
             result,
-            ParsedRequest::basic("GET", "http://localhost:9000/foo")
+            Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json")
                 .gql_body(json!({
                     "query": "query",
                     "variables": {}
                 }))
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_allow_using_file_uploads_in_gql_files() -> Result<()> {
+        let result = parse_gql_str(indoc!(r##"
+            GET http://localhost:9000/foo
+
+            ${file("partname", "../resources/it/profiles.json")}
+            ${file("file", "../resources/it/profiles2.json")}
+        "##));
+
+        assert_eq!(
+            result,
+            Err(FhttpError::new("file uploads are not allowed in graphql requests"))
         );
 
         Ok(())

@@ -1,8 +1,9 @@
-mod parsed_request;
+mod request;
 mod parsing;
 mod parsing_gql;
+mod file_upload_regex;
 
-pub use parsed_request::ParsedRequest;
+pub use request::Request;
 
 pub use parsing::parse_str;
 pub use parsing_gql::parse_gql_str;

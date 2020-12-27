@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use crate::path_utils::CanonicalizedPathBuf;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Body {
@@ -9,7 +9,7 @@ pub enum Body {
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct File {
     pub name: String,
-    pub path: PathBuf,
+    pub path: CanonicalizedPathBuf,
 }
 
 #[cfg(test)]

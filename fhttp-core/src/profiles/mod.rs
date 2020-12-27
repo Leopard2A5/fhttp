@@ -18,7 +18,8 @@ mod profile_variable;
 pub struct Profiles;
 
 impl Profiles {
-    pub fn parse(path: &Path) -> Result<HashMap<String, Profile>> {
+    pub fn parse<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Profile>> {
+        let path = path.as_ref();
         let content = std::fs::read_to_string(&path)
             .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
         let profiles = serde_json::from_str::<HashMap<String, _Profile>>(&content)
@@ -88,7 +89,7 @@ impl Profile {
         let key = key.into();
 
         match self.variables.get(key) {
-            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&self.get_dependency_path(request))),
+            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&self.get_dependency_path(request)?)),
             Some(var) => var.get(&config),
             None => get_from_environment(&key, config, default)
         }
@@ -160,11 +161,11 @@ mod test {
             profiles,
             hashmap!{
                 "development".into() => Profile {
-                    source_path: root().join("resources/test/profiles/profile1.json"),
+                    source_path: root().join("resources/test/profiles/profile1.json").path_buf(),
                     variables: hashmap!{},
                 },
                 "testing".into() => Profile {
-                    source_path: root().join("resources/test/profiles/profile1.json"),
+                    source_path: root().join("resources/test/profiles/profile1.json").path_buf(),
                     variables: hashmap!{
                         "var1".into() => ProfileVariable::StringValue("value1".into())
                     },

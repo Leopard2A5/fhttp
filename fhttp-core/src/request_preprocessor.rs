@@ -1,19 +1,17 @@
-use std::path::Path;
-
 use crate::Config;
 use crate::ResponseStore;
-use crate::Request;
+use crate::RequestDef;
 use crate::VariableSupport;
 use crate::Result;
 use crate::execution_order::plan_request_order;
 use crate::Profile;
-use crate::path_utils::canonicalize;
+use crate::path_utils::CanonicalizedPathBuf;
 
 // #[derive(Debug)]
 pub struct Requestpreprocessor {
     profile: Profile,
     config: Config,
-    requests: Vec<Request>,
+    requests: Vec<RequestDef>,
     response_data: ResponseStore,
 }
 
@@ -21,7 +19,7 @@ impl Requestpreprocessor {
 
     pub fn new(
         profile: Profile,
-        requests: Vec<Request>,
+        requests: Vec<RequestDef>,
         config: Config,
     ) -> Result<Self> {
         let requests_in_order = plan_request_order(requests, &profile, &config)?;
@@ -42,17 +40,15 @@ impl Requestpreprocessor {
 
     pub fn notify_response(
         &mut self,
-        path: &Path,
+        path: &CanonicalizedPathBuf,
         response: &str
     ) {
-        let path = canonicalize(&path).unwrap();
-
-        self.response_data.store(path, response);
+        self.response_data.store(path.clone(), response);
     }
 }
 
 impl Iterator for Requestpreprocessor {
-    type Item = Result<Request>;
+    type Item = Result<RequestDef>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.len() > 0 {
@@ -71,7 +67,7 @@ impl Iterator for Requestpreprocessor {
 mod dependencies {
     use std::env;
 
-    use crate::Request;
+    use crate::RequestDef;
     use crate::test_utils::root;
 
     use super::*;
@@ -83,7 +79,7 @@ mod dependencies {
         let init_path = root.join("4.http");
         let dep_path = root.join("5.http");
 
-        let init_request = Request::from_file(&init_path, false)?;
+        let init_request = RequestDef::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
             Profile::empty(env::current_dir().unwrap()),
@@ -94,7 +90,8 @@ mod dependencies {
         preprocessor.next();
         preprocessor.notify_response(&dep_path, "dependency");
         let result = preprocessor.next().unwrap().unwrap();
-        assert_eq!(result.url()?, "dependency");
+        let req = result.parse()?;
+        assert_eq!(req.request.url, "dependency");
 
         Ok(())
     }

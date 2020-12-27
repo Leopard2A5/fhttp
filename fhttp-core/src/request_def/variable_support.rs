@@ -3,7 +3,7 @@ use std::ops::Range;
 use regex::{Captures, Match, Regex};
 use uuid::Uuid;
 
-use crate::{Config, FhttpError, Profile, Request, ResponseStore, Result};
+use crate::{Config, FhttpError, Profile, RequestDef, ResponseStore, Result};
 use crate::path_utils::RelativePath;
 use crate::random_numbers::random_int;
 use crate::RE_REQUEST;
@@ -26,7 +26,7 @@ pub struct EnvVarOccurrence<'a> {
     pub default: Option<&'a str>,
 }
 
-impl VariableSupport for Request {
+impl VariableSupport for RequestDef {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
         lazy_static! {
             static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)}"##).unwrap();
@@ -61,14 +61,14 @@ impl VariableSupport for Request {
         _replace_env_vars(self, profile, config, response_store)?;
         _replace_uuids(self);
         _replace_random_ints(self)?;
-        _replace_request_dependencies(self, &response_store);
+        _replace_request_dependencies(self, &response_store)?;
 
         Ok(())
     }
 }
 
 fn _replace_env_vars(
-    req: &mut Request,
+    req: &mut RequestDef,
     profile: &Profile,
     config: &Config,
     response_store: &ResponseStore,
@@ -88,7 +88,7 @@ fn _replace_env_vars(
     Ok(())
 }
 
-fn _replace_uuids(req: &mut Request) {
+fn _replace_uuids(req: &mut RequestDef) {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{uuid\(\)}").unwrap();
     };
@@ -114,7 +114,7 @@ fn _replace_uuids(req: &mut Request) {
     }
 }
 
-fn _replace_random_ints(req: &mut Request) -> Result<()> {
+fn _replace_random_ints(req: &mut RequestDef) -> Result<()> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)}").unwrap();
     };
@@ -172,9 +172,9 @@ fn _parse_min_max(
 }
 
 fn _replace_request_dependencies(
-    req: &mut Request,
+    req: &mut RequestDef,
     response_store: &ResponseStore
-) {
+) -> Result<()> {
     let reversed_captures = RE_REQUEST.captures_iter(&req.text)
         .collect::<Vec<_>>()
         .into_iter()
@@ -189,13 +189,15 @@ fn _replace_request_dependencies(
             let range = whole_match.start()..whole_match.end();
 
             let group = capture.get(1).unwrap();
-            let path = req.get_dependency_path(&group.as_str());
+            let path = req.get_dependency_path(&group.as_str())?;
 
             buffer.replace_range(range, &response_store.get(&path));
         }
 
         req.text = buffer;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -212,7 +214,7 @@ mod replace_variables {
         env::set_var("TOKEN", "token");
         env::set_var("BODY", "body");
 
-        let mut req = Request::new(
+        let mut req = RequestDef::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://${env(SERVER)}
@@ -245,7 +247,7 @@ mod replace_variables {
     fn should_handle_env_var_default_values() -> Result<()> {
         env::set_var("BODY", "body");
 
-        let mut req = Request::new(
+        let mut req = RequestDef::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET ${env(SRV, "http://localhost:8080")}
@@ -279,7 +281,7 @@ mod replace_variables {
             static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
         };
 
-        let mut req = Request::new(
+        let mut req = RequestDef::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://X${uuid()}X
