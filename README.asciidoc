@@ -165,7 +165,7 @@ You can use expressions in your request files. Expressions have the form `${expr
 | `${include("PATH")}`
 | Insert the content of the file denoted by PATH. FHTTP will remove a single trailing newline character when including a file.
 
-You can use all expressions inside included files, except `include` itself.
+You can use all expressions inside included files, including `include` itself, this is especially useful when working with GraphQL fragments.
 | method, url, headers, body
 
 | `${file("NAME", "PATH")}`
