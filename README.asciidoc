@@ -12,7 +12,7 @@ image:https://img.shields.io/twitter/follow/fhttp_tool?style=social[link=https:/
 == What's this?
 The file-based command line http client.
 
-FHTTP is not a curl replacement. It’s meant to be a developer’s tool to make http requests and store them as files, usually in a source code repository along with an application accepting http requests. It’s inspired by tools like Postman, Insomnia and the IntelliJ http client.
+FHTTP is not a curl replacement. It’s meant to be a developers’ tool to make http requests and store them as files, usually in a source code repository along with an application accepting http requests. It’s inspired by tools like Postman, Insomnia and the IntelliJ http client.
 
 |===
 |Feature |CUrl |FHTTP |Postman |Insomnia |Intellij
@@ -140,7 +140,7 @@ You can use expressions in your request files. Expressions have the form `${expr
 
 .Preprocessing expressions
 |===
-| Expression | Description | Usable in
+| Expression | Description | Usable in
 
 | `${env(NAME)}`
 | Insert the environment variable NAME, or a profile variable with that name. If the variable is not found, FHTTP will prompt you for it, unless you've activated the `--no-prompt` option.
@@ -238,7 +238,7 @@ Variables in profiles can have different forms:
 
 .Profile variables
 |===
-| Variable | Description | Example
+| Variable | Description | Example
 
 | String
 | Sets the variable to this string.
@@ -303,3 +303,61 @@ query($var1: String!) {
 ----
 
 FHTTP automatically sets the content-type to application/json, escapes the query string and constructs the json payload with the query and variables. Response handlers are also supported in graphql requests. Graphql requests also support the full range of preprocessing expressions.
+
+== Command line flags and options
+
+.Command line flags
+|===
+| Short | Long | Description
+
+| -h
+| --help
+| Print the help screen.
+
+|
+| --no-prompt
+| Fail on missing environment variables instead of prompting for input.
+
+| -P
+| --print-paths
+| Print request file paths instead of method and url.
+
+| -q
+| --quiet
+| Suppress log outputs.
+
+| -v
+| --verbose
+| Control log verbosity.
+
+| -V
+| --version
+| Print the application's version.
+
+|===
+
+.Command line options
+|===
+| Short | Long | Description
+
+| -p
+| --profile
+| The name of the profile to use.
+
+Defaults to "default".
+
+Can be overwritten by env var FHTTP_PROFILE.
+
+| -f
+| --profile-file
+| Path of the profile file to use.
+
+Defaults to fhttp-config.json.
+
+Can be overwritten by env var FHTTP_PROFILE_FILE.
+
+| -t
+| --timeout-ms
+| Set a timeout in ms per request.
+
+|===
