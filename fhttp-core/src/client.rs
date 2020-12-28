@@ -4,6 +4,7 @@ use reqwest::{Url, Method};
 use crate::{FhttpError, Response, Result, ResponseHandler};
 use crate::request_def::body::{Body, File};
 use reqwest::header::HeaderMap;
+use std::time::Duration;
 
 pub struct Client;
 
@@ -19,13 +20,17 @@ impl Client {
         headers: HeaderMap,
         body: Body,
         response_handler: Option<ResponseHandler>,
+        timeout: Option<Duration>,
     ) -> Result<Response> {
         let client = reqwest::blocking::Client::new();
         let url = Url::parse(&url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
-        let req_builder = client
+        let mut req_builder = client
             .request(method, url)
             .headers(headers);
+        if let Some(timeout) = timeout {
+            req_builder = req_builder.timeout(timeout);
+        }
 
         let req_builder = match body {
             Body::Plain(body) => req_builder.body(body),
