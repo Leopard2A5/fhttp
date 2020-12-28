@@ -3,11 +3,12 @@ use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
 
-use clap::{App, Arg, crate_authors, crate_version, Values};
+use clap::{App, Arg, crate_authors, crate_version, Values, value_t};
 
 use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestDef, Result};
 use fhttp_core::Client;
 use fhttp_core::Requestpreprocessor;
+use std::time::Duration;
 
 fn main() {
     let matches = App::new("fhttp")
@@ -47,13 +48,21 @@ fn main() {
             .short("P")
             .long("print-paths")
             .help("print request file paths instead of method and url"))
+        .arg(Arg::with_name("timeout-ms")
+            .short("t")
+            .long("timeout-ms")
+            .takes_value(true)
+            .help("time out after this many ms on each request"))
         .get_matches();
 
     let config = Config::new(
         !matches.is_present("no-prompt"),
         matches.occurrences_of("v") as u8 + 1,
         matches.is_present("quiet"),
-        matches.is_present("print-paths")
+        matches.is_present("print-paths"),
+        value_t!(matches, "timeout-ms", u64)
+            .ok()
+            .map(Duration::from_millis),
     );
 
     let profile_path = matches.value_of("profile-file")
@@ -116,6 +125,7 @@ fn do_it(
             req.headers,
             req.body,
             req.response_handler,
+            config.timeout(),
         )?;
         config.logln(1, format!("{}", resp.status()));
 

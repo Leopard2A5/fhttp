@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::time::Duration;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -6,6 +7,7 @@ pub struct Config {
     verbosity: u8,
     quiet: bool,
     print_file_paths: bool,
+    timeout: Option<Duration>,
 }
 
 impl Default for Config {
@@ -15,6 +17,7 @@ impl Default for Config {
             verbosity: 1,
             quiet: false,
             print_file_paths: false,
+            timeout: None,
         }
     }
 }
@@ -25,12 +28,14 @@ impl Config {
         verbosity: u8,
         quiet: bool,
         print_file_paths: bool,
+        timeout: Option<Duration>,
     ) -> Self {
         Config {
             prompt_missing_env_vars,
             verbosity,
             quiet,
             print_file_paths,
+            timeout,
         }
     }
 
@@ -47,6 +52,10 @@ impl Config {
 
     pub fn print_file_paths(&self) -> bool {
         self.print_file_paths
+    }
+
+    pub fn timeout(&self) -> Option<Duration> {
+        self.timeout
     }
 
     pub fn log<S: Display>(
