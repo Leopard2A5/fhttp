@@ -8,6 +8,7 @@ pub struct Config {
     quiet: bool,
     print_file_paths: bool,
     timeout: Option<Duration>,
+    curl: bool,
 }
 
 impl Default for Config {
@@ -18,6 +19,7 @@ impl Default for Config {
             quiet: false,
             print_file_paths: false,
             timeout: None,
+            curl: false,
         }
     }
 }
@@ -29,6 +31,7 @@ impl Config {
         quiet: bool,
         print_file_paths: bool,
         timeout: Option<Duration>,
+        curl: bool,
     ) -> Self {
         Config {
             prompt_missing_env_vars,
@@ -36,6 +39,7 @@ impl Config {
             quiet,
             print_file_paths,
             timeout,
+            curl,
         }
     }
 
@@ -56,6 +60,10 @@ impl Config {
 
     pub fn timeout(&self) -> Option<Duration> {
         self.timeout
+    }
+
+    pub fn curl(&self) -> bool {
+        self.curl
     }
 
     pub fn log<S: Display>(

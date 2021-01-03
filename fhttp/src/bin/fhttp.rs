@@ -53,6 +53,10 @@ fn main() {
             .long("timeout-ms")
             .takes_value(true)
             .help("time out after this many ms on each request"))
+        .arg(Arg::with_name("curl")
+            .short("c")
+            .long("curl")
+            .help("print curl commands instead of executing given requests. Dependencies are still executed."))
         .get_matches();
 
     let config = Config::new(
@@ -63,6 +67,7 @@ fn main() {
         value_t!(matches, "timeout-ms", u64)
             .ok()
             .map(Duration::from_millis),
+        matches.is_present("curl"),
     );
 
     let profile_path = matches.value_of("profile-file")
