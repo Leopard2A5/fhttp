@@ -51,11 +51,10 @@ jobs:
         with:
           toolchain: stable
       - name: build
-        run: for i in 1 2; do cargo build --release --workspace; done
+        run: for i in 1 2; do cargo build --release --workspace && break; done
       - name: tarball binary
         run: |
           cd target/release
-          chmod +x fhttp
           tar -czf fhttp.macosx.tar.gz fhttp
           cd -
       - name: create tarball sha
