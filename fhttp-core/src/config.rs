@@ -25,7 +25,7 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn new(
+    pub const fn new(
         prompt_missing_env_vars: bool,
         verbosity: u8,
         quiet: bool,

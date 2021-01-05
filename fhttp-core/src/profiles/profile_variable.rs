@@ -26,14 +26,18 @@ impl ProfileVariable {
         match self {
             ProfileVariable::StringValue(ref value) => Ok(value.to_owned()),
             ProfileVariable::PassSecret { pass: path, cache } => {
-                if cache.borrow().is_none() {
-                    config.log(2, format!("resolving pass secret '{}'... ", &path));
-                    let value = resolve_pass(&path)?.trim().to_owned();
-                    config.logln(2, "done");
-                    cache.borrow_mut().replace(value);
-                }
+                if config.curl() {
+                    Ok(format!("$(pass {})", path))
+                } else {
+                    if cache.borrow().is_none() {
+                        config.log(2, format!("resolving pass secret '{}'... ", &path));
+                        let value = resolve_pass(&path)?.trim().to_owned();
+                        config.logln(2, "done");
+                        cache.borrow_mut().replace(value);
+                    }
 
-                Ok(cache.borrow().as_ref().unwrap().clone())
+                    Ok(cache.borrow().as_ref().unwrap().clone())
+                }
             }
             ProfileVariable::Request { request: _ } => panic!("ProfileVariable::Request cannot resolve by itself"),
         }
@@ -81,4 +85,34 @@ mod test {
         assert_eq!(result, ProfileVariable::PassSecret { pass: "foo/bar".into(), cache: RefCell::new(None) });
     }
 
+}
+
+#[cfg(test)]
+mod curl {
+    use super::*;
+
+    static CONFIG: Config = Config::new(
+        false,
+        0,
+        false,
+        false,
+        None,
+        true,
+    );
+
+    #[test]
+    fn string_value_should_return_normally() {
+        let var = ProfileVariable::StringValue(String::from("value"));
+        let result = var.get(&CONFIG);
+
+        assert_eq!(result, Ok(String::from("value")));
+    }
+
+    #[test]
+    fn pass_secret_should_return_pass_invocation() {
+        let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
+        let result = var.get(&CONFIG);
+
+        assert_eq!(result, Ok(String::from("$(pass path/to/secret)")));
+    }
 }
