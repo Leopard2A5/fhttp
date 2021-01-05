@@ -1,7 +1,7 @@
 use crate::parsers::Request;
 use crate::request_def::body::Body;
 
-trait Curl {
+pub trait Curl {
     fn curl(&self) -> String;
 }
 

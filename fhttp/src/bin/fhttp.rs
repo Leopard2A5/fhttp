@@ -9,6 +9,7 @@ use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestDef, Result};
 use fhttp_core::Client;
 use fhttp_core::Requestpreprocessor;
 use std::time::Duration;
+use fhttp_core::curl::Curl;
 
 fn main() {
     let matches = App::new("fhttp")
@@ -124,29 +125,33 @@ fn do_it(
         };
 
         config.log(1, msg);
-        let resp = client.exec(
-            req.method,
-            &req.url,
-            req.headers,
-            req.body,
-            req.response_handler,
-            config.timeout(),
-        )?;
-        config.logln(1, format!("{}", resp.status()));
+        if config.curl() && !dependency {
+            println!("{}", req.curl());
+        } else {
+            let resp = client.exec(
+                req.method,
+                &req.url,
+                req.headers,
+                req.body,
+                req.response_handler,
+                config.timeout(),
+            )?;
+            config.logln(1, format!("{}", resp.status()));
 
-        if !resp.status().is_success() {
-            if resp.body().trim().is_empty() {
-                eprintln!("no response body");
-            } else {
-                eprintln!("{}", resp.body());
+            if !resp.status().is_success() {
+                if resp.body().trim().is_empty() {
+                    eprintln!("no response body");
+                } else {
+                    eprintln!("{}", resp.body());
+                }
+                std::process::exit(1);
             }
-            std::process::exit(1);
-        }
 
-        preprocessor.notify_response(&path, resp.body());
+            preprocessor.notify_response(&path, resp.body());
 
-        if !dependency {
-            println!("{}", resp.body());
+            if !dependency {
+                println!("{}", resp.body());
+            }
         }
     }
 

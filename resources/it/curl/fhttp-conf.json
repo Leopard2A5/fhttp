@@ -1,0 +1,8 @@
+{
+  "default": {
+    "variables": {
+      "USERNAME": { "pass": "secrets/username" },
+      "PASSWORD": { "pass": "secrets/password" }
+    }
+  }
+}
