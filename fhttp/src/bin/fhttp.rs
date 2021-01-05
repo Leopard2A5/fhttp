@@ -10,6 +10,8 @@ use fhttp_core::Client;
 use fhttp_core::Requestpreprocessor;
 use std::time::Duration;
 use fhttp_core::curl::Curl;
+use std::collections::HashMap;
+use fhttp_core::path_utils::CanonicalizedPathBuf;
 
 fn main() {
     let matches = App::new("fhttp")
@@ -108,7 +110,17 @@ fn do_it(
     profile_name: Option<String>
 ) -> Result<()> {
     let profile = parse_profile(profile_path, profile_name)?;
-    let requests: Vec<RequestDef> = validate_and_parse_files(file_values)?;
+    let requested_files = file_values
+        .map(|file| PathBuf::from_str(file).unwrap())
+        .collect::<Vec<_>>();
+    let requests: Vec<RequestDef> = validate_and_parse_files(&requested_files)?;
+
+    check_curl_requested_for_dependencies(
+        &config,
+        &requested_files,
+        &requests,
+    )?;
+
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();
 
@@ -158,11 +170,7 @@ fn do_it(
     Ok(())
 }
 
-fn validate_and_parse_files(values: Values) -> Result<Vec<RequestDef>> {
-    let files = values
-        .map(|file| PathBuf::from_str(file).unwrap())
-        .collect::<Vec<_>>();
-
+fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestDef>> {
     let non_existent = files.iter()
         .filter(|it| !it.exists())
         .collect::<Vec<_>>();
@@ -191,6 +199,46 @@ fn validate_and_parse_files(values: Values) -> Result<Vec<RequestDef>> {
     }
 
     Ok(ret)
+}
+
+fn check_curl_requested_for_dependencies(
+    config: &Config,
+    requested_files: &[PathBuf],
+    requests: &[RequestDef],
+) -> Result<()> {
+    use fhttp_core::path_utils;
+
+    if config.curl() {
+        let requested_files = requested_files.iter()
+            .map(|it| Ok(path_utils::canonicalize(it)?))
+            .collect::<Result<Vec<CanonicalizedPathBuf>>>()?;
+        let dependencies = requests.iter()
+            .map(|req| Ok((req.source_path.clone(), req.dependencies()?)))
+            .collect::<Result<Vec<(CanonicalizedPathBuf, Vec<CanonicalizedPathBuf>)>>>()?;
+        let dependencies = dependencies.into_iter()
+            .flat_map(|(source, deps)| {
+                deps.into_iter()
+                    .map(|dep| (dep, source.clone()))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashMap<_, _>>();
+
+        for possible_dependency in requested_files {
+            if let Some(dependency_of) = dependencies.get(&possible_dependency) {
+                return Err(
+                    FhttpError::new(
+                        format!(
+                            "{}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.",
+                            possible_dependency.to_str(),
+                            dependency_of.to_str(),
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn parse_profile(
