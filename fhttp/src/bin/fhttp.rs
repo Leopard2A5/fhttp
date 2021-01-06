@@ -138,7 +138,7 @@ fn do_it(
 
         config.log(1, msg);
         if config.curl() && !dependency {
-            println!("{}", req.curl());
+            println!("\n{}", req.curl());
         } else {
             let resp = client.exec(
                 req.method,

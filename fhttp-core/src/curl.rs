@@ -12,22 +12,30 @@ impl Curl for Request {
         ];
 
         for (name, value) in self.headers.iter() {
-            parts.push(format!("-H '{}: {}'", name.as_str(), value.to_str().unwrap()))
+            parts.push(format!(
+                "-H \"{}: {}\"",
+                name.as_str().replace(r#"""#, r#"\""#),
+                value.to_str().unwrap().replace(r#"""#, r#"\""#)
+            ))
         }
 
         match &self.body {
             Body::Plain(body) => if !body.is_empty() {
-                let body = body.replace("'", "\\'");
-                parts.push(format!("-d '{}'", &body));
+                parts.push(format!(
+                    "-d \"{}\"",
+                    body.replace(r#"""#, r#"\""#)
+                ));
             },
             Body::Files(files) => for file in files {
-                let name = file.name.replace("'", "\\'");
-                let path = file.path.to_str().replace("'", "\\'");
-                parts.push(format!("-F '{}=@{}'", name, path));
+                parts.push(format!(
+                    "-F \"{}=@{}\"",
+                    file.name.replace(r#"""#, r#"\""#),
+                    file.path.to_str().replace(r#"""#, r#"\""#)
+                ));
             },
         }
 
-        parts.push(format!("--url \"{}\"", &self.url));
+        parts.push(format!("--url \"{}\"", &self.url.replace(r#"""#, r#"\""#)));
 
         parts.join(" \\\n")
     }
@@ -66,8 +74,8 @@ mod test {
             result,
             indoc!(r#"
                 curl -X GET \
-                -H 'accept: application/json' \
-                -H 'content-type: application/json' \
+                -H "accept: application/json" \
+                -H "content-type: application/json" \
                 --url "http://localhost/123""#
             )
         );
@@ -86,11 +94,11 @@ mod test {
             result,
             indoc!(r#"
                 curl -X GET \
-                -H 'content-type: application/json' \
-                -d '{
-                    "foo": "bar",
-                    "bar": "escape\'me"
-                }' \
+                -H "content-type: application/json" \
+                -d "{
+                    \"foo\": \"bar\",
+                    \"bar\": \"escape'me\"
+                }" \
                 --url "http://localhost/555""#
             )
         );
@@ -110,9 +118,9 @@ mod test {
             result,
             formatdoc!(r#"
                 curl -X GET \
-                -H 'content-type: application/json' \
-                -F 'file1=@{base}/resources/it/profiles.json' \
-                -F 'file2=@{base}/resources/it/profiles2.json' \
+                -H "content-type: application/json" \
+                -F "file1=@{base}/resources/it/profiles.json" \
+                -F "file2=@{base}/resources/it/profiles2.json" \
                 --url "http://localhost/555""#,
                 base = root().to_str().to_string(),
             )

@@ -63,7 +63,7 @@ async fn test() {
             uri=mock_server.uri(),
         ))
         .stdout(format!(
-            "{curl}\n",
+            "\n{curl}\n",
             curl=req,
         ));
 }
