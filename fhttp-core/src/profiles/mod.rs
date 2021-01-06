@@ -85,12 +85,13 @@ impl Profile {
         config: &Config,
         response_store: &ResponseStore,
         default: Option<&'a str>,
+        for_dependency: bool,
     ) -> Result<String> {
         let key = key.into();
 
         match self.variables.get(key) {
             Some(ProfileVariable::Request { request }) => Ok(response_store.get(&self.get_dependency_path(request)?)),
-            Some(var) => var.get(&config),
+            Some(var) => var.get(&config, for_dependency),
             None => get_from_environment(&key, config, default)
         }
     }
@@ -186,7 +187,7 @@ mod test {
         };
 
         assert_eq!(
-            profile.get("a", &Config::default(), &ResponseStore::new(), None)?,
+            profile.get("a", &Config::default(), &ResponseStore::new(), None, true)?,
             String::from("b")
         );
 
@@ -203,7 +204,7 @@ mod test {
         };
 
         assert_eq!(
-            profile.get("a", &Config::default(), &ResponseStore::new(), None)?,
+            profile.get("a", &Config::default(), &ResponseStore::new(), None, true)?,
             String::from("A")
         );
 
@@ -231,9 +232,9 @@ mod test {
         );
 
         default.override_with(local);
-        assert_eq!(default.get("a", &config, &response_store, None)?, "A");
-        assert_eq!(default.get("b", &config, &response_store, None)?, "BBB");
-        assert_eq!(default.get("c", &config, &response_store, None)?, "CCC");
+        assert_eq!(default.get("a", &config, &response_store, None, true)?, "A");
+        assert_eq!(default.get("b", &config, &response_store, None, true)?, "BBB");
+        assert_eq!(default.get("c", &config, &response_store, None, true)?, "CCC");
 
         Ok(())
     }

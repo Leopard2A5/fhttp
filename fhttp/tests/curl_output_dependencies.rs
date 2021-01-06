@@ -21,7 +21,6 @@ async fn test() {
     env::set_var("URL", mock_server.uri());
 
     Command::cargo_bin("fhttp").unwrap()
-        .arg("--profile-file").arg("../resources/it/curl/fhttp-conf.json")
         .arg("--curl")
         .arg("../resources/it/curl/token.http")
         .arg("../resources/it/curl/create.http")

@@ -9,7 +9,7 @@ use futures::executor::block_on;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{method, path, body_string_contains};
 
 use fhttp_core::curl::Curl;
 use fhttp_core::request::Request;
@@ -23,9 +23,12 @@ fn curl_invocation_with_dependency() {
 async fn test() {
     let mock_server = MockServer::start().await;
     env::set_var("URL", mock_server.uri());
+    env::set_var("USERNAME", "username_secret");
+    env::set_var("PASSWORD", "password_secret");
 
     Mock::given(method("POST"))
         .and(path("/token"))
+        .and(body_string_contains("username_secret"))
         .respond_with(ResponseTemplate::new(200)
             .set_body_string(r#"{ "token": "jwt" }"#))
         .expect(1)
@@ -51,7 +54,6 @@ async fn test() {
     let req = req.curl();
 
     Command::cargo_bin("fhttp").unwrap()
-        .arg("--profile-file").arg("../resources/it/curl/fhttp-conf.json")
         .arg("--curl")
         .arg("../resources/it/curl/create.http")
         .assert()
