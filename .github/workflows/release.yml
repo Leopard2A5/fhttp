@@ -40,10 +40,9 @@ jobs:
           draft: false
           prerelease: false
 
-  release_osx:
-    name: release osx
+  build_osx:
+    name: build osx
     runs-on: macos-10.15
-    needs: create_release
     steps:
       - uses: actions/checkout@v2
       - name: install toolchain
@@ -52,6 +51,24 @@ jobs:
           toolchain: stable
       - name: build
         run: for i in 1 2; do cargo build --release --workspace && break; done
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: fhttp.macosx
+          path: target/release/fhttp
+
+  release_macosx:
+    name: release macosx
+    runs-on: ubuntu-20.04
+    needs:
+      - build_osx
+      - create_release
+    steps:
+      - name: download binary
+        uses: actions/download-artifact@v2
+        with:
+          name: fhttp.macosx
+          path: target/release
       - name: tarball binary
         run: |
           cd target/release
