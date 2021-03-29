@@ -67,6 +67,7 @@ ____
 * Add dependencies between requests
 * Support for graphql requests
 * multipart file uploads
+* export to cURL command
 
 == Anatomy of a request file
 A request file looks like this:
@@ -321,6 +322,12 @@ FHTTP automatically sets the content-type to application/json, escapes the query
 | -P
 | --print-paths
 | Print request file paths instead of method and url.
+
+| -c
+| --curl
+| Print cURL commands instead of executing requests. Still executes dependencies, only
+requests listed on the command line are exported as cURL commands. Secrets will be
+exported as evaluations, e.g. `$(pass secretpath)`.
 
 | -q
 | --quiet
