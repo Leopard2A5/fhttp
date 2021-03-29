@@ -92,7 +92,7 @@ mod test {
 
     #[test]
     fn should_print_command_with_headers_and_body() {
-        let body = "{\n    \"foo\": \"bar\",\n    \"bar\": \"escape'me\"\n}";
+        let body = "{\n    \"foo\": \"bar\",\n    \"bar\": \"escape'me\"}";
 
         let result = Request::basic("GET", "http://localhost/555")
             .add_header("content-type", "application/json")
@@ -104,10 +104,7 @@ mod test {
             indoc!(r#"
                 curl -X GET \
                 -H "content-type: application/json" \
-                -d "{
-                    \"foo\": \"bar\",
-                    \"bar\": \"escape'me\"
-                }" \
+                -d "{\n    \"foo\": \"bar\",\n    \"bar\": \"escape'me\"}" \
                 --url "http://localhost/555""#
             )
         );
