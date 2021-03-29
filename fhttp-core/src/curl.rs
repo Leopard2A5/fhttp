@@ -1,5 +1,6 @@
 use crate::parsers::Request;
 use crate::request_def::body::Body;
+use serde_json::Value;
 
 pub trait Curl {
     fn curl(&self) -> String;
@@ -22,8 +23,8 @@ impl Curl for Request {
         match &self.body {
             Body::Plain(body) => if !body.is_empty() {
                 parts.push(format!(
-                    "-d \"{}\"",
-                    body.replace(r#"""#, r#"\""#)
+                    "-d {}",
+                    escape_json(body)
                 ));
             },
             Body::Files(files) => for file in files {
@@ -41,11 +42,19 @@ impl Curl for Request {
     }
 }
 
+fn escape_json<S: Into<String>>(input: S) -> String {
+    serde_json::to_string(
+        &Value::String(input.into())
+    ).unwrap()
+}
+
 #[cfg(test)]
 mod test {
     use indoc::{indoc, formatdoc};
 
     use crate::test_utils::root;
+
+    use serde_json::json;
 
     use super::*;
 
@@ -99,6 +108,46 @@ mod test {
                     \"foo\": \"bar\",
                     \"bar\": \"escape'me\"
                 }" \
+                --url "http://localhost/555""#
+            )
+        );
+    }
+
+    #[test]
+    fn should_print_command_with_plain_text_body() {
+        let result = Request::basic("GET", "http://localhost/555")
+            .add_header("content-type", "application/json")
+            .body("this is a so-called \"test\"")
+            .curl();
+
+        assert_eq!(
+            result,
+            indoc!(r#"
+                curl -X GET \
+                -H "content-type: application/json" \
+                -d "this is a so-called \"test\"" \
+                --url "http://localhost/555""#
+            )
+        );
+    }
+
+    #[test]
+    fn should_print_command_with_gql_body() {
+        let result = Request::basic("GET", "http://localhost/555")
+            .add_header("content-type", "application/json")
+            .gql_body(
+                json!({
+                    "query": "query { search(filter: \"foobar\") { id } }",
+                })
+            )
+            .curl();
+
+        assert_eq!(
+            result,
+            indoc!(r#"
+                curl -X GET \
+                -H "content-type: application/json" \
+                -d "{\"query\":\"query { search(filter: \\\"foobar\\\") { id } }\"}" \
                 --url "http://localhost/555""#
             )
         );
