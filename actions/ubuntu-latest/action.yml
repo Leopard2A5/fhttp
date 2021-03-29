@@ -1,0 +1,11 @@
+name: ubuntu-latest
+description: ubuntu container
+inputs:
+  run:
+    description: command to run
+    required: true
+runs:
+  using: docker
+  image: Dockerfile
+  args:
+    - ${{ inputs.run }}

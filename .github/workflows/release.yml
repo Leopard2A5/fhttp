@@ -130,3 +130,21 @@ jobs:
           asset_path: target/release/fhttp.linux_x64
           asset_name: fhttp.linux_x64
           asset_content_type: application/octet-stream
+
+  test_cargo_install_ubuntu:
+    name: test cargo install ubuntu
+    needs: release_linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: test
+        uses: ./actions/ubuntu-latest
+        id: test_cargo_install_ubuntu
+        with:
+          run: |
+            apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev &&
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+            export PATH=$HOME/.cargo/bin:$PATH &&
+            cargo install fhttp &&
+            fhttp --version
