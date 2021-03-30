@@ -1,0 +1,12 @@
+on: [push]
+
+jobs:
+  test:
+    name: test homebrew install macosx
+    runs-on: macos-10.15
+    steps:
+      - name: test
+        run: |
+          brew tap Leopard2A5/fhttp &&
+          brew install fhttp &&
+          fhttp --version
