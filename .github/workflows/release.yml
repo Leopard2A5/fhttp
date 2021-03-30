@@ -130,3 +130,49 @@ jobs:
           asset_path: target/release/fhttp.linux_x64
           asset_name: fhttp.linux_x64
           asset_content_type: application/octet-stream
+
+  test:
+    name: test homebrew install macosx
+    needs: release_macosx
+    runs-on: macos-10.15
+    steps:
+      - name: test
+        run: |
+          brew tap Leopard2A5/fhttp &&
+          brew install fhttp &&
+          fhttp --version
+
+  test_cargo_install_ubuntu:
+    name: test cargo install ubuntu
+    needs: release_linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: test
+        uses: ./actions/ubuntu-latest
+        id: test_cargo_install_ubuntu
+        with:
+          run: |
+            apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev &&
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+            export PATH=$HOME/.cargo/bin:$PATH &&
+            cargo install fhttp &&
+            fhttp --version
+
+  test_binary_download_ubuntu:
+    name: test binary download ubuntu
+    needs: release_linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: test
+        uses: ./actions/ubuntu-latest
+        id: test_binary_download_ubuntu
+        with:
+          run: |
+            apt-get update && apt-get install -y curl &&
+            curl -LJO https://github.com/Leopard2A5/fhttp/releases/download/${{ github.ref }}/fhttp.linux_x64 &&
+            chmod +x fhttp.linux_x64 &&
+            ./fhttp.linux_x64 --version
