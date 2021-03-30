@@ -148,3 +148,20 @@ jobs:
             export PATH=$HOME/.cargo/bin:$PATH &&
             cargo install fhttp &&
             fhttp --version
+
+  test_binary_download_ubuntu:
+    name: test binary download ubuntu
+    needs: release_linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: test
+        uses: ./actions/ubuntu-latest
+        id: test_binary_download_ubuntu
+        with:
+          run: |
+            apt-get update && apt-get install -y curl &&
+            curl -LJO https://github.com/Leopard2A5/fhttp/releases/download/${{ github.ref }}/fhttp.linux_x64 &&
+            chmod +x fhttp.linux_x64 &&
+            ./fhttp.linux_x64 --version
