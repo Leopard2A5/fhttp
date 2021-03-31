@@ -133,7 +133,7 @@ jobs:
 
   test_cargo_install_ubuntu:
     name: test cargo install ubuntu
-    needs: release_linux
+    needs: publish_crates
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -147,7 +147,13 @@ jobs:
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
             export PATH=$HOME/.cargo/bin:$PATH &&
             cargo install fhttp &&
-            fhttp --version
+            fhttp --version > version.txt &&
+            if [ "$(cat version.txt)" == "fhttp ${{ github.ref }}" ]; then
+              echo "success!"
+            else
+              echo "version number is wrong!"
+              false
+            fi
 
   test_binary_download_ubuntu:
     name: test binary download ubuntu
