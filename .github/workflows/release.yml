@@ -131,17 +131,6 @@ jobs:
           asset_name: fhttp.linux_x64
           asset_content_type: application/octet-stream
 
-  test:
-    name: test homebrew install macosx
-    needs: release_macosx
-    runs-on: macos-10.15
-    steps:
-      - name: test
-        run: |
-          brew tap Leopard2A5/fhttp &&
-          brew install fhttp &&
-          fhttp --version
-
   test_cargo_install_ubuntu:
     name: test cargo install ubuntu
     needs: release_linux
