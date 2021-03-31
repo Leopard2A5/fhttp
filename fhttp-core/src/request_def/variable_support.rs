@@ -79,7 +79,13 @@ fn _replace_env_vars(
         let mut buffer = req.text.clone();
 
         for occurrence in variables {
-            let value = profile.get(occurrence.name, config, response_store, occurrence.default)?;
+            let value = profile.get(
+                occurrence.name,
+                config,
+                response_store,
+                occurrence.default,
+                req.dependency,
+            )?;
             buffer.replace_range(occurrence.range, &value);
         }
         req.text = buffer;

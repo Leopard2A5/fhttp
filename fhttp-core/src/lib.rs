@@ -30,16 +30,18 @@ pub mod random_numbers;
 pub mod test_utils;
 pub mod execution_order;
 
-mod config;
-mod request_def;
-mod response;
-mod response_store;
-mod profiles;
-mod request_preprocessor;
-mod client;
-mod parsers;
+pub mod config;
+pub mod request_def;
+pub mod response;
+pub mod response_store;
+pub mod profiles;
+pub mod request_preprocessor;
+pub mod client;
+pub mod parsers;
 pub mod response_handler;
 pub mod path_utils;
 pub mod errors;
 pub mod file_includes;
+pub mod curl;
+pub mod request;
 

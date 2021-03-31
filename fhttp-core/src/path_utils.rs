@@ -16,7 +16,7 @@ impl CanonicalizedPathBuf {
         self.0.to_str().unwrap()
     }
 
-    #[cfg(test)]
+    /// This function may panic, it's intended for test purposes!
     pub fn join<P: AsRef<Path>>(
         &self,
         path: P

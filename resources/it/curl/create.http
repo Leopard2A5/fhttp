@@ -1,0 +1,11 @@
+POST ${env(URL)}/resources
+Authorization: Bearer ${request("token.http")}
+Content-Type: application/json
+
+{
+  "name": "resource"
+}
+
+> {%
+  json $.id
+%}

@@ -1,0 +1,11 @@
+POST ${env(URL)}/token
+Content-Type: application/json
+
+{
+  "username": "${env(USERNAME)}",
+  "password": "${env(PASSWORD)}"
+}
+
+> {%
+  json $.token
+%}

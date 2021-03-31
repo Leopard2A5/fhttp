@@ -1,9 +1,8 @@
-mod request;
 mod parsing;
 mod parsing_gql;
 mod file_upload_regex;
 
-pub use request::Request;
+pub use crate::request::Request;
 
 pub use parsing::parse_str;
 pub use parsing_gql::parse_gql_str;
