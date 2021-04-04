@@ -13,7 +13,7 @@ pub struct CanonicalizedPathBuf(PathBuf);
 
 impl CanonicalizedPathBuf {
     pub fn to_str(&self) -> &str {
-        self.0.to_str().unwrap()
+        self.0.to_str().expect("encountered a non-utf8 character in file path!")
     }
 
     /// This function may panic, it's intended for test purposes!
@@ -30,7 +30,8 @@ impl CanonicalizedPathBuf {
     }
 
     pub fn file_name(&self) -> &str {
-        self.0.file_name().unwrap().to_str().unwrap()
+        self.0.file_name().unwrap()
+            .to_str().expect("encountered a non-utf8 character in file path!")
     }
 }
 
