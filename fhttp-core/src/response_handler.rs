@@ -91,7 +91,13 @@ fn prepare_deno_code(
     body: &str,
 ) -> String {
     let header_lines = headers.iter()
-        .map(|(name, value)| format!("    '{}': '{}'", name, value))
+        .map(|(name, value)|
+            format!(
+                "    '{}': '{}'",
+                name.replace("'", "\\'"),
+                value.replace("'", "\\'")
+            )
+        )
         .collect::<Vec<_>>()
         .join(",\n");
 
@@ -108,7 +114,7 @@ fn prepare_deno_code(
 
             {}
         "#,
-        &body,
+        &body.replace("'", "\\'"),
         &header_lines,
         &program,
     )
@@ -199,6 +205,36 @@ mod deno_tests {
         let result = handler.process_body(&headers, body);
 
         assert_eq!(result, Ok(String::from("application/json,application/xml")));
+    }
+
+    #[test]
+    fn should_escape_headers() {
+        let body = "this is the response body";
+        let headers = hashmap!{
+            "content'type" => "appli'cation",
+        };
+        let handler = ResponseHandler::Deno {
+            program: r#"
+                setResult(headers['content\'type']);
+            "#.into()
+        };
+        let result = handler.process_body(&headers, body);
+
+        assert_eq!(result, Ok(String::from("appli'cation")));
+    }
+
+    #[test]
+    fn should_escape_body() {
+        let body = "this is the 'response' body";
+        let headers = hashmap!{};
+        let handler = ResponseHandler::Deno {
+            program: r#"
+                setResult(body);
+            "#.into()
+        };
+        let result = handler.process_body(&headers, body);
+
+        assert_eq!(result, Ok(String::from("this is the 'response' body")));
     }
 
 }
