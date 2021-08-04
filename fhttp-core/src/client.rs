@@ -5,6 +5,7 @@ use crate::{FhttpError, Response, Result, ResponseHandler};
 use crate::request_def::body::{Body, File};
 use reqwest::header::HeaderMap;
 use std::time::Duration;
+use std::collections::HashMap;
 
 pub struct Client;
 
@@ -47,12 +48,17 @@ impl Client {
         let response = req_builder.send()?;
         let status = response.status();
         let headers = response.headers().clone();
+        let header_map = headers.iter()
+            .map(|(name, value)|
+                (name.as_str(), value.to_str().unwrap())
+            )
+            .collect::<HashMap<_, _>>();
         let text = response.text().unwrap();
 
         let body = match status.is_success() {
             true => match response_handler {
                 Some(handler) => {
-                    handler.process_body(&text)?
+                    handler.process_body(&header_map, &text)?
                 },
                 None => text
             },

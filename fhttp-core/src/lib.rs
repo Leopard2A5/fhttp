@@ -13,6 +13,7 @@ extern crate reqwest;
 extern crate serde_json;
 extern crate uuid;
 extern crate jsonpath_lib as jsonpath;
+extern crate deno_core;
 
 pub use client::Client;
 pub use config::Config;

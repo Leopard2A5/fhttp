@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::errors::{FhttpError, Result};
@@ -5,15 +6,18 @@ use crate::errors::{FhttpError, Result};
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ResponseHandler {
     Json { json_path: String },
+    Deno { program: String },
 }
 
 impl ResponseHandler {
     pub fn process_body(
         &self,
-        body: &str
+        headers: &HashMap<&str, &str>,
+        body: &str,
     ) -> Result<String> {
         match self {
-            ResponseHandler::Json { json_path } => process_body_json(json_path, body)
+            ResponseHandler::Json { json_path } => process_body_json(json_path, body),
+            ResponseHandler::Deno { program } => process_body_deno(program, headers, body),
         }
     }
 }
@@ -49,6 +53,67 @@ fn process_body_json(
     }
 }
 
+fn process_body_deno(
+    program: &str,
+    headers: &HashMap<&str, &str>,
+    body: &str,
+) -> Result<String> {
+    use deno_core::op_sync;
+    use deno_core::JsRuntime;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    let result: Rc<Cell<String>> = Rc::new(Cell::new(body.to_string()));
+    let mut runtime = JsRuntime::new(Default::default());
+
+    let result_ref = result.clone();
+    runtime.register_op(
+        "op_set_result",
+        op_sync(move |_state, result: String, _: ()| {
+            result_ref.set(result);
+            Ok(())
+        }),
+    );
+    runtime.sync_ops_cache();
+
+    let program = prepare_deno_code(program, headers, body);
+
+    runtime
+        .execute_script("", &program)
+        .unwrap();
+
+    Ok(result.take())
+}
+
+fn prepare_deno_code(
+    program: &str,
+    headers: &HashMap<&str, &str>,
+    body: &str,
+) -> String {
+    let header_lines = headers.iter()
+        .map(|(name, value)| format!("    '{}': '{}'", name, value))
+        .collect::<Vec<_>>()
+        .join(",\n");
+
+    format!(
+        r#"
+            function setResult(value) {{
+                Deno.core.opSync('op_set_result', value);
+            }}
+
+            const body = '{}';
+            const headers = {{
+                {}
+            }};
+
+            {}
+        "#,
+        &body,
+        &header_lines,
+        &program,
+    )
+}
+
 #[cfg(test)]
 mod json_tests {
     use indoc::indoc;
@@ -68,7 +133,7 @@ mod json_tests {
             }
         ");
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
-        let result = handler.process_body(body);
+        let result = handler.process_body(&HashMap::new(), body);
 
         assert_eq!(result, Ok(String::from("success")));
     }
@@ -85,8 +150,55 @@ mod json_tests {
             }
         ");
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
-        let result = handler.process_body(body);
+        let result = handler.process_body(&HashMap::new(), body);
 
         assert_eq!(result, Ok(String::from("3.141")));
     }
+}
+
+#[cfg(test)]
+mod deno_tests {
+    use maplit::hashmap;
+
+    use super::*;
+
+    #[test]
+    fn should_default_to_response_body_as_result() {
+        let body = "this is the response body";
+        let handler = ResponseHandler::Deno { program: String::new() };
+        let result = handler.process_body(&HashMap::new(), body);
+
+        assert_eq!(result, Ok(String::from("this is the response body")));
+    }
+
+    #[test]
+    fn should_allow_setting_result() {
+        let body = "this is the response body";
+        let handler = ResponseHandler::Deno {
+            program: r#"
+                setResult(body.toUpperCase());
+            "#.into()
+        };
+        let result = handler.process_body(&HashMap::new(), body);
+
+        assert_eq!(result, Ok(String::from("THIS IS THE RESPONSE BODY")));
+    }
+
+    #[test]
+    fn should_have_access_to_result_headers() {
+        let body = "this is the response body";
+        let headers = hashmap!{
+            "content-type" => "application/json",
+            "accept" => "application/json,application/xml"
+        };
+        let handler = ResponseHandler::Deno {
+            program: r#"
+                setResult(headers['accept']);
+            "#.into()
+        };
+        let result = handler.process_body(&headers, body);
+
+        assert_eq!(result, Ok(String::from("application/json,application/xml")));
+    }
+
 }
