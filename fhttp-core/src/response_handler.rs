@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::errors::{FhttpError, Result};
+use deno_core::{RuntimeOptions, Snapshot};
+
+static FHTTP_SNAPSHOT: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/FHTTP_SNAPSHOT.bin"));
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ResponseHandler {
@@ -66,7 +70,11 @@ fn process_body_deno(
     use std::rc::Rc;
 
     let result: Rc<Cell<String>> = Rc::new(Cell::new(body.to_string()));
-    let mut runtime = JsRuntime::new(Default::default());
+    let runtime_options = RuntimeOptions {
+        startup_snapshot: Some(Snapshot::Static(FHTTP_SNAPSHOT)),
+        ..RuntimeOptions::default()
+    };
+    let mut runtime = JsRuntime::new(runtime_options);
 
     let result_ref = result.clone();
     runtime.register_op(
