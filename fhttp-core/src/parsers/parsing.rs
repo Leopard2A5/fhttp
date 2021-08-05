@@ -36,6 +36,7 @@ pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
             Rule::header_line => parse_header_line(&mut headers, element)?,
             Rule::body => body.push_str(&element.as_str().trim()),
             Rule::response_handler_json => parse_json_response_handler(&mut response_handler, element),
+            Rule::response_handler_deno => parse_deno_response_handler(&mut response_handler, element),
             _ => ()
         }
     }
@@ -101,6 +102,25 @@ fn parse_json_response_handler(
                 *response_handler = Some(
                     ResponseHandler::Json {
                         json_path: exp.as_str().trim().to_owned()
+                    }
+                );
+                return;
+            },
+            _ => unreachable!()
+        }
+    }
+}
+
+fn parse_deno_response_handler(
+    response_handler: &mut Option<ResponseHandler>,
+    element: Pair<Rule>,
+) {
+    for exp in element.into_inner() {
+        match exp.as_rule() {
+            Rule::response_handler_exp => {
+                *response_handler = Some(
+                    ResponseHandler::Deno {
+                        program: exp.as_str().trim().to_owned()
                     }
                 );
                 return;
@@ -188,7 +208,7 @@ mod parse_normal_requests {
     }
 
     #[test]
-    fn should_parse_with_response_handler() -> Result<()> {
+    fn should_parse_with_json_response_handler() -> Result<()> {
         let result = parse_str(&current_dir().unwrap(), indoc!(r##"
             DELETE http://localhost:9000/foo
 
@@ -201,6 +221,25 @@ mod parse_normal_requests {
             result,
             Request::basic("DELETE", "http://localhost:9000/foo")
                 .response_handler_json("$.data")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_with_deno_response_handler() -> Result<()> {
+        let result = parse_str(&current_dir().unwrap(), indoc!(r##"
+            DELETE http://localhost:9000/foo
+
+            > {%
+                deno setResult('ok');
+            %}
+        "##))?;
+
+        assert_eq!(
+            result,
+            Request::basic("DELETE", "http://localhost:9000/foo")
+                .response_handler_deno("setResult('ok');")
         );
 
         Ok(())
