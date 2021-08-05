@@ -58,7 +58,7 @@ impl Client {
         let body = match status.is_success() {
             true => match response_handler {
                 Some(handler) => {
-                    handler.process_body(&header_map, &text)?
+                    handler.process_body(status.as_u16(), &header_map, &text)?
                 },
                 None => text
             },
