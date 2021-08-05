@@ -26,7 +26,7 @@ FHTTP is not a curl replacement. It’s meant to be a developers’ tool to make
 |https://www.passwordstore.org/[Pass] secrets   |✕*  |✓   |✕   |✕   |✕
 |Run multiple requests in one operation         |✕   |✓   |✓   |✕   |✕
 |Share collections                              |✕*  |✓   |✓** |✕   |✓
-|Full JavaScript response processing            |✕   |✕   |✓   |✕   |✓
+|Full JavaScript response processing            |✕   |✓   |✓   |✕   |✓
 |Plugins                                        |✕   |✕   |✕   |✓   |✕
 |GraphQL schema autocompletion                  |✕   |✕   |✕   |✓   |✕
 
@@ -66,6 +66,7 @@ ____
 * Resolve secrets stored in https://www.passwordstore.org/[pass]
 * Add dependencies between requests
 * Support for graphql requests
+* post-process responses by jsonpath or in deno js runtime
 * multipart file uploads
 * export to cURL command
 
@@ -197,6 +198,17 @@ POST http://localhost:8080
 | Handler | Description
 
 | json | Accepts a https://support.smartbear.com/readyapi/docs/testing/jsonpath-reference.html[jsonpath] expression that is applied to the response body.
+| deno a| Process the response with JavaScript running in a deno instance. The fields `status`, `headers` and `body` allow you to inspect the response. Call the `setResult()` function with the result of your processing script. If you don't call `setResult` in your script, the result will be equal to `body`. For debugging purposes there are the `print` and `printerr` functions.
+
+Example:
+[source]
+----
+> {%
+    deno
+    printerr(body.includes('beetlejuice'));
+    setResult(headers['content-type']);
+%}
+----
 
 |===
 
