@@ -71,8 +71,8 @@ fn parse_first_line(
 ) -> Result<()> {
     for field in element.into_inner() {
         match field.as_rule() {
-            Rule::method => *method = Method::from_str(&field.as_str())
-                .map_err(|_| FhttpError::new(format!("invalid method '{}'", &field.as_str())))?,
+            Rule::method => *method = Method::from_str(field.as_str())
+                .map_err(|_| FhttpError::new(format!("invalid method '{}'", field.as_str())))?,
             Rule::url => url.push_str(field.as_str()),
             _ => unreachable!(),
         }
@@ -151,10 +151,9 @@ fn ensure_content_type_json(mut map: HeaderMap) -> HeaderMap {
 fn disallow_file_uploads(body: &str) -> Result<()> {
     use crate::parsers::file_upload_regex;
 
-    let captures = file_upload_regex::RE_FILE.captures_iter(&body)
-        .collect::<Vec<_>>();
+    let captures = file_upload_regex::RE_FILE.captures_iter(body);
 
-    match captures.len() {
+    match captures.count() {
         0 => Ok(()),
         _ => Err(FhttpError::new("file uploads are not allowed in graphql requests"))
     }

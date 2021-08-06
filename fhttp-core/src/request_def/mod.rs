@@ -90,7 +90,7 @@ impl RequestDef {
 
 impl AsRef<Path> for RequestDef {
     fn as_ref(&self) -> &Path {
-        &self.source_path.as_ref()
+        self.source_path.as_ref()
     }
 }
 

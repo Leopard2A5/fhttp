@@ -25,3 +25,9 @@ impl ResponseStore {
         self.response_data[path].clone()
     }
 }
+
+impl Default for ResponseStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}

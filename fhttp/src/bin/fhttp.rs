@@ -210,7 +210,7 @@ fn check_curl_requested_for_dependencies(
 
     if config.curl() {
         let requested_files = requested_files.iter()
-            .map(|it| Ok(path_utils::canonicalize(it)?))
+            .map(|it| path_utils::canonicalize(it))
             .collect::<Result<Vec<CanonicalizedPathBuf>>>()?;
         let dependencies = requests.iter()
             .map(|req| Ok((req.source_path.clone(), req.dependencies()?)))
@@ -265,9 +265,9 @@ fn parse_profile(
 
     let mut profiles = Profiles::parse(&path)?;
     let mut default = profiles.remove("default")
-        .unwrap_or(Profile::empty(&path));
+        .unwrap_or_else(|| Profile::empty(&path));
     let profile = match profile {
-        Some(ref name) => profiles.remove(name).ok_or(FhttpError::new("profile not found"))?,
+        Some(ref name) => profiles.remove(name).ok_or_else(|| FhttpError::new("profile not found"))?,
         None => Profile::empty(&path),
     };
 

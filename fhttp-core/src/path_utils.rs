@@ -5,7 +5,7 @@ use crate::{FhttpError, Result};
 pub fn canonicalize(p: &Path) -> Result<CanonicalizedPathBuf> {
     fs::canonicalize(&p)
         .map_err(|e| FhttpError::new(format!("error opening file {}: {:?}", p.to_str().unwrap(), e.kind())))
-        .map(|p| CanonicalizedPathBuf(p))
+        .map(CanonicalizedPathBuf)
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Default)]
@@ -50,9 +50,9 @@ fn get_dependency_path<O: AsRef<Path>>(
     let ret = if path.is_absolute() {
         path.to_path_buf()
     } else if origin_path.is_dir() {
-        origin_path.join(path).to_path_buf()
+        origin_path.join(path)
     } else {
-        origin_path.parent().unwrap().join(path).to_path_buf()
+        origin_path.parent().unwrap().join(path)
     };
 
     canonicalize(&ret)

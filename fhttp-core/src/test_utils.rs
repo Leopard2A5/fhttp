@@ -5,7 +5,6 @@ pub fn root() -> CanonicalizedPathBuf {
     canonicalize(
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .parent().unwrap()
-            .into()
     ).unwrap()
 }
 

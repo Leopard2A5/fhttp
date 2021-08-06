@@ -51,14 +51,14 @@ impl Iterator for Requestpreprocessor {
     type Item = Result<RequestDef>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.requests.len() > 0 {
+        if self.requests.is_empty() {
+            None
+        } else {
             let mut req = self.requests.remove(0);
 
             let req = req.replace_variables(&self.profile, &self.config, &self.response_data)
                 .map(|_| req);
             Some(req)
-        } else {
-            None
         }
     }
 }

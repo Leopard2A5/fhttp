@@ -61,7 +61,7 @@ impl VariableSupport for RequestDef {
         _replace_env_vars(self, profile, config, response_store)?;
         _replace_uuids(self);
         _replace_random_ints(self)?;
-        _replace_request_dependencies(self, &response_store)?;
+        _replace_request_dependencies(self, response_store)?;
 
         Ok(())
     }
@@ -195,7 +195,7 @@ fn _replace_request_dependencies(
             let range = whole_match.start()..whole_match.end();
 
             let group = capture.get(1).unwrap();
-            let path = req.get_dependency_path(&group.as_str())?;
+            let path = req.get_dependency_path(group.as_str())?;
 
             buffer.replace_range(range, &response_store.get(&path));
         }

@@ -33,7 +33,7 @@ impl ProfileVariable {
                 } else {
                     if cache.borrow().is_none() {
                         config.log(2, format!("resolving pass secret '{}'... ", &path));
-                        let value = resolve_pass(&path)?.trim().to_owned();
+                        let value = resolve_pass(path)?.trim().to_owned();
                         config.logln(2, "done");
                         cache.borrow_mut().replace(value);
                     }

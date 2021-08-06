@@ -24,7 +24,7 @@ impl Client {
         timeout: Option<Duration>,
     ) -> Result<Response> {
         let client = reqwest::blocking::Client::new();
-        let url = Url::parse(&url)
+        let url = Url::parse(url)
             .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
         let mut req_builder = client
             .request(method, url)
@@ -72,5 +72,11 @@ impl Client {
                 body
             )
         )
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        Self::new()
     }
 }

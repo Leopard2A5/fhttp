@@ -13,13 +13,13 @@ pub fn plan_request_order(
     let mut requests_with_dependencies = vec![];
 
     for req in &initial_requests {
-        for path in get_env_vars_defined_through_requests(&profile, &req)? {
+        for path in get_env_vars_defined_through_requests(profile, req)? {
             let req = RequestDef::from_file(&path, true)?;
             preprocess_request(
                 req,
                 &mut requests_with_dependencies,
                 &mut preprocessor_stack,
-                &config
+                config
             )?;
         }
     }
@@ -29,7 +29,7 @@ pub fn plan_request_order(
             req,
             &mut requests_with_dependencies,
             &mut preprocessor_stack,
-            &config
+            config
         )?;
     }
 
@@ -52,7 +52,7 @@ fn preprocess_request(
 
     for dep in req.dependencies()? {
         let dep = RequestDef::from_file(dep, true)?;
-        preprocess_request(dep, &mut list, &mut preprocessor_stack, &config)?;
+        preprocess_request(dep, &mut list, &mut preprocessor_stack, config)?;
     }
 
     preprocessor_stack.pop();
@@ -68,8 +68,7 @@ fn get_env_vars_defined_through_requests(
     let vars: Vec<EnvVarOccurrence> = req.get_env_vars();
     vars.into_iter()
         .map(|occ| profile.defined_through_request(occ.name))
-        .filter(|it| it.is_some())
-        .map(|it| it.unwrap())
+        .flatten()
         .map(|path| profile.get_dependency_path(path.to_str().unwrap()))
         .collect()
 }

@@ -34,7 +34,7 @@ pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
         match element.as_rule() {
             Rule::first_line => parse_first_line(element, &mut method, &mut url)?,
             Rule::header_line => parse_header_line(&mut headers, element)?,
-            Rule::body => body.push_str(&element.as_str().trim()),
+            Rule::body => body.push_str(element.as_str().trim()),
             Rule::response_handler_json => parse_json_response_handler(&mut response_handler, element),
             Rule::response_handler_deno => parse_deno_response_handler(&mut response_handler, element),
             _ => ()
@@ -46,7 +46,7 @@ pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
             method,
             url,
             headers,
-            body: plain_body_or_files(&path, body)?,
+            body: plain_body_or_files(path, body)?,
             response_handler,
         }
     )
@@ -59,8 +59,8 @@ fn parse_first_line(
 ) -> Result<()> {
     for field in element.into_inner() {
         match field.as_rule() {
-            Rule::method => *method = Method::from_str(&field.as_str())
-                .map_err(|_| FhttpError::new(format!("invalid method '{}'", &field.as_str())))?,
+            Rule::method => *method = Method::from_str(field.as_str())
+                .map_err(|_| FhttpError::new(format!("invalid method '{}'", field.as_str())))?,
             Rule::url => url.push_str(field.as_str()),
             _ => unreachable!(),
         }
@@ -135,12 +135,12 @@ fn plain_body_or_files(
     body: String,
 ) -> Result<Body> {
     use crate::parsers::file_upload_regex;
-    let captures = file_upload_regex::RE_FILE.captures_iter(&body)
-        .collect::<Vec<_>>();
+    let captures = file_upload_regex::RE_FILE.captures_iter(&body);
 
-    if captures.len() == 0 {
+    if captures.count() == 0 {
         Ok(Body::Plain(body))
     } else {
+        // TODO can we reuse captures?
         let files = file_upload_regex::RE_FILE.captures_iter(&body)
             .map(|capture| {
                 let name = capture.get(1).unwrap().as_str().to_owned();
