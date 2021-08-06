@@ -94,4 +94,13 @@ impl Request {
 
         self
     }
+
+    pub fn response_handler_deno(
+        mut self,
+        handler: &'static str,
+    ) -> Self {
+        self.response_handler = Some(ResponseHandler::Deno { program: handler.to_owned(), });
+
+        self
+    }
 }

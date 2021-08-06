@@ -32,6 +32,7 @@ pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<Request> {
             Rule::query => query.push_str(element.as_str().trim()),
             Rule::variables => variables = Some(element.as_str().trim().to_owned()),
             Rule::response_handler_json => parse_json_response_handler(&mut response_handler, element),
+            Rule::response_handler_deno => parse_deno_response_handler(&mut response_handler, element),
             _ => ()
         }
     }
@@ -113,6 +114,25 @@ fn parse_json_response_handler(
                 *response_handler = Some(
                     ResponseHandler::Json {
                         json_path: exp.as_str().trim().to_owned()
+                    }
+                );
+                return;
+            },
+            _ => unreachable!()
+        }
+    }
+}
+
+fn parse_deno_response_handler(
+    response_handler: &mut Option<ResponseHandler>,
+    element: Pair<Rule>,
+) {
+    for exp in element.into_inner() {
+        match exp.as_rule() {
+            Rule::response_handler_exp => {
+                *response_handler = Some(
+                    ResponseHandler::Deno {
+                        program: exp.as_str().trim().to_owned()
                     }
                 );
                 return;
@@ -215,6 +235,43 @@ mod parse_gql_requests {
                     "variables": {}
                 }))
                 .response_handler_json("$.data")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_with_deno_response_handler() -> Result<()> {
+        let result = parse_gql_str(indoc!(r##"
+            DELETE http://localhost:9000/foo
+
+            query
+            query
+
+            > {%
+                deno
+                if (status === 200) {
+                    setResult('ok');
+                } else {
+                    setResult('not ok');
+                }
+            %}
+        "##))?;
+
+        assert_eq!(
+            result,
+            Request::basic("DELETE", "http://localhost:9000/foo")
+                .add_header("content-type", "application/json")
+                .gql_body(json!({
+                    "query": "query\nquery",
+                    "variables": {}
+                }))
+                .response_handler_deno(r#"if (status === 200) {
+        setResult('ok');
+    } else {
+        setResult('not ok');
+    }"#
+                )
         );
 
         Ok(())
