@@ -1,6 +1,6 @@
 [package]
 name = "fhttp-core"
-version = "1.5.0"
+version = "1.5.1"
 authors = ["René Perschon <rene.perschon@akelius.de>"]
 edition = "2018"
 license = "MIT"
