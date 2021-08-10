@@ -167,6 +167,7 @@ jobs:
         id: test_binary_download_ubuntu
         with:
           run: |
+            sleep 30 &&
             apt-get update && apt-get install -y curl &&
             curl -LJO https://github.com/Leopard2A5/fhttp/releases/download/${{ github.ref }}/fhttp.linux_x64 &&
             chmod +x fhttp.linux_x64 &&
