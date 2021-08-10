@@ -198,7 +198,13 @@ POST http://localhost:8080
 | Handler | Description
 
 | json | Accepts a https://support.smartbear.com/readyapi/docs/testing/jsonpath-reference.html[jsonpath] expression that is applied to the response body.
-| deno a| Process the response with JavaScript running in a deno instance. The fields `status`, `headers` and `body` allow you to inspect the response. Call the `setResult()` function with the result of your processing script. If you don't call `setResult` in your script, the result will be equal to `body`. For debugging purposes there are the `print` and `printerr` functions.
+| deno a| Process the response with JavaScript running in a deno instance. The fields `status`, `headers` and `body` allow you to inspect the response.
+
+Call the `setResult()` function with the result of your processing script. If you don't call `setResult` in your script, the result will be equal to `body`.
+
+For debugging purposes there are the `print` and `printerr` functions.
+
+Since HTTP headers are case insensitive, but JavaScript object keys aren't, there's the convenience function `header(key)` to get a header value case insensitive.
 
 Example:
 [source]
@@ -206,7 +212,7 @@ Example:
 > {%
     deno
     printerr(body.includes('beetlejuice'));
-    setResult(headers['content-type']);
+    setResult(header('content-type'));
 %}
 ----
 

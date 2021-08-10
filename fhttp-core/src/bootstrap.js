@@ -9,3 +9,11 @@ function print(value) {
 function printerr(value) {
     Deno.core.print(value.toString() + "\n", true);
 }
+
+function header(pKey) {
+    const key = pKey.toLowerCase();
+    const header = Object.keys(headers).find(it => it.toLowerCase() === key);
+    if (header) {
+        return headers[header];
+    }
+}
