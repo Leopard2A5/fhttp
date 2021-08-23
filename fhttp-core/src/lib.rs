@@ -45,4 +45,5 @@ pub mod errors;
 pub mod file_includes;
 pub mod curl;
 pub mod request;
+pub mod evaluation;
 

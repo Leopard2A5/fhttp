@@ -1,5 +1,5 @@
 use crate::{Config, FhttpError, RequestDef};
-use crate::path_utils::{RelativePath, CanonicalizedPathBuf};
+use crate::path_utils::{CanonicalizedPathBuf, RelativePath};
 use crate::Profile;
 use crate::request_def::variable_support::{EnvVarOccurrence, VariableSupport};
 use crate::Result;
@@ -77,6 +77,8 @@ fn get_env_vars_defined_through_requests(
 mod tests {
     use std::env;
 
+    use indoc::indoc;
+
     use crate::{Config, Profile, RequestDef, ResponseStore, Result};
     use crate::execution_order::plan_request_order;
     use crate::test_utils::root;
@@ -134,6 +136,34 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(&coll, &[dep_path, path1, path2]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_not_resolve_escaped_dependencies() -> Result<()> {
+        let root = root()
+            .join("resources/test/requests/nested_dependencies");
+        let path = root.join("4.http");
+
+        let request = RequestDef::new(
+            path.clone(),
+            indoc!(r#"
+                GET server
+
+                \${request("4.http")}
+            "#)
+        )?;
+
+        let profile = Profile::empty(env::current_dir().unwrap());
+        let config = Config::default();
+
+        let coll = plan_request_order(vec![request], &profile, &config)?
+            .into_iter()
+            .map(|req| req.source_path)
+            .collect::<Vec<_>>();
+
+        assert_eq!(&coll, &[path]);
 
         Ok(())
     }

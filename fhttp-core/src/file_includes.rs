@@ -4,13 +4,14 @@ use std::fs;
 use std::ops::Range;
 use std::path::Path;
 
-use regex::{Captures, Regex};
+use regex::{Captures, Regex, Match};
 
 use crate::{FhttpError, Result};
 use crate::path_utils::{RelativePath, canonicalize, CanonicalizedPathBuf};
+use crate::evaluation::{Evaluation, BaseEvaluation};
 
 pub fn load_file_recursively<P: AsRef<Path>>(path: P) -> Result<String> {
-    RecursiveFileLoader::new().load_file_recursively(canonicalize(path.as_ref())?)
+    RecursiveFileLoader::new().load_file_recursively(&canonicalize(path.as_ref())?)
 }
 
 struct RecursiveFileLoader {
@@ -28,7 +29,7 @@ impl RecursiveFileLoader {
 
     fn load_file_recursively(
         &self,
-        path: CanonicalizedPathBuf,
+        path: &CanonicalizedPathBuf,
     ) -> Result<String> {
         self.get_text_for_path(path)
     }
@@ -39,7 +40,7 @@ impl RecursiveFileLoader {
         text: &str,
     ) -> Result<Vec<Include>> {
         lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)\$\{include\("([^"]*)"\)}"##).unwrap();
+            static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)\$\{include\("([^"]*)"\)}"##).unwrap();
         };
 
         let reversed_captures: Result<Vec<Include>> = RE_ENV.captures_iter(text)
@@ -47,16 +48,17 @@ impl RecursiveFileLoader {
             .into_iter()
             .rev()
             .map(|capture| {
-                let group = capture.get(0).unwrap();
-                let range = group.start()..group.end();
-                let path = capture.get(1).unwrap().as_str();
+                let backslashes = capture.get(1).unwrap().as_str().len();
+                let group: Match = capture.get(0).unwrap();
+                let path = capture.get(2).unwrap().as_str();
                 let path = source_path.get_dependency_path(path)?;
 
                 Ok(
-                    Include {
-                        range,
+                    Include::new(
+                        group.range(),
                         path,
-                    }
+                        backslashes,
+                    )
                 )
             })
             .collect();
@@ -66,13 +68,13 @@ impl RecursiveFileLoader {
 
     fn get_text_for_path(
         &self,
-        path: CanonicalizedPathBuf,
+        path: &CanonicalizedPathBuf,
     ) -> Result<String> {
-        if let Some(content) = self.resolved_paths.borrow().get(&path) {
+        if let Some(content) = self.resolved_paths.borrow().get(path) {
             return Ok(content.clone())
         }
 
-        if self.resolution_stack.borrow().contains(&path) {
+        if self.resolution_stack.borrow().contains(path) {
             let stack = self.resolution_stack.borrow();
             let last = stack.last().unwrap().to_str();
             return Err(FhttpError::new(format!(
@@ -84,20 +86,22 @@ impl RecursiveFileLoader {
             self.resolution_stack.borrow_mut().push(path.clone());
         }
 
-        let mut content = fs::read_to_string(&path)
+        let mut content = fs::read_to_string(path)
             .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str())))?;
 
-        let includes = self.find_includes(&path, &content)?;
+        let includes = self.find_includes(path, &content)?;
         for include in includes {
-            let text = self.get_text_for_path(include.path)?;
-            let end_index = match text.chars().last() {
-                Some('\n') => text.len() - 1,
-                _ => text.len(),
-            };
-            content.replace_range(include.range, &text[0..end_index]);
+            include.replace(&mut content, || {
+                let text = self.get_text_for_path(&include.path)?;
+                let end_index = match text.chars().last() {
+                    Some('\n') => text.len() - 1,
+                    _ => text.len(),
+                };
+                Ok(text[0..end_index].to_owned())
+            })?;
         }
 
-        self.resolved_paths.borrow_mut().insert(path, content.clone());
+        self.resolved_paths.borrow_mut().insert(path.clone(), content.clone());
         self.resolution_stack.borrow_mut().pop();
 
         Ok(content)
@@ -106,8 +110,30 @@ impl RecursiveFileLoader {
 
 #[derive(Debug)]
 struct Include {
-    range: Range<usize>,
     path: CanonicalizedPathBuf,
+    base_eval: BaseEvaluation,
+}
+
+impl Include {
+    pub fn new(
+        range: Range<usize>,
+        path: CanonicalizedPathBuf,
+        backslashes: usize,
+    ) -> Self {
+        Include {
+            path,
+            base_eval: BaseEvaluation {
+                range,
+                backslashes,
+            },
+        }
+    }
+}
+
+impl AsRef<BaseEvaluation> for Include {
+    fn as_ref(&self) -> &BaseEvaluation {
+        &self.base_eval
+    }
 }
 
 #[cfg(test)]
@@ -157,5 +183,27 @@ mod test {
                 )
             ))
         );
+    }
+
+    #[test]
+    fn should_respect_escapes() {
+        let result = load_file_recursively(
+            &root().join("resources/nested_file_includes/escaped/start.txt")
+        );
+
+        let expectation = String::from_str(
+            indoc!{r##"
+                START
+                LEVEL 1
+                ${include("level-1.txt")}
+                \LEVEL 1
+                \${include("level-1.txt")}
+                \\LEVEL 1
+                \\${include("level-1.txt")}
+                \\\LEVEL 1
+            "##}
+        ).unwrap();
+
+        assert_eq!(result, Ok(expectation));
     }
 }

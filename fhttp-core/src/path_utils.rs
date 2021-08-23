@@ -41,6 +41,12 @@ impl AsRef<Path> for CanonicalizedPathBuf {
     }
 }
 
+impl From<CanonicalizedPathBuf> for PathBuf {
+    fn from(cpb: CanonicalizedPathBuf) -> Self {
+        cpb.0
+    }
+}
+
 fn get_dependency_path<O: AsRef<Path>>(
     origin_path: O,
     path: &str
