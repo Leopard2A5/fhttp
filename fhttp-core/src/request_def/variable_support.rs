@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use regex::{Captures, Regex};
 use uuid::Uuid;
 
@@ -22,18 +20,13 @@ pub trait VariableSupport {
 #[derive(Debug)]
 pub struct EnvVarOccurrence<'a> {
     pub name: &'a str,
-    pub range: Range<usize>,
     pub default: Option<&'a str>,
-    pub backslashes: usize,
+    pub base_evaluation: BaseEvaluation,
 }
 
-impl<'a> Evaluation for EnvVarOccurrence<'a> {
-    fn num_backslashes(&self) -> usize {
-        self.backslashes
-    }
-
-    fn range(&self) -> &Range<usize> {
-        &self.range
+impl <'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
+    fn as_ref(&self) -> &BaseEvaluation {
+        &self.base_evaluation
     }
 }
 
@@ -55,9 +48,11 @@ impl VariableSupport for RequestDef {
                     .map(|m| m.as_str());
                 EnvVarOccurrence {
                     name: key,
-                    range: group.start()..group.end(),
-                    backslashes,
                     default,
+                    base_evaluation: BaseEvaluation {
+                        range: group.start()..group.end(),
+                        backslashes,
+                    },
                 }
             })
             .collect()
