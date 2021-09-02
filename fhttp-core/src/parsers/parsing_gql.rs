@@ -172,6 +172,7 @@ mod parse_gql_requests {
             GET http://localhost:9000/foo
             content-type: application/json; charset=UTF-8
             accept: application/xml
+            com.header.name: com.header.value
 
             query
         "##))?;
@@ -181,6 +182,7 @@ mod parse_gql_requests {
             Request::basic("GET", "http://localhost:9000/foo")
                 .add_header("content-type", "application/json; charset=UTF-8")
                 .add_header("accept", "application/xml")
+                .add_header("com.header.name", "com.header.value")
                 .gql_body(json!({
                     "query": "query",
                     "variables": {}

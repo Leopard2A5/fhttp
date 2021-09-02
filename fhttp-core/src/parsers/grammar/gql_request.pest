@@ -5,7 +5,9 @@ method = @{ ASCII_ALPHANUMERIC+ }
 url = @{ (!NEWLINE ~ ANY)+ }
 
 first_line = { method ~ url }
-header_name = { (ASCII_ALPHANUMERIC | "-" | "_" )+ }
+// ascii 33-126, except ":" according to https://stackoverflow.com/questions/47687379/what-characters-are-allowed-in-http-header-values
+header_tokens = { "!" | "\"" | "#" | "$" | "%" | "&" | "'" | "(" | ")" | "*" | "+" | "," | "-" | "." | "/" | "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | ";" | "<" | "=" | ">" | "?" | "@" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" | "[" | "\\" | "]" | "^" | "_" | "`" | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" | "{" | "|" | "}" | "~" }
+header_name = { header_tokens+ }
 header_value = { (LETTER | NUMBER | PUNCTUATION | SYMBOL | " ")+ }
 header_line = { header_name ~ ":" ~ header_value }
 
