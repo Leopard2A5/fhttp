@@ -15,12 +15,13 @@ jobs:
       - name: publish
         run: |
           cargo login ${{ secrets.CRATESIO_APIKEY }}
+          sleep 3
           cd fhttp-core
           for i in 1 2; do cargo publish && break; done
           cd -
-          sleep 5
+          sleep 3
           cd fhttp
-          for i in 1 2; do cargo publish; done
+          for i in 1 2; do cargo publish && break; done
           cd -
 
   create_release:
