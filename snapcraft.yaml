@@ -1,0 +1,25 @@
+name: fhttp
+base: core18
+version: git
+summary: The file-based command line http client.
+description: |
+  FHTTP is not a curl replacement. It’s meant to be a developers’ tool to make http
+  requests and store them as files, usually in a source code repository along with
+  an application accepting http requests. It’s inspired by tools like Postman,
+  Insomnia and the IntelliJ http client.
+
+grade: stable
+confinement: strict
+
+apps:
+  fhttp:
+    command: bin/fhttp
+
+parts:
+  fhttp:
+    source: .
+    plugin: rust
+    build-packages:
+      - build-essential
+      - pkg-config
+      - libssl-dev
