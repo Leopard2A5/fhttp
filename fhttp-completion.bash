@@ -44,4 +44,4 @@ _fhttp_completions() {
   fi
 }
 
-complete -F _fhttp_completions fhttp
+complete -o dirnames -X '*.http' -F _fhttp_completions fhttp
