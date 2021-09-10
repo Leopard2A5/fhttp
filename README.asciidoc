@@ -41,6 +41,8 @@ There are multiple ways to install FHTTP:
 
 * homebrew
 . run `brew tap Leopard2A5/fhttp && brew install fhttp`
+* snap
+. find it on the snap store image:https://snapcraft.io/static/images/badges/en/snap-store-white.svg[link="https://snapcraft.io/fhttp",height=30]
 * through cargo
 . run `cargo install fhttp` (note: on ubuntu you need the apt packages `build-essential`, `pkg-config` and `libssl-dev`)
 * manually
