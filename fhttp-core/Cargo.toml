@@ -2,7 +2,7 @@
 name = "fhttp-core"
 version = "1.5.2"
 authors = ["René Perschon <rene.perschon@akelius.de>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "core library for the fhttp tool"
 homepage = "https://github.com/Leopard2A5/fhttp"

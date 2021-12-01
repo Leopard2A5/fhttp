@@ -2,7 +2,7 @@
 name = "fhttp"
 version = "1.5.2"
 authors = ["René Perschon <rperschon85@gmail.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "File-based command line http client"
 homepage = "https://github.com/Leopard2A5/fhttp"
