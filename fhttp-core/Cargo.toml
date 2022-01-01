@@ -37,3 +37,5 @@ deno_core = "0.95.0"
 [dev-dependencies]
 indoc = "1.0.3"
 maplit = "1.0.2"
+async-std = "1.10"
+wiremock = "0.5"

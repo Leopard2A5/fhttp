@@ -1,13 +1,13 @@
 extern crate assert_cmd;
-extern crate futures;
+extern crate async_std;
 extern crate wiremock;
 
 use std::env;
 
-use futures::executor::block_on;
 use wiremock::{MockServer, ResponseTemplate, Mock};
 use wiremock::matchers::method;
 use assert_cmd::Command;
+use async_std::task::block_on;
 
 #[test]
 fn should_not_execute_response_handler_on_unsuccessful_requests() {

@@ -1,6 +1,8 @@
 extern crate apply;
 #[cfg(test)]
 extern crate indoc;
+#[cfg(test)]
+extern crate async_std;
 #[macro_use]
 extern crate lazy_static;
 extern crate pest;
