@@ -1,13 +1,10 @@
+#[cfg(test)] extern crate indoc;
+#[cfg(test)] extern crate async_std;
+#[cfg(test)] extern crate wiremock_multipart;
 extern crate apply;
-#[cfg(test)]
-extern crate indoc;
-#[cfg(test)]
-extern crate async_std;
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 extern crate pest;
-#[macro_use]
-extern crate pest_derive;
+#[macro_use] extern crate pest_derive;
 extern crate promptly;
 extern crate rand;
 extern crate regex;

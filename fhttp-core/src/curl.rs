@@ -33,6 +33,7 @@ impl Curl for Request {
                     file.path.to_str().replace(r#"""#, r#"\""#)
                 ));
             },
+            Body::Multipart(_) => unimplemented!(),
         }
 
         parts.push(format!("--url \"{}\"", &self.url.replace(r#"""#, r#"\""#)));
