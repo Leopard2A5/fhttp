@@ -1,9 +1,9 @@
 use reqwest::header::HeaderMap;
 use reqwest::Method;
-#[cfg(test)]
-use serde_json::Value;
+#[cfg(test)] use serde_json::Value;
+#[cfg(test)] use crate::request_def::body::MultipartPart;
 
-use crate::request_def::body::{Body, MultipartPart};
+use crate::request_def::body::Body;
 use crate::response_handler::ResponseHandler;
 
 #[derive(Debug, PartialEq, Eq)]
