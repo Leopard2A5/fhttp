@@ -1,11 +1,12 @@
 extern crate assert_cmd;
 extern crate mockito;
 extern crate reqwest;
+extern crate async_std;
 
 use std::env;
 
 use assert_cmd::Command;
-use futures::executor::block_on;
+use async_std::task::block_on;
 use wiremock::MockServer;
 
 use fhttp_core::test_utils::root;

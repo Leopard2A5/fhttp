@@ -1,5 +1,5 @@
 use crate::parsers::Request;
-use crate::request_def::body::Body;
+use crate::request_def::body::{Body, MultipartPart};
 
 pub trait Curl {
     fn curl(&self) -> String;
@@ -33,6 +33,34 @@ impl Curl for Request {
                     file.path.to_str().replace(r#"""#, r#"\""#)
                 ));
             },
+            Body::Multipart(multiparts) => for prt in multiparts {
+                parts.push(match prt {
+                    MultipartPart::File { name, file_path, mime_str } => {
+                        let type_and_end = match mime_str {
+                            None => "\"".to_string(),
+                            Some(mime) => format!("; type={}\"", mime),
+                        };
+                        format!(
+                            "-F {name}=\"@{filepath}{type_and_end}",
+                            name = name,
+                            filepath = file_path.to_str(),
+                            type_and_end = type_and_end,
+                        )
+                    },
+                    MultipartPart::Text { name, text, mime_str } => {
+                        let type_and_end = match mime_str {
+                            None => "\"".to_string(),
+                            Some(mime) => format!("; type={}\"", mime),
+                        };
+                        format!(
+                            "-F {name}=\"{text}{type_and_end}",
+                            name = name,
+                            text = text.replace('"', "\\\""),
+                            type_and_end = type_and_end,
+                        )
+                    },
+                });
+            },
         }
 
         parts.push(format!("--url \"{}\"", &self.url.replace(r#"""#, r#"\""#)));
@@ -49,11 +77,11 @@ fn escape_body<S: Into<String>>(input: S) -> String {
 
 #[cfg(test)]
 mod test {
-    use indoc::{indoc, formatdoc};
-
-    use crate::test_utils::root;
-
+    use indoc::{formatdoc, indoc};
     use serde_json::json;
+
+    use crate::request_def::body::MultipartPart;
+    use crate::test_utils::root;
 
     use super::*;
 
@@ -191,6 +219,48 @@ mod test {
                 -F "file2=@{base}/resources/it/profiles2.json" \
                 --url "http://localhost/555""#,
                 base = root().to_str().to_string(),
+            )
+        );
+    }
+
+    #[test]
+    fn should_print_command_with_multiparts() {
+        let filepath = root().join("resources/image.jpg");
+        let result = Request::basic("GET", "http://localhost/555")
+            .multipart(&[
+                MultipartPart::Text {
+                    name: "textpart1".to_string(),
+                    text: "this is a text".to_string(),
+                    mime_str: Some("plain/text".to_string()),
+                },
+                MultipartPart::Text {
+                    name: "textpart2".to_string(),
+                    text: "{\"a\": 5}".to_string(),
+                    mime_str: Some("application/json".to_string()),
+                },
+                MultipartPart::Text {
+                    name: "textpart3".to_string(),
+                    text: "this is a text".to_string(),
+                    mime_str: None,
+                },
+                MultipartPart::File {
+                    name: "filepart".to_string(),
+                    file_path: filepath.clone(),
+                    mime_str: None
+                },
+            ])
+            .curl();
+
+        assert_eq!(
+            result,
+            formatdoc!(r#"
+                curl -X GET \
+                -F textpart1="this is a text; type=plain/text" \
+                -F textpart2="{{\"a\": 5}}; type=application/json" \
+                -F textpart3="this is a text" \
+                -F filepart="@{filepath}" \
+                --url "http://localhost/555""#,
+                filepath = filepath.to_str(),
             )
         );
     }

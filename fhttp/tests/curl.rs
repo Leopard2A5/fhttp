@@ -5,7 +5,7 @@ extern crate reqwest;
 use std::env;
 
 use assert_cmd::Command;
-use futures::executor::block_on;
+use async_std::task::block_on;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 use wiremock::{Mock, MockServer, ResponseTemplate};

@@ -1,12 +1,12 @@
 extern crate assert_cmd;
 extern crate wiremock;
-extern crate futures;
+extern crate async_std;
 
 use std::env;
 
 use assert_cmd::Command;
+use async_std::task::block_on;
 use wiremock::{MockServer, Mock, ResponseTemplate};
-use futures::executor::block_on;
 use wiremock::matchers::{method, path, body_string_contains};
 
 #[test]
