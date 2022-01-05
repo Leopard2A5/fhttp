@@ -113,7 +113,7 @@ mod tests {
     use async_std::task::block_on;
     use serde_json::Number;
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
-    use wiremock::matchers::method;
+    use wiremock::matchers::{header, method};
     use wiremock_multipart::prelude::*;
 
     use crate::request_def::body::MultipartPart;

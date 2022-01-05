@@ -3,7 +3,7 @@ use reqwest::Method;
 #[cfg(test)]
 use serde_json::Value;
 
-use crate::request_def::body::Body;
+use crate::request_def::body::{Body, MultipartPart};
 use crate::response_handler::ResponseHandler;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -82,6 +82,15 @@ impl Request {
                 .map(|(name, path)| File { name, path })
                 .collect()
         );
+
+        self
+    }
+
+    pub fn multipart(
+        mut self,
+        parts: &[MultipartPart],
+    ) -> Self {
+        self.body = Body::Multipart(parts.to_vec());
 
         self
     }
