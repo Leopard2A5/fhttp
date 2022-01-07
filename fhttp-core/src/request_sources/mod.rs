@@ -16,6 +16,7 @@ pub mod variable_support;
 pub mod request_wrapper;
 pub mod request_dependency_eval;
 pub mod file_includes;
+pub mod structured_request_source;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)\$\{request\("([^"]+)"\)}"#).unwrap();
