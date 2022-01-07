@@ -4,7 +4,7 @@ use std::path::Path;
 
 use regex::{Captures, Regex};
 
-use crate::errors::Result;
+use anyhow::Result;
 use file_includes::load_file_recursively;
 use crate::parsers::{parse_gql_str, parse_str};
 use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};

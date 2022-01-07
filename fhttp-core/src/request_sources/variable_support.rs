@@ -1,10 +1,11 @@
+use anyhow::Result;
 use regex::{Captures, Regex};
 use uuid::Uuid;
 
-use crate::{Config, Profile, RequestSource, ResponseStore, Result};
-use crate::preprocessing::evaluation::{Evaluation, BaseEvaluation};
+use crate::{Config, Profile, RequestSource, ResponseStore};
 use crate::path_utils::RelativePath;
-use crate::preprocessing::random_numbers::{random_int, RandomNumberEval, parse_min_max};
+use crate::preprocessing::evaluation::{BaseEvaluation, Evaluation};
+use crate::preprocessing::random_numbers::{parse_min_max, random_int, RandomNumberEval};
 
 pub trait VariableSupport {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence>;
@@ -195,10 +196,10 @@ mod replace_variables {
 
     use indoc::indoc;
 
-    use super::*;
     use crate::preprocessing::random_numbers::RANDOM_INT_CALLS;
-    use crate::FhttpError;
     use crate::test_utils::root;
+
+    use super::*;
 
     #[test]
     fn should_replace_env_vars() -> Result<()> {
@@ -397,28 +398,28 @@ mod replace_variables {
         let config = Config::default();
         let response_store = ResponseStore::new();
 
-        assert_eq!(
+        assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("GET ${{randomInt({})}}", std::i32::MIN as i64 - 1)
             )?.replace_variables(&profile, &config, &response_store),
-            Err(FhttpError::new(format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)))
+            format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
         );
 
-        assert_eq!(
+        assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1)
             )?.replace_variables(&profile, &config, &response_store),
-            Err(FhttpError::new(format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)))
+            format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
         );
 
-        assert_eq!(
+        assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
                 "${randomInt(3, 2)}"
             )?.replace_variables(&profile, &config, &response_store),
-            Err(FhttpError::new("min cannot be greater than max"))
+            "min cannot be greater than max"
         );
 
         Ok(())

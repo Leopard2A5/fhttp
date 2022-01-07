@@ -1,10 +1,11 @@
-use std::path::{Path, PathBuf};
 use std::fs;
-use crate::{FhttpError, Result};
+use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
 
 pub fn canonicalize(p: &Path) -> Result<CanonicalizedPathBuf> {
     fs::canonicalize(&p)
-        .map_err(|e| FhttpError::new(format!("error opening file {}: {:?}", p.to_str().unwrap(), e.kind())))
+        .with_context(|| format!("error opening file {}", p.to_str().unwrap()))
         .map(CanonicalizedPathBuf)
 }
 

@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use anyhow::{Context, Result};
 use reqwest::{Method, Url};
 use reqwest::blocking::multipart;
 use reqwest::header::HeaderMap;
 
-use crate::{FhttpError, Response, ResponseHandler, Result};
+use crate::{Response, ResponseHandler};
 use crate::request::body::{Body, File, MultipartPart};
 
 pub struct Client;
@@ -26,7 +27,7 @@ impl Client {
     ) -> Result<Response> {
         let client = reqwest::blocking::Client::new();
         let url = Url::parse(url)
-            .map_err(|_| FhttpError::new(format!("Invalid URL: '{}'", url)))?;
+            .with_context(|| format!("Invalid URL: '{}'", url))?;
         let mut req_builder = client
             .request(method, url)
             .headers(headers);
@@ -40,7 +41,7 @@ impl Client {
                 let mut multipart = multipart::Form::new();
                 for File { name, path } in files {
                     multipart = multipart.file(name, path.clone())
-                        .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str())))?;
+                        .with_context(|| format!("Error opening file {}", path.to_str()))?;
                 }
                 req_builder.multipart(multipart)
             },
@@ -51,10 +52,10 @@ impl Client {
                         MultipartPart::File { name, file_path, mime_str } => {
                             let path_clone = file_path.clone();
                             let mut tmp = multipart::Part::file(file_path.clone())
-                                .map_err(|_| FhttpError::new(format!("Error opening file {}", path_clone.to_str())))?;
+                                .with_context(|| format!("Error opening file {}", path_clone.to_str()))?;
                             if let Some(mime_str) = mime_str {
                                 tmp = tmp.mime_str(&mime_str)
-                                    .map_err(|_| { FhttpError::new("error 1") })?;
+                                    .with_context(|| format!("error parsing mime string '{}'", &mime_str))?;
                             }
                             multipart = multipart.part(name, tmp);
                         },
@@ -62,7 +63,7 @@ impl Client {
                             let mut tmp = multipart::Part::text(text.clone());
                             if let Some(mime_str) = mime_str {
                                 tmp = tmp.mime_str(&mime_str)
-                                    .map_err(|_| { FhttpError::new("error 2") })?;
+                                    .with_context(|| format!("error parsing mime string '{}'", &mime_str))?;
                             }
                             multipart = multipart.part(name, tmp);
                         },

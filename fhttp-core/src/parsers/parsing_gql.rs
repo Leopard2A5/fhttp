@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use anyhow::{anyhow, Context, Result};
 use pest::iterators::Pair;
 use pest::Parser;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
@@ -7,11 +8,10 @@ use reqwest::Method;
 use serde_json::map::Map;
 use serde_json::Value;
 
-use crate::errors::{FhttpError, Result};
 use crate::parsers::gql_parser::{RequestParser, Rule};
 use crate::parsers::Request;
-use crate::request::body::Body;
 use crate::postprocessing::response_handler::ResponseHandler;
+use crate::request::body::Body;
 
 pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<Request> {
     let file = RequestParser::parse(Rule::file, source.as_ref())
@@ -40,7 +40,7 @@ pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<Request> {
     let variables = match variables {
         None => Value::Object(Map::new()),
         Some(ref variables) => serde_json::from_str(variables)
-            .map_err(|_| FhttpError::new("Error parsing variables section, seems to be invalid JSON?"))?,
+            .context("Error parsing variables section, seems to be invalid JSON?")?,
     };
 
     disallow_file_uploads(&query)?;
@@ -72,7 +72,7 @@ fn parse_first_line(
     for field in element.into_inner() {
         match field.as_rule() {
             Rule::method => *method = Method::from_str(field.as_str())
-                .map_err(|_| FhttpError::new(format!("invalid method '{}'", field.as_str())))?,
+                .with_context(|| format!("invalid method '{}'", field.as_str()))?,
             Rule::url => url.push_str(field.as_str()),
             _ => unreachable!(),
         }
@@ -97,8 +97,8 @@ fn parse_header_line(
     }
 
     headers.insert(
-        HeaderName::from_str(&name).map_err(|_| FhttpError::new(format!("invalid header name: '{}'", &name)))?,
-        HeaderValue::from_str(&value).map_err(|_| FhttpError::new(format!("invalid header value: '{}'", &value)))?
+        HeaderName::from_str(&name).with_context(|| format!("invalid header name: '{}'", &name))?,
+        HeaderValue::from_str(&value).with_context(|| format!("invalid header value: '{}'", &value))?
     );
 
     Ok(())
@@ -155,7 +155,7 @@ fn disallow_file_uploads(body: &str) -> Result<()> {
 
     match captures.count() {
         0 => Ok(()),
-        _ => Err(FhttpError::new("file uploads are not allowed in graphql requests"))
+        _ => Err(anyhow!("file uploads are not allowed in graphql requests"))
     }
 }
 
@@ -475,9 +475,9 @@ mod parse_gql_requests {
             ${file("file", "../resources/it/profiles2.json")}
         "##));
 
-        assert_eq!(
+        assert_err!(
             result,
-            Err(FhttpError::new("file uploads are not allowed in graphql requests"))
+            "file uploads are not allowed in graphql requests"
         );
 
         Ok(())

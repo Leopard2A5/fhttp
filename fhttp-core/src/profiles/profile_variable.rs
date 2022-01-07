@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{Config, Result};
+use crate::Config;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -61,7 +62,7 @@ fn resolve_pass(path: &str) -> Result<String> {
 #[cfg(not(test))]
 fn resolve_pass(path: &str) -> Result<String> {
     use std::process::Command;
-    use crate::FhttpError;
+    use anyhow::anyhow;
 
     let output = Command::new("pass")
         .args(&[path])
@@ -73,9 +74,7 @@ fn resolve_pass(path: &str) -> Result<String> {
         Ok(String::from_utf8(output).unwrap())
     } else {
         let stderr = String::from_utf8(output.stderr).unwrap();
-        Err(FhttpError::new(
-            format!("pass returned an error: '{}'", stderr)
-        ))
+        Err(anyhow!("pass returned an error: '{}'", stderr))
     }
 }
 
@@ -123,7 +122,7 @@ mod curl {
         let var = ProfileVariable::StringValue(String::from("value"));
         let result = var.get(&CONFIG, false);
 
-        assert_eq!(result, Ok(String::from("value")));
+        assert_ok!(result, String::from("value"));
     }
 
     #[test]
@@ -133,7 +132,7 @@ mod curl {
         let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
         let result = var.get(&CONFIG, false);
 
-        assert_eq!(result, Ok(String::from("$(pass path/to/secret)")));
+        assert_ok!(result, String::from("$(pass path/to/secret)"));
 
         PASS_INVOCATIONS.with(|it| assert_eq!(it.borrow().len(), 0));
     }
@@ -145,7 +144,7 @@ mod curl {
         let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
         let result = var.get(&CONFIG, true);
 
-        assert_eq!(result, Ok(String::from("pass_secret")));
+        assert_ok!(result, String::from("pass_secret"));
 
         PASS_INVOCATIONS.with(|it| {
             let invocations = it.borrow().iter()

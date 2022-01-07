@@ -4,11 +4,11 @@ use std::fs;
 use std::ops::Range;
 use std::path::Path;
 
-use regex::{Captures, Regex, Match};
+use anyhow::{anyhow, Context, Result};
+use regex::{Captures, Match, Regex};
 
-use crate::{FhttpError, Result};
-use crate::path_utils::{RelativePath, canonicalize, CanonicalizedPathBuf};
-use crate::preprocessing::evaluation::{Evaluation, BaseEvaluation};
+use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
+use crate::preprocessing::evaluation::{BaseEvaluation, Evaluation};
 
 pub fn load_file_recursively<P: AsRef<Path>>(path: P) -> Result<String> {
     RecursiveFileLoader::new().load_file_recursively(&canonicalize(path.as_ref())?)
@@ -77,17 +77,17 @@ impl RecursiveFileLoader {
         if self.resolution_stack.borrow().contains(path) {
             let stack = self.resolution_stack.borrow();
             let last = stack.last().unwrap().to_str();
-            return Err(FhttpError::new(format!(
+            return Err(anyhow!(
                 "cyclic dependency detected between '{}' and '{}'",
                 last,
                 path.to_str(),
-            )))
+            ))
         } else {
             self.resolution_stack.borrow_mut().push(path.clone());
         }
 
         let mut content = fs::read_to_string(path)
-            .map_err(|_| FhttpError::new(format!("error reading file {}", path.to_str())))?;
+            .with_context(|| format!("error reading file {}", path.to_str()))?;
 
         let includes = self.find_includes(path, &content)?;
         for include in includes {
@@ -162,7 +162,7 @@ mod test {
             "##}
         ).unwrap();
 
-        assert_eq!(result, Ok(expectation));
+        assert_ok!(result, expectation);
     }
 
     #[test]
@@ -173,15 +173,13 @@ mod test {
             &root().join("resources/nested_file_includes/cyclic_dependency/start.txt")
         );
 
-        assert_eq!(
+        assert_err!(
             result,
-            Err(FhttpError::new(
-                format!(
-                    "cyclic dependency detected between '{}' and '{}'",
-                    three.to_str(),
-                    one.to_str(),
-                )
-            ))
+            format!(
+                "cyclic dependency detected between '{}' and '{}'",
+                three.to_str(),
+                one.to_str(),
+            )
         );
     }
 
@@ -204,6 +202,6 @@ mod test {
             "##}
         ).unwrap();
 
-        assert_eq!(result, Ok(expectation));
+        assert_ok!(result, expectation);
     }
 }

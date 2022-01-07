@@ -29,7 +29,7 @@ async fn async_test() {
         .assert()
         .failure()
         .stderr(format!(
-            "POST {}/... Error parsing response body as json: EOF while parsing a value at line 1 column 0. Body was ''\n",
+            "POST {}/... Error: failed to parse response body as json\nBody was ''\n\nCaused by:\n    EOF while parsing a value at line 1 column 0\n",
             mock_server.uri()
         ));
 }

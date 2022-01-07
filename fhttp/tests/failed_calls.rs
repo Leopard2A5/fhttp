@@ -28,7 +28,7 @@ fn should_stop_execution_on_status_400() {
     assert
         .failure()
         .stderr(format!(
-            "GET {base}/1... 400 Bad Request\ninvalid param\n",
+            "GET {base}/1... 400 Bad Request\nError: invalid param\n",
             base=url
         ));
 
@@ -52,7 +52,7 @@ fn should_stop_execution_on_connection_issues() {
     assert.failure();
 
     let expectation = format!(
-        "GET {base}/1... error sending request for url (http://unreachableurl.foobar/1): error trying to connect:",
+        "GET {base}/1... Error: error sending request for url (http://unreachableurl.foobar/1): error trying to connect:",
         base=url
     );
 

@@ -4,13 +4,13 @@ use std::iter::Iterator;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use anyhow::{anyhow, Context, Result};
 use promptly::prompt;
 use serde::{Deserialize, Serialize};
 
 pub use profile_variable::ProfileVariable;
 
 use crate::{Config, ResponseStore};
-use crate::errors::{FhttpError, Result};
 use crate::path_utils::RelativePath;
 
 mod profile_variable;
@@ -21,9 +21,9 @@ impl Profiles {
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Profile>> {
         let path = path.as_ref();
         let content = std::fs::read_to_string(&path)
-            .map_err(|_| FhttpError::new(format!("Error opening file {}", path.to_str().unwrap())))?;
+            .with_context(|| format!("Error opening file {}", path.to_str().unwrap()))?;
         let profiles = serde_json::from_str::<HashMap<String, _Profile>>(&content)
-            .map_err(|_| FhttpError::new(format!("error reading profile from {}", path.to_str().unwrap())))?;
+            .with_context(|| format!("error reading profile from {}", path.to_str().unwrap()))?;
         let ret = profiles.into_iter()
             .map(|(key, value)| {
                 let profile = Profile::new(path, value.variables);
@@ -127,7 +127,7 @@ fn get_from_environment(
 ) -> Result<String> {
     match env::var(&key) {
         Ok(value) => Ok(value),
-        Err(VarError::NotUnicode(_)) => Err(FhttpError::new(format!("environment variable {} is not unicode!", key))),
+        Err(VarError::NotUnicode(_)) => Err(anyhow!("environment variable {} is not unicode!", key)),
         Err(VarError::NotPresent) => match default {
             Some(default) => Ok(default.to_owned()),
             None => match config.prompt_missing_env_vars() {
@@ -136,7 +136,7 @@ fn get_from_environment(
                     env::set_var(&key, &value);
                     Ok(value)
                 },
-                false => Err(FhttpError::new(format!("missing environment variable {}", key)))
+                false => Err(anyhow!(format!("missing environment variable {}", key)))
             }
         }
     }

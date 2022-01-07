@@ -1,8 +1,9 @@
-use crate::{Config, FhttpError, RequestSource};
+use anyhow::{anyhow, Result};
+
+use crate::{Config, RequestSource};
 use crate::path_utils::{CanonicalizedPathBuf, RelativePath};
 use crate::Profile;
 use crate::request_sources::variable_support::{EnvVarOccurrence, VariableSupport};
-use crate::Result;
 
 pub fn plan_request_order(
     initial_requests: Vec<RequestSource>,
@@ -46,7 +47,7 @@ fn preprocess_request(
         return Ok(());
     }
     if preprocessor_stack.contains(&req.source_path) {
-        return Err(FhttpError::new("cyclic dependency detected!"));
+        return Err(anyhow!("cyclic dependency detected!"));
     }
     preprocessor_stack.push(req.source_path.clone());
 
@@ -77,9 +78,10 @@ fn get_env_vars_defined_through_requests(
 mod tests {
     use std::env;
 
+    use anyhow::Result;
     use indoc::indoc;
 
-    use crate::{Config, Profile, RequestSource, ResponseStore, Result};
+    use crate::{Config, Profile, RequestSource, ResponseStore};
     use crate::execution::execution_order::plan_request_order;
     use crate::test_utils::root;
 

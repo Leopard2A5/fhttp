@@ -33,7 +33,7 @@ async fn async_test() {
         .assert()
         .failure()
         .stderr(format!(
-            "GET {uri}/1... error sending request for url ({uri}/1): operation timed out\n",
+            "GET {uri}/1... Error: error sending request for url ({uri}/1): operation timed out\n\nCaused by:\n    operation timed out\n",
             uri=mock_server.uri()
         ));
 }

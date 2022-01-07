@@ -1,5 +1,6 @@
-use crate::errors::Result;
 use std::ops::Range;
+
+use anyhow::Result;
 
 pub trait Evaluation {
     fn num_backslashes(&self) -> usize;

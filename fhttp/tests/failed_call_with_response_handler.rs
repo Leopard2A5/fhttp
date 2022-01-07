@@ -29,7 +29,7 @@ async fn async_test() {
         .assert()
         .failure()
         .stderr(format!(
-            "POST {}/... 500 Internal Server Error\nno response body\n",
+            "POST {}/... 500 Internal Server Error\nError: no response body\n",
             mock_server.uri()
         ));
 }

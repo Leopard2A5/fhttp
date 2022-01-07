@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
-use std::process;
 use std::str::FromStr;
 use std::time::Duration;
 
+use anyhow::{anyhow, Result};
 use clap::{App, Arg, crate_authors, crate_version, value_t, Values};
 use itertools::Itertools;
 
-use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestSource, Result};
+use fhttp_core::{Config, Profile, Profiles, RequestSource};
 use fhttp_core::Client;
 use fhttp_core::execution::curl::Curl;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_core::Requestpreprocessor;
 
-fn main() {
+fn main() -> Result<()> {
     let matches = App::new("fhttp")
         .version(crate_version!())
         .author(crate_authors!())
@@ -92,16 +92,12 @@ fn main() {
             }
         });
 
-    let result = do_it(
+    do_it(
         matches.values_of("files").unwrap(),
         config,
         profile_path,
         profile_name
-    );
-    if let Err(error) = result {
-        eprintln!("{}", error);
-        process::exit(1);
-    };
+    )
 }
 
 fn do_it(
@@ -157,7 +153,7 @@ fn do_it(
                 } else {
                     resp.body()
                 };
-                return Err(FhttpError::new(msg));
+                return Err(anyhow!("{}", msg));
             }
 
             preprocessor.notify_response(&path, resp.body());
@@ -180,7 +176,7 @@ fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestSource>> {
         let msg = non_existent.iter()
             .map(|file| format!("'{}' does not exist", file.to_str().unwrap()))
             .join("\n");
-        return Err(FhttpError::new(msg));
+        return Err(anyhow!("{}", msg));
     }
 
     let non_file = files.iter()
@@ -191,7 +187,7 @@ fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestSource>> {
         let msg = non_file.iter()
             .map(|file| format!("'{}' is not a file", file.to_str().unwrap()))
             .join("\n");
-        return Err(FhttpError::new(msg));
+        return Err(anyhow!("{}", msg));
     }
 
     let mut ret = vec![];
@@ -227,12 +223,10 @@ fn check_curl_requested_for_dependencies(
         for possible_dependency in requested_files {
             if let Some(dependency_of) = dependencies.get(&possible_dependency) {
                 return Err(
-                    FhttpError::new(
-                        format!(
-                            "{}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.",
-                            possible_dependency.to_str(),
-                            dependency_of.to_str(),
-                        )
+                    anyhow!(
+                        "{}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.",
+                        possible_dependency.to_str(),
+                        dependency_of.to_str(),
                     )
                 )
             }
@@ -252,7 +246,7 @@ fn parse_profile(
         Some(profile_path) => {
             match profile_path.exists() {
                 true => Ok(profile_path),
-                false => Err(FhttpError::new(format!("file not found: '{}'", profile_path.to_str().unwrap())))
+                false => Err(anyhow!("file not found: '{}'", profile_path.to_str().unwrap()))
             }
         },
         None => {
@@ -268,7 +262,7 @@ fn parse_profile(
     let mut default = profiles.remove("default")
         .unwrap_or_else(|| Profile::empty(&path));
     let profile = match profile {
-        Some(ref name) => profiles.remove(name).ok_or_else(|| FhttpError::new("profile not found"))?,
+        Some(ref name) => profiles.remove(name).ok_or_else(|| anyhow!("profile not found"))?,
         None => Profile::empty(&path),
     };
 

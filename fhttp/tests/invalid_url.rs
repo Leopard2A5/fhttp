@@ -10,5 +10,5 @@ fn should_handle_invalid_url() {
 
     assert
         .failure()
-        .stderr("DELETE notAValidUrl... Invalid URL: 'notAValidUrl'\n");
+        .stderr("DELETE notAValidUrl... Error: Invalid URL: 'notAValidUrl'\n\nCaused by:\n    relative URL without a base\n");
 }

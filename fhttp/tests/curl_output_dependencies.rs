@@ -28,7 +28,7 @@ async fn test() {
         .assert()
         .failure()
         .stderr(format!(
-            "{}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.\n",
+            "Error: {}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.\n",
             root.join("resources/it/curl/token.http").to_str(),
             root.join("resources/it/curl/create.http").to_str(),
         ));

@@ -1,17 +1,17 @@
 use std::path::Path;
 use std::str::FromStr;
 
+use anyhow::{Context, Result};
 use pest::iterators::Pair;
 use pest::Parser;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
-use crate::errors::{FhttpError, Result};
 use crate::parsers::normal_parser::{RequestParser, Rule};
 use crate::parsers::Request;
 use crate::path_utils::RelativePath;
-use crate::request::body::{Body, File};
 use crate::postprocessing::response_handler::ResponseHandler;
+use crate::request::body::{Body, File};
 
 pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
     path: P,
@@ -19,9 +19,7 @@ pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
 ) -> Result<Request> {
     let path = path.as_ref();
     let file = RequestParser::parse(Rule::file, source.as_ref())
-        .map_err(|e| {
-            FhttpError::new(format!("failed to parse file {} {}", path.to_str().unwrap(), e.to_string()))
-        })?
+        .with_context(|| format!("failed to parse file {}", path.to_str().unwrap()))?
         .next().unwrap(); // get and unwrap the `file` rule; never fails
 
     let mut method = Method::GET;
@@ -60,7 +58,7 @@ fn parse_first_line(
     for field in element.into_inner() {
         match field.as_rule() {
             Rule::method => *method = Method::from_str(field.as_str())
-                .map_err(|_| FhttpError::new(format!("invalid method '{}'", field.as_str())))?,
+                .with_context(|| format!("invalid method '{}'", field.as_str()))?,
             Rule::url => url.push_str(field.as_str()),
             _ => unreachable!(),
         }
@@ -85,8 +83,8 @@ fn parse_header_line(
     }
 
     headers.insert(
-        HeaderName::from_str(&name).map_err(|_| FhttpError::new(format!("invalid header name: '{}'", &name)))?,
-        HeaderValue::from_str(&value).map_err(|_| FhttpError::new(format!("invalid header value: '{}'", &value)))?
+        HeaderName::from_str(&name).with_context(|| format!("invalid header name: '{}'", &name))?,
+        HeaderValue::from_str(&value).with_context(|| format!("invalid header value: '{}'", &value))?
     );
 
     Ok(())

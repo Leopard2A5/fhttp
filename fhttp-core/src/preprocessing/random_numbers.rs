@@ -1,8 +1,10 @@
-#[allow(unused)]
+#[cfg(test)]
 use std::cell::RefCell;
-use crate::{Result, FhttpError};
-use crate::preprocessing::evaluation::BaseEvaluation;
 use std::ops::Range;
+
+use anyhow::{anyhow, Result};
+
+use crate::preprocessing::evaluation::BaseEvaluation;
 
 #[cfg(test)]
 thread_local!(
@@ -39,18 +41,14 @@ pub fn parse_min_max(
     let ret_min = min
         .map(|m| m.parse::<i32>())
         .unwrap_or(Ok(0))
-        .map_err(|_| FhttpError::new(
-            format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
-        ))?;
+        .map_err(|_| anyhow!("min param out of bounds: {}..{}", i32::MIN, i32::MAX))?;
     let ret_max = max
         .map(|m| m.parse::<i32>())
         .unwrap_or(Ok(std::i32::MAX))
-        .map_err(|_| FhttpError::new(
-            format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
-        ))?;
+        .map_err(|_| anyhow!("max param out of bounds: {}..{}", i32::MIN, i32::MAX))?;
 
     if ret_max < ret_min {
-        Err(FhttpError::new("min cannot be greater than max"))
+        Err(anyhow!("min cannot be greater than max"))
     } else {
         Ok((ret_min, ret_max))
     }

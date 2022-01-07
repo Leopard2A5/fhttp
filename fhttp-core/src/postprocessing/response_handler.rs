@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-use crate::errors::{FhttpError, Result};
+use anyhow::{Context, Result};
 use deno_core::{RuntimeOptions, Snapshot};
 
 static FHTTP_SNAPSHOT: &[u8] =
@@ -35,11 +35,10 @@ fn process_body_json(
     use serde_json::Value;
 
     let value: Value = serde_json::from_str(body)
-        .map_err(|e| FhttpError::new(format!(
-            "Error parsing response body as json: {}. Body was '{}'",
-            e.to_string(),
+        .with_context(|| format!(
+            "failed to parse response body as json\nBody was '{}'",
             body
-        )))?;
+        ))?;
 
     let mut selector = Selector::new();
     let json_path_results = selector
@@ -150,7 +149,7 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(200, &HashMap::new(), body);
 
-        assert_eq!(result, Ok(String::from("success")));
+        assert_ok!(result, String::from("success"));
     }
 
     #[test]
@@ -167,7 +166,7 @@ mod json_tests {
         let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
         let result = handler.process_body(200, &HashMap::new(), body);
 
-        assert_eq!(result, Ok(String::from("3.141")));
+        assert_ok!(result, String::from("3.141"));
     }
 }
 
@@ -183,7 +182,7 @@ mod deno_tests {
         let handler = ResponseHandler::Deno { program: String::new() };
         let result = handler.process_body(200, &HashMap::new(), body);
 
-        assert_eq!(result, Ok(String::from("this is the response body")));
+        assert_ok!(result, String::from("this is the response body"));
     }
 
     #[test]
@@ -196,7 +195,7 @@ mod deno_tests {
         };
         let result = handler.process_body(200, &HashMap::new(), body);
 
-        assert_eq!(result, Ok(String::from("THIS IS THE RESPONSE BODY")));
+        assert_ok!(result, String::from("THIS IS THE RESPONSE BODY"));
     }
 
     #[test]
@@ -213,7 +212,7 @@ mod deno_tests {
         };
         let result = handler.process_body(200, &headers, body);
 
-        assert_eq!(result, Ok(String::from("application/json,application/xml")));
+        assert_ok!(result, String::from("application/json,application/xml"));
     }
 
     #[test]
@@ -229,7 +228,7 @@ mod deno_tests {
         };
         let result = handler.process_body(200, &headers, body);
 
-        assert_eq!(result, Ok(String::from("appli'cation")));
+        assert_ok!(result, String::from("appli'cation"));
     }
 
     #[test]
@@ -243,7 +242,7 @@ mod deno_tests {
         };
         let result = handler.process_body(200, &headers, body);
 
-        assert_eq!(result, Ok(String::from("this is the 'response' body")));
+        assert_ok!(result, String::from("this is the 'response' body"));
     }
 
     #[test]
@@ -262,7 +261,7 @@ mod deno_tests {
         };
         let result = handler.process_body(200, &headers, body);
 
-        assert_eq!(result, Ok(String::from("ok")));
+        assert_ok!(result, String::from("ok"));
     }
 
 }
