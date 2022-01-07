@@ -10,8 +10,8 @@ use serde_json::Value;
 use crate::errors::{FhttpError, Result};
 use crate::parsers::gql_parser::{RequestParser, Rule};
 use crate::parsers::Request;
-use crate::request_def::body::Body;
-use crate::response_handler::ResponseHandler;
+use crate::request::body::Body;
+use crate::postprocessing::response_handler::ResponseHandler;
 
 pub fn parse_gql_str<T: AsRef<str>>(source: T) -> Result<Request> {
     let file = RequestParser::parse(Rule::file, source.as_ref())

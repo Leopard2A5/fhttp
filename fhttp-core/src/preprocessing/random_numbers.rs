@@ -1,7 +1,7 @@
 #[allow(unused)]
 use std::cell::RefCell;
 use crate::{Result, FhttpError};
-use crate::evaluation::BaseEvaluation;
+use crate::preprocessing::evaluation::BaseEvaluation;
 use std::ops::Range;
 
 #[cfg(test)]

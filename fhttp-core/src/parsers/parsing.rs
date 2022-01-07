@@ -10,8 +10,8 @@ use crate::errors::{FhttpError, Result};
 use crate::parsers::normal_parser::{RequestParser, Rule};
 use crate::parsers::Request;
 use crate::path_utils::RelativePath;
-use crate::request_def::body::{Body, File};
-use crate::response_handler::ResponseHandler;
+use crate::request::body::{Body, File};
+use crate::postprocessing::response_handler::ResponseHandler;
 
 pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
     path: P,

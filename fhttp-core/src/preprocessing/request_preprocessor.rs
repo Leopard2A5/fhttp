@@ -1,9 +1,9 @@
 use crate::Config;
 use crate::ResponseStore;
-use crate::RequestDef;
+use crate::RequestSource;
 use crate::VariableSupport;
 use crate::Result;
-use crate::execution_order::plan_request_order;
+use crate::execution::execution_order::plan_request_order;
 use crate::Profile;
 use crate::path_utils::CanonicalizedPathBuf;
 
@@ -11,7 +11,7 @@ use crate::path_utils::CanonicalizedPathBuf;
 pub struct Requestpreprocessor {
     profile: Profile,
     config: Config,
-    requests: Vec<RequestDef>,
+    requests: Vec<RequestSource>,
     response_data: ResponseStore,
 }
 
@@ -19,7 +19,7 @@ impl Requestpreprocessor {
 
     pub fn new(
         profile: Profile,
-        requests: Vec<RequestDef>,
+        requests: Vec<RequestSource>,
         config: Config,
     ) -> Result<Self> {
         let requests_in_order = plan_request_order(requests, &profile, &config)?;
@@ -48,7 +48,7 @@ impl Requestpreprocessor {
 }
 
 impl Iterator for Requestpreprocessor {
-    type Item = Result<RequestDef>;
+    type Item = Result<RequestSource>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.is_empty() {
@@ -67,7 +67,7 @@ impl Iterator for Requestpreprocessor {
 mod dependencies {
     use std::env;
 
-    use crate::RequestDef;
+    use crate::RequestSource;
     use crate::test_utils::root;
 
     use super::*;
@@ -79,7 +79,7 @@ mod dependencies {
         let init_path = root.join("4.http");
         let dep_path = root.join("5.http");
 
-        let init_request = RequestDef::from_file(&init_path, false)?;
+        let init_request = RequestSource::from_file(&init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
             Profile::empty(env::current_dir().unwrap()),

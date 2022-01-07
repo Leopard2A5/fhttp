@@ -1,17 +1,18 @@
+use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
-
-use clap::{App, Arg, crate_authors, crate_version, Values, value_t};
-
-use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestDef, Result};
-use fhttp_core::Client;
-use fhttp_core::Requestpreprocessor;
 use std::time::Duration;
-use fhttp_core::curl::Curl;
-use std::collections::HashMap;
+
+use clap::{App, Arg, crate_authors, crate_version, value_t, Values};
+use itertools::Itertools;
+
+use fhttp_core::{Config, FhttpError, Profile, Profiles, RequestSource, Result};
+use fhttp_core::Client;
+use fhttp_core::execution::curl::Curl;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_core::Requestpreprocessor;
 
 fn main() {
     let matches = App::new("fhttp")
@@ -113,7 +114,7 @@ fn do_it(
     let requested_files = file_values
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
-    let requests: Vec<RequestDef> = validate_and_parse_files(&requested_files)?;
+    let requests: Vec<RequestSource> = validate_and_parse_files(&requested_files)?;
 
     check_curl_requested_for_dependencies(
         &config,
@@ -151,12 +152,12 @@ fn do_it(
             config.logln(1, format!("{}", resp.status()));
 
             if !resp.status().is_success() {
-                if resp.body().trim().is_empty() {
-                    eprintln!("no response body");
+                let msg = if resp.body().trim().is_empty() {
+                    "no response body"
                 } else {
-                    eprintln!("{}", resp.body());
-                }
-                std::process::exit(1);
+                    resp.body()
+                };
+                return Err(FhttpError::new(msg));
             }
 
             preprocessor.notify_response(&path, resp.body());
@@ -170,16 +171,16 @@ fn do_it(
     Ok(())
 }
 
-fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestDef>> {
+fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestSource>> {
     let non_existent = files.iter()
         .filter(|it| !it.exists())
         .collect::<Vec<_>>();
 
     if !non_existent.is_empty() {
-        for file in non_existent {
-            eprintln!("'{}' does not exist", file.to_str().unwrap())
-        }
-        process::exit(1);
+        let msg = non_existent.iter()
+            .map(|file| format!("'{}' does not exist", file.to_str().unwrap()))
+            .join("\n");
+        return Err(FhttpError::new(msg));
     }
 
     let non_file = files.iter()
@@ -187,15 +188,15 @@ fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestDef>> {
         .collect::<Vec<_>>();
 
     if !non_file.is_empty() {
-        for file in non_file {
-            eprintln!("'{}' is not a file", file.to_str().unwrap())
-        }
-        process::exit(1);
+        let msg = non_file.iter()
+            .map(|file| format!("'{}' is not a file", file.to_str().unwrap()))
+            .join("\n");
+        return Err(FhttpError::new(msg));
     }
 
     let mut ret = vec![];
     for file in files {
-        ret.push(RequestDef::from_file(&file, false)?);
+        ret.push(RequestSource::from_file(&file, false)?);
     }
 
     Ok(ret)
@@ -204,7 +205,7 @@ fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestDef>> {
 fn check_curl_requested_for_dependencies(
     config: &Config,
     requested_files: &[PathBuf],
-    requests: &[RequestDef],
+    requests: &[RequestSource],
 ) -> Result<()> {
     use fhttp_core::path_utils;
 

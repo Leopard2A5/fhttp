@@ -8,7 +8,7 @@ use regex::{Captures, Regex, Match};
 
 use crate::{FhttpError, Result};
 use crate::path_utils::{RelativePath, canonicalize, CanonicalizedPathBuf};
-use crate::evaluation::{Evaluation, BaseEvaluation};
+use crate::preprocessing::evaluation::{Evaluation, BaseEvaluation};
 
 pub fn load_file_recursively<P: AsRef<Path>>(path: P) -> Result<String> {
     RecursiveFileLoader::new().load_file_recursively(&canonicalize(path.as_ref())?)

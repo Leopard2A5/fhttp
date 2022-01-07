@@ -2,33 +2,33 @@
 use std::path::PathBuf;
 use std::path::Path;
 
-use regex::{Regex, Captures};
+use regex::{Captures, Regex};
 
 use crate::errors::Result;
-use crate::file_includes::load_file_recursively;
+use file_includes::load_file_recursively;
 use crate::parsers::{parse_gql_str, parse_str};
-use crate::path_utils::{canonicalize, RelativePath, CanonicalizedPathBuf};
-use crate::request_def::request_wrapper::RequestWrapper;
-use crate::request_def::request_dependency_eval::RequestDependencyEval;
-use crate::evaluation::Evaluation;
+use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
+use crate::request_sources::request_wrapper::RequestWrapper;
+use crate::request_sources::request_dependency_eval::RequestDependencyEval;
+use crate::preprocessing::evaluation::Evaluation;
 
 pub mod variable_support;
-pub mod body;
 pub mod request_wrapper;
 pub mod request_dependency_eval;
+pub mod file_includes;
 
 lazy_static!{
     pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)\$\{request\("([^"]+)"\)}"#).unwrap();
 }
 
 // #[derive(Debug, Eq)]
-pub struct RequestDef {
+pub struct RequestSource {
     pub source_path: CanonicalizedPathBuf,
     pub text: String,
     pub dependency: bool,
 }
 
-impl RequestDef {
+impl RequestSource {
 
     pub fn from_file<P: AsRef<Path>>(
         path: P,
@@ -37,7 +37,7 @@ impl RequestDef {
         let path = canonicalize(path.as_ref())?;
         let content = load_file_recursively(&path)?;
 
-        RequestDef::_new(path, content, dependency)
+        RequestSource::_new(path, content, dependency)
     }
 
     #[cfg(test)]
@@ -46,7 +46,7 @@ impl RequestDef {
         text: T
     ) -> Result<Self> {
         let path = canonicalize(&path.into())?;
-        RequestDef::_new(path, text, false)
+        RequestSource::_new(path, text, false)
     }
 
     fn _new<T: Into<String>>(
@@ -54,7 +54,7 @@ impl RequestDef {
         text: T,
         dependency: bool
     ) -> Result<Self> {
-        let ret = RequestDef {
+        let ret = RequestSource {
             source_path: path,
             text: text.into(),
             dependency,
@@ -108,13 +108,13 @@ impl RequestDef {
     }
 }
 
-impl AsRef<Path> for RequestDef {
+impl AsRef<Path> for RequestSource {
     fn as_ref(&self) -> &Path {
         self.source_path.as_ref()
     }
 }
 
-impl PartialEq for RequestDef {
+impl PartialEq for RequestSource {
     fn eq(
         &self,
         other: &Self

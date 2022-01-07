@@ -7,7 +7,7 @@ fn main() {
     let fhttp_extension = deno_core::Extension::builder()
         .js(deno_core::include_js_files!(
             prefix "fhttp",
-            "src/bootstrap.js",
+            "src/postprocessing/bootstrap.js",
         ))
         .build();
 

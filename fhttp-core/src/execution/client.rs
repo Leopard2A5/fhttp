@@ -6,7 +6,7 @@ use reqwest::blocking::multipart;
 use reqwest::header::HeaderMap;
 
 use crate::{FhttpError, Response, ResponseHandler, Result};
-use crate::request_def::body::{Body, File, MultipartPart};
+use crate::request::body::{Body, File, MultipartPart};
 
 pub struct Client;
 
@@ -95,7 +95,6 @@ impl Client {
         Ok(
             Response::new(
                 status,
-                headers,
                 body
             )
         )
@@ -115,7 +114,7 @@ mod tests {
     use wiremock::matchers::method;
     use wiremock_multipart::prelude::*;
 
-    use crate::request_def::body::MultipartPart;
+    use crate::request::body::MultipartPart;
     use crate::test_utils::root;
 
     use super::*;

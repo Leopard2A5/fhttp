@@ -13,6 +13,7 @@ readme = "../README.asciidoc"
 [dependencies]
 fhttp-core = { version = "1.5.2", path = "../fhttp-core" }
 clap = "2.33.0"
+itertools = "0.10"
 
 [dev-dependencies]
 maplit = "1.0.2"

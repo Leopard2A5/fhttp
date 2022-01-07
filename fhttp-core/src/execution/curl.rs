@@ -1,5 +1,5 @@
 use crate::parsers::Request;
-use crate::request_def::body::{Body, MultipartPart};
+use crate::request::body::{Body, MultipartPart};
 
 pub trait Curl {
     fn curl(&self) -> String;
@@ -80,7 +80,7 @@ mod test {
     use indoc::{formatdoc, indoc};
     use serde_json::json;
 
-    use crate::request_def::body::MultipartPart;
+    use crate::request::body::MultipartPart;
     use crate::test_utils::root;
 
     use super::*;

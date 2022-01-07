@@ -1,10 +1,10 @@
 use regex::{Captures, Regex};
 use uuid::Uuid;
 
-use crate::{Config, Profile, RequestDef, ResponseStore, Result};
-use crate::evaluation::{Evaluation, BaseEvaluation};
+use crate::{Config, Profile, RequestSource, ResponseStore, Result};
+use crate::preprocessing::evaluation::{Evaluation, BaseEvaluation};
 use crate::path_utils::RelativePath;
-use crate::random_numbers::{random_int, RandomNumberEval, parse_min_max};
+use crate::preprocessing::random_numbers::{random_int, RandomNumberEval, parse_min_max};
 
 pub trait VariableSupport {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence>;
@@ -30,7 +30,7 @@ impl <'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
     }
 }
 
-impl VariableSupport for RequestDef {
+impl VariableSupport for RequestSource {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
         lazy_static! {
             static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)}"##).unwrap();
@@ -74,7 +74,7 @@ impl VariableSupport for RequestDef {
 }
 
 fn _replace_env_vars(
-    req: &mut RequestDef,
+    req: &mut RequestSource,
     profile: &Profile,
     config: &Config,
     response_store: &ResponseStore,
@@ -101,7 +101,7 @@ fn _replace_env_vars(
     Ok(())
 }
 
-fn _replace_uuids(req: &mut RequestDef) {
+fn _replace_uuids(req: &mut RequestSource) {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)\$\{uuid\(\)}").unwrap();
     };
@@ -129,7 +129,7 @@ fn _replace_uuids(req: &mut RequestDef) {
     }
 }
 
-fn _replace_random_ints(req: &mut RequestDef) -> Result<()> {
+fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
     lazy_static! {
         static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)}").unwrap();
     };
@@ -169,7 +169,7 @@ fn _replace_random_ints(req: &mut RequestDef) -> Result<()> {
 }
 
 fn _replace_request_dependencies(
-    req: &mut RequestDef,
+    req: &mut RequestSource,
     response_store: &ResponseStore
 ) -> Result<()> {
     let reversed_evals = req.request_dependencies()?;
@@ -196,7 +196,7 @@ mod replace_variables {
     use indoc::indoc;
 
     use super::*;
-    use crate::random_numbers::RANDOM_INT_CALLS;
+    use crate::preprocessing::random_numbers::RANDOM_INT_CALLS;
     use crate::FhttpError;
     use crate::test_utils::root;
 
@@ -206,7 +206,7 @@ mod replace_variables {
         env::set_var("TOKEN", "token");
         env::set_var("BODY", "body");
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://${env(SERVER)}
@@ -239,7 +239,7 @@ mod replace_variables {
     fn should_respect_backslashes_for_escaping_env_vars() -> Result<()> {
         env::set_var("VAR", "X");
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://${env(VAR)}
@@ -276,7 +276,7 @@ mod replace_variables {
     fn should_handle_env_var_default_values() -> Result<()> {
         env::set_var("BODY", "body");
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET ${env(SRV, "http://localhost:8080")}
@@ -310,7 +310,7 @@ mod replace_variables {
             static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
         };
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://X${uuid()}X
@@ -337,7 +337,7 @@ mod replace_variables {
         let format = format!("{p}\\n\\{u}\\n\\\\{p}\\n\\\\\\{u}\\n\\\\\\\\{p}", p=pattern, u=uuid);
         let regex = Regex::new(&format).unwrap();
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://server
@@ -363,7 +363,7 @@ mod replace_variables {
 
     #[test]
     fn should_replace_random_numbers() -> Result<()> {
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://server
@@ -398,7 +398,7 @@ mod replace_variables {
         let response_store = ResponseStore::new();
 
         assert_eq!(
-            RequestDef::new(
+            RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("GET ${{randomInt({})}}", std::i32::MIN as i64 - 1)
             )?.replace_variables(&profile, &config, &response_store),
@@ -406,7 +406,7 @@ mod replace_variables {
         );
 
         assert_eq!(
-            RequestDef::new(
+            RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1)
             )?.replace_variables(&profile, &config, &response_store),
@@ -414,7 +414,7 @@ mod replace_variables {
         );
 
         assert_eq!(
-            RequestDef::new(
+            RequestSource::new(
                 env::current_dir().unwrap(),
                 "${randomInt(3, 2)}"
             )?.replace_variables(&profile, &config, &response_store),
@@ -426,7 +426,7 @@ mod replace_variables {
 
     #[test]
     fn replace_random_numbers_should_respect_backslashes() -> Result<()> {
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"
                 GET http://server
@@ -473,7 +473,7 @@ mod replace_variables {
             tmp
         };
 
-        let mut req = RequestDef::new(
+        let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r#"
                 GET server

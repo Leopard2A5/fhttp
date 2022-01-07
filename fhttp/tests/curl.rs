@@ -11,9 +11,9 @@ use reqwest::Method;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 use wiremock::matchers::{method, path, body_string_contains};
 
-use fhttp_core::curl::Curl;
+use fhttp_core::execution::curl::Curl;
 use fhttp_core::request::Request;
-use fhttp_core::request_def::body::Body;
+use fhttp_core::request::body::Body;
 
 #[test]
 fn curl_invocation_with_dependency() {

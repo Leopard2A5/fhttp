@@ -1,10 +1,12 @@
 use reqwest::header::HeaderMap;
 use reqwest::Method;
 #[cfg(test)] use serde_json::Value;
-#[cfg(test)] use crate::request_def::body::MultipartPart;
+#[cfg(test)] use body::MultipartPart;
 
-use crate::request_def::body::Body;
-use crate::response_handler::ResponseHandler;
+use body::Body;
+use crate::postprocessing::response_handler::ResponseHandler;
+
+pub mod body;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Request {
@@ -72,7 +74,7 @@ impl Request {
         mut self,
         files: &[(&str, &str)],
     ) -> Self {
-        use crate::request_def::body::File;
+        use body::File;
         use crate::test_utils::root;
 
         self.body = Body::Files(
