@@ -12,56 +12,56 @@ use crate::request::Request;
 use crate::ResponseHandler;
 
 #[derive(Debug, Deserialize)]
-struct StructuredRequestSource<'a> {
-    method: &'a str,
-    url: &'a str,
-    headers: Option<HashMap<&'a str, &'a str>>,
-    response_handler: Option<StructuredResponseHandler<'a>>,
-    body: Option<StructuredBody<'a>>,
+struct StructuredRequestSource {
+    method: String,
+    url: String,
+    headers: Option<HashMap<String, String>>,
+    response_handler: Option<StructuredResponseHandler>,
+    body: Option<StructuredBody>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-enum StructuredBody<'a> {
-    Plain(&'a str),
-    Mutlipart(Vec<StructuredMultipartPart<'a>>)
+enum StructuredBody {
+    Plain(String),
+    Mutlipart(Vec<StructuredMultipartPart>)
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
-enum StructuredMultipartPart<'a> {
+enum StructuredMultipartPart {
     Text {
-        name: &'a str,
-        text: &'a str,
-        mime: Option<&'a str>,
+        name: String,
+        text: String,
+        mime: Option<String>,
     },
     File {
-        name: &'a str,
-        filepath: &'a str,
-        mime: Option<&'a str>,
+        name: String,
+        filepath: String,
+        mime: Option<String>,
     },
 }
 
-impl<'a> StructuredMultipartPart<'a> {
+impl StructuredMultipartPart {
     fn to_part(self, reference_location: &CanonicalizedPathBuf) -> Result<MultipartPart> {
         Ok(
             match self {
                 StructuredMultipartPart::Text { name, text, mime: mime_str } => MultipartPart::Text {
-                    name: name.to_string(),
-                    text: text.to_string(),
-                    mime_str: mime_str.map(|it| it.to_string()),
+                    name,
+                    text,
+                    mime_str,
                 },
                 StructuredMultipartPart::File { name, filepath: file_path, mime: mime_str } => MultipartPart::File {
-                    name: name.to_string(),
-                    file_path: reference_location.get_dependency_path(file_path)?,
-                    mime_str: mime_str.map(|it| it.to_string()),
+                    name,
+                    file_path: reference_location.get_dependency_path(&file_path)?,
+                    mime_str,
                 }
             }
         )
     }
 }
 
-impl<'a> StructuredBody<'a> {
+impl StructuredBody {
     pub fn to_body(self, reference_location: &CanonicalizedPathBuf) -> Result<Body> {
         match self {
             StructuredBody::Plain(text) => Ok(Body::Plain(text.to_string())),
@@ -77,35 +77,27 @@ impl<'a> StructuredBody<'a> {
 }
 
 #[derive(Debug, Deserialize)]
-struct StructuredResponseHandler<'a> {
-    pub json: Option<&'a str>,
-    pub deno: Option<&'a str>,
+struct StructuredResponseHandler {
+    pub json: Option<String>,
+    pub deno: Option<String>,
 }
 
-impl<'a> StructuredResponseHandler<'a> {
+impl StructuredResponseHandler {
     pub fn response_handler(self) -> Option<ResponseHandler> {
         if let Some(json) = self.json {
-            Some(ResponseHandler::Json { json_path: json.to_string() })
+            Some(ResponseHandler::Json { json_path: json })
         } else if let Some(code) = self.deno {
-            Some(ResponseHandler::Deno { program: code.to_string() })
+            Some(ResponseHandler::Deno { program: code })
         } else {
             None
         }
     }
 }
 
-impl<'a> TryFrom<&'a str> for StructuredRequestSource<'a> {
-    type Error = serde_json::Error;
-
-    fn try_from(value: &'a str) -> std::result::Result<Self, Self::Error> {
-        serde_json::from_str(value)
-    }
-}
-
-impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource<'a>)> for Request {
+impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource)> for Request {
     type Error = anyhow::Error;
 
-    fn try_from(arg: (&CanonicalizedPathBuf ,StructuredRequestSource<'a>)) -> std::result::Result<Self, Self::Error> {
+    fn try_from(arg: (&CanonicalizedPathBuf ,StructuredRequestSource)) -> std::result::Result<Self, Self::Error> {
         let reference_location = arg.0;
         let value = arg.1;
 
@@ -114,8 +106,8 @@ impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource<'a>)> for Reque
                 let mut tmp = HeaderMap::new();
                 for (name, value) in headers {
                     tmp.append(
-                        HeaderName::from_str(name)?,
-                        HeaderValue::from_str(value)?
+                        HeaderName::from_str(&name)?,
+                        HeaderValue::from_str(&value)?
                     );
                 }
                 Ok::<HeaderMap, anyhow::Error>(tmp)
@@ -125,7 +117,7 @@ impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource<'a>)> for Reque
 
         Ok(
             Request {
-                method: Method::from_str(value.method)?,
+                method: Method::from_str(&value.method)?,
                 url: value.url.to_string(),
                 headers,
                 body: value.body
@@ -142,7 +134,15 @@ pub fn parse_request_from_json(
     reference_location: &CanonicalizedPathBuf,
     text: &str
 ) -> Result<Request> {
-    let structured = StructuredRequestSource::try_from(text)?;
+    let structured = serde_json::from_str( text)?;
+    Request::try_from((reference_location, structured))
+}
+
+pub fn parse_request_from_yaml(
+    reference_location: &CanonicalizedPathBuf,
+    text: &str
+) -> Result<Request> {
+    let structured = serde_yaml::from_str(text)?;
     Request::try_from((reference_location, structured))
 }
 
@@ -323,6 +323,89 @@ mod tests {
                 method: Method::POST,
                 url: "http://localhost/foo".to_string(),
                 headers: HeaderMap::new(),
+                body: Body::Multipart(vec![
+                    MultipartPart::Text {
+                        name: "textpart1".to_string(),
+                        text: "text for part 1".to_string(),
+                        mime_str: None,
+                    },
+                    MultipartPart::Text {
+                        name: "textpart2".to_string(),
+                        text: "text for part 2".to_string(),
+                        mime_str: Some("text/plain".to_string()),
+                    },
+                    MultipartPart::File {
+                        name: "filepart1".to_string(),
+                        file_path: root().join("resources/image.jpg"),
+                        mime_str: None,
+                    },
+                    MultipartPart::File {
+                        name: "filepart2".to_string(),
+                        file_path: root().join("resources/image.jpg"),
+                        mime_str: Some("image/png".to_string()),
+                    },
+                ]),
+                response_handler: None
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_full_yaml_request() -> Result<()> {
+        let result = parse_request_from_yaml(&root(), indoc!{r#"
+            method: POST
+            url: http://localhost/foo
+            body: hello there
+        "#})?;
+
+        assert_eq!(
+            result,
+            Request {
+                method: Method::POST,
+                url: "http://localhost/foo".to_string(),
+                headers: HeaderMap::new(),
+                body: Body::Plain("hello there".to_string()),
+                response_handler: None
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_full_yaml_multipart_request() -> Result<()> {
+        let result = parse_request_from_yaml(&root(), indoc!{r#"
+            method: POST
+            url: http://localhost/foo
+            headers:
+                accept: application/json
+            body:
+                - name: textpart1
+                  text: text for part 1
+                - name: textpart2
+                  text: text for part 2
+                  mime: text/plain
+                - name: filepart1
+                  filepath: resources/image.jpg
+                - name: filepart2
+                  filepath: resources/image.jpg
+                  mime: image/png
+        "#})?;
+
+        let headers = {
+            let mut tmp = HeaderMap::new();
+            tmp.append(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
+            tmp
+        };
+
+        assert_eq!(
+            result,
+            Request {
+                method: Method::POST,
+                url: "http://localhost/foo".to_string(),
+                headers,
                 body: Body::Multipart(vec![
                     MultipartPart::Text {
                         name: "textpart1".to_string(),

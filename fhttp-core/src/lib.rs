@@ -10,6 +10,7 @@ extern crate rand;
 extern crate regex;
 extern crate reqwest;
 extern crate serde_json;
+extern crate serde_yaml;
 extern crate uuid;
 extern crate jsonpath_lib as jsonpath;
 extern crate deno_core;
