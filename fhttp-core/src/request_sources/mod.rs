@@ -20,7 +20,7 @@ pub mod file_includes;
 pub mod structured_request_source;
 
 lazy_static!{
-    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)\$\{request\("([^"]+)"\)}"#).unwrap();
+    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#).unwrap();
 }
 
 // #[derive(Debug, Eq)]
@@ -78,9 +78,9 @@ impl RequestSource {
             .into_iter()
             .rev()
             .map(|capture: Captures| {
-                let group = capture.get(0).unwrap();
-                let backslashes = capture.get(1).unwrap().as_str().len();
-                let path = capture.get(2).unwrap().as_str();
+                let backslashes = capture.get(1).unwrap().range();
+                let group = capture.get(2).unwrap();
+                let path = capture.get(3).unwrap().as_str();
 
                 RequestDependencyEval::new(path, group.range(), backslashes)
             })

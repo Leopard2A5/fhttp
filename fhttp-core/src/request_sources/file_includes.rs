@@ -5,6 +5,7 @@ use std::ops::Range;
 use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
+use itertools::Itertools;
 use regex::{Captures, Match, Regex};
 
 use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
@@ -40,7 +41,7 @@ impl RecursiveFileLoader {
         text: &str,
     ) -> Result<Vec<Include>> {
         lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)\$\{include\("([^"]*)"\)}"##).unwrap();
+            static ref RE_ENV: Regex = Regex::new(r##"(?m)(^\s*)?(\\*)(\$\{include(_indent)?\("([^"]*)"\)})"##).unwrap();
         };
 
         let reversed_captures: Result<Vec<Include>> = RE_ENV.captures_iter(text)
@@ -48,16 +49,21 @@ impl RecursiveFileLoader {
             .into_iter()
             .rev()
             .map(|capture| {
-                let backslashes = capture.get(1).unwrap().as_str().len();
-                let group: Match = capture.get(0).unwrap();
-                let path = capture.get(2).unwrap().as_str();
+                let backslashes = capture.get(2).unwrap().range();
+                let expression: Match = capture.get(3).unwrap();
+                let indent: Option<Match> = capture.get(4);
+                let indentation = capture.get(1).map(|it| String::from(it.as_str())).unwrap();
+                let path = capture.get(5).unwrap().as_str();
                 let path = source_path.get_dependency_path(path)?;
+
+                let indentation = indent.map(|_| indentation);
 
                 Ok(
                     Include::new(
-                        group.range(),
+                        expression.range(),
                         path,
                         backslashes,
+                        indentation,
                     )
                 )
             })
@@ -93,11 +99,28 @@ impl RecursiveFileLoader {
         for include in includes {
             include.replace(&mut content, || {
                 let text = self.get_text_for_path(&include.path)?;
-                let end_index = match text.chars().last() {
-                    Some('\n') => text.len() - 1,
-                    _ => text.len(),
+                let text = match &include.indentation {
+                    None => text,
+                    Some(indentation) => text.lines().enumerate()
+                        .map(|(index, line)| {
+                            match index {
+                                0 => line.to_string(),
+                                _ => {
+                                    let mut tmp = indentation.clone();
+                                    tmp += line;
+                                    tmp
+                                },
+                            }
+                        })
+                        .join("\n"),
                 };
-                Ok(text[0..end_index].to_owned())
+
+                Ok(
+                    match text.chars().last() {
+                        Some('\n') => text[0..(text.len() - 1)].to_owned(),
+                        _ => text,
+                    }
+                )
             })?;
         }
 
@@ -112,13 +135,15 @@ impl RecursiveFileLoader {
 struct Include {
     path: CanonicalizedPathBuf,
     base_eval: BaseEvaluation,
+    indentation: Option<String>,
 }
 
 impl Include {
     pub fn new(
         range: Range<usize>,
         path: CanonicalizedPathBuf,
-        backslashes: usize,
+        backslashes: Range<usize>,
+        indentation: Option<String>,
     ) -> Self {
         Include {
             path,
@@ -126,6 +151,7 @@ impl Include {
                 range,
                 backslashes,
             },
+            indentation,
         }
     }
 }
@@ -203,5 +229,28 @@ mod test {
         ).unwrap();
 
         assert_ok!(result, expectation);
+    }
+
+    #[test]
+    fn should_include_files_preserving_indentation() -> Result<()> {
+        let location = root().join("resources/file_includes_indent/request.yaml");
+        let text = load_file_recursively(&location)?;
+
+        assert_eq!(
+            text,
+            indoc!{r#"
+                method: POST
+                url: http://localhost/foo
+                body: |
+                  before_include
+                  include1
+                  	include2
+                  	    include3
+                  \include3
+                  after_include
+            "#}
+        );
+
+        Ok(())
     }
 }

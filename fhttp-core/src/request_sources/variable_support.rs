@@ -34,7 +34,7 @@ impl <'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
 impl VariableSupport for RequestSource {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
         lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)}"##).unwrap();
+            static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##).unwrap();
         };
 
         RE_ENV.captures_iter(&self.text)
@@ -42,16 +42,16 @@ impl VariableSupport for RequestSource {
             .into_iter()
             .rev()
             .map(|capture: Captures| {
-                let group = capture.get(0).unwrap();
-                let backslashes = capture.get(1).unwrap().range().len();
-                let key = capture.get(2).unwrap().as_str();
-                let default = capture.get(4)
+                let backslashes = capture.get(1).unwrap().range();
+                let group = capture.get(2).unwrap();
+                let key = capture.get(3).unwrap().as_str();
+                let default = capture.get(5)
                     .map(|m| m.as_str());
                 EnvVarOccurrence {
                     name: key,
                     default,
                     base_evaluation: BaseEvaluation {
-                        range: group.start()..group.end(),
+                        range: group.range(),
                         backslashes,
                     },
                 }
@@ -104,7 +104,7 @@ fn _replace_env_vars(
 
 fn _replace_uuids(req: &mut RequestSource) {
     lazy_static! {
-        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)\$\{uuid\(\)}").unwrap();
+        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)(\$\{uuid\(\)})").unwrap();
     };
 
     let reversed_evaluations: Vec<BaseEvaluation> = RE_ENV.captures_iter(&req.text)
@@ -112,10 +112,9 @@ fn _replace_uuids(req: &mut RequestSource) {
         .into_iter()
         .rev()
         .map(|capture: Captures| {
-            let group = capture.get(0).unwrap();
-            let range = group.start()..group.end();
-            let backslashes = capture.get(1).unwrap().as_str().len();
-            BaseEvaluation::new(range, backslashes)
+            let backslashes = capture.get(1).unwrap().range();
+            let group = capture.get(2).unwrap();
+            BaseEvaluation::new(group.range(), backslashes)
         })
         .collect();
 
@@ -132,7 +131,7 @@ fn _replace_uuids(req: &mut RequestSource) {
 
 fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
     lazy_static! {
-        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)}").unwrap();
+        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)(\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)})").unwrap();
     };
 
     let reversed_random_nums: Vec<RandomNumberEval> = RE_ENV.captures_iter(&req.text)
@@ -140,10 +139,10 @@ fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
         .into_iter()
         .rev()
         .map(|capture: Captures| {
-            let group = capture.get(0).unwrap();
-            let backslashes = capture.get(1).unwrap().as_str().len();
-            let min = capture.get(2).map(|it| it.as_str());
-            let max = capture.get(4).map(|it| it.as_str());
+            let backslashes = capture.get(1).unwrap().range();
+            let group = capture.get(2).unwrap();
+            let min = capture.get(3).map(|it| it.as_str());
+            let max = capture.get(5).map(|it| it.as_str());
             let range = group.range();
 
             RandomNumberEval::new(min, max, range, backslashes)

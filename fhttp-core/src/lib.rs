@@ -15,6 +15,7 @@ extern crate uuid;
 extern crate jsonpath_lib as jsonpath;
 extern crate deno_core;
 extern crate anyhow;
+extern crate itertools;
 
 pub use execution::client::Client;
 pub use config::Config;

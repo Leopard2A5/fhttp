@@ -10,7 +10,7 @@ impl <'a> RequestDependencyEval<'a> {
     pub fn new(
         path: &'a str,
         range: Range<usize>,
-        backslashes: usize,
+        backslashes: Range<usize>,
     ) -> Self {
         RequestDependencyEval {
             path,

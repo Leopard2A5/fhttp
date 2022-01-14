@@ -1,0 +1,7 @@
+method: POST
+url: http://localhost/foo
+body: |
+  before_include
+  ${include_indent("include1.txt")}
+  \\${include_indent("include3.txt")}
+  after_include
