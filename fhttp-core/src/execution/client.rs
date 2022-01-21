@@ -7,7 +7,7 @@ use reqwest::blocking::multipart;
 use reqwest::header::HeaderMap;
 
 use crate::{Response, ResponseHandler};
-use crate::request::body::{Body, File, MultipartPart};
+use crate::request::body::{Body, MultipartPart};
 
 pub struct Client;
 
@@ -37,14 +37,6 @@ impl Client {
 
         let req_builder = match body {
             Body::Plain(body) => req_builder.body(body),
-            Body::Files(files) => {
-                let mut multipart = multipart::Form::new();
-                for File { name, path } in files {
-                    multipart = multipart.file(name, path.clone())
-                        .with_context(|| format!("Error opening file {}", path.to_str()))?;
-                }
-                req_builder.multipart(multipart)
-            },
             Body::Multipart(parts) => {
                 let mut multipart = multipart::Form::new();
                 for part in parts {

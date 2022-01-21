@@ -70,24 +70,6 @@ impl Request {
         self
     }
 
-    pub fn file_body(
-        mut self,
-        files: &[(&str, &str)],
-    ) -> Self {
-        use body::File;
-        use crate::test_utils::root;
-
-        self.body = Body::Files(
-            files.into_iter()
-                .map(|it| (it.0.to_owned(), it.1))
-                .map(|(name, path)| (name, root().join(path)))
-                .map(|(name, path)| File { name, path })
-                .collect()
-        );
-
-        self
-    }
-
     pub fn multipart(
         mut self,
         parts: &[MultipartPart],

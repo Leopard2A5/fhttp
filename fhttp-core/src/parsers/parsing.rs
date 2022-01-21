@@ -11,7 +11,7 @@ use crate::parsers::normal_parser::{RequestParser, Rule};
 use crate::parsers::Request;
 use crate::path_utils::RelativePath;
 use crate::postprocessing::response_handler::ResponseHandler;
-use crate::request::body::{Body, File};
+use crate::request::body::{Body, MultipartPart};
 
 pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(
     path: P,
@@ -143,11 +143,11 @@ fn plain_body_or_files(
             .map(|capture| {
                 let name = capture.get(1).unwrap().as_str().to_owned();
                 let path = capture.get(2).unwrap().as_str();
-                let path = source_path.get_dependency_path(path)?;
-                Ok(File { name, path })
+                let file_path = source_path.get_dependency_path(path)?;
+                Ok(MultipartPart::File { name, file_path, mime_str: None, })
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(Body::Files(files))
+        Ok(Body::Multipart(files))
     }
 }
 
@@ -156,6 +156,7 @@ mod parse_normal_requests {
     use std::env::current_dir;
 
     use indoc::indoc;
+    use crate::test_utils::root;
 
     use super::*;
 
@@ -470,9 +471,17 @@ mod parse_normal_requests {
         assert_eq!(
             result,
             Request::basic("GET", "http://localhost:9000/foo")
-                .file_body(&[
-                    ("partname", "resources/it/profiles.json"),
-                    ("file", "resources/it/profiles2.json"),
+                .multipart(&[
+                    MultipartPart::File {
+                        name: "partname".to_string(),
+                        file_path: root().join("resources/it/profiles.json"),
+                        mime_str: None,
+                    },
+                    MultipartPart::File {
+                        name: "file".to_string(),
+                        file_path: root().join( "resources/it/profiles2.json"),
+                        mime_str: None,
+                    },
                 ])
         );
 
