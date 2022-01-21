@@ -143,18 +143,7 @@ jobs:
         uses: ./actions/ubuntu-latest
         id: test_cargo_install_ubuntu
         with:
-          run: |
-            apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev &&
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
-            export PATH=$HOME/.cargo/bin:$PATH &&
-            cargo install fhttp &&
-            fhttp --version > version.txt &&
-            if [ "$(cat version.txt)" == "fhttp ${{ github.ref }}" ]; then
-              echo "success!"
-            else
-              echo "version number is wrong!"
-              false
-            fi
+          run: ./check_cargo_installation.sh "${{ github.ref }}"
 
   test_binary_download_ubuntu:
     name: test binary download ubuntu
