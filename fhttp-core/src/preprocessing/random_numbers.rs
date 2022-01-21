@@ -65,7 +65,7 @@ impl<'a> RandomNumberEval<'a> {
         min: Option<&'a str>,
         max: Option<&'a str>,
         range: Range<usize>,
-        backslashes: usize,
+        backslashes: Range<usize>,
     ) -> Self {
         RandomNumberEval {
             min,

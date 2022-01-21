@@ -3,7 +3,6 @@ use crate::path_utils::CanonicalizedPathBuf;
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Body {
     Plain(String),
-    Files(Vec<File>),
     Multipart(Vec<MultipartPart>),
 }
 
@@ -19,12 +18,6 @@ pub enum MultipartPart {
         file_path: CanonicalizedPathBuf,
         mime_str: Option<String>,
     },
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct File {
-    pub name: String,
-    pub path: CanonicalizedPathBuf,
 }
 
 #[cfg(test)]

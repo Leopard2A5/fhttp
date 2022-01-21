@@ -11,14 +11,16 @@ use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
 use crate::request_sources::request_wrapper::RequestWrapper;
 use crate::request_sources::request_dependency_eval::RequestDependencyEval;
 use crate::preprocessing::evaluation::Evaluation;
+use crate::request_sources::structured_request_source::{parse_request_from_json, parse_request_from_yaml};
 
 pub mod variable_support;
 pub mod request_wrapper;
 pub mod request_dependency_eval;
 pub mod file_includes;
+pub mod structured_request_source;
 
 lazy_static!{
-    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)\$\{request\("([^"]+)"\)}"#).unwrap();
+    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#).unwrap();
 }
 
 // #[derive(Debug, Eq)]
@@ -76,9 +78,9 @@ impl RequestSource {
             .into_iter()
             .rev()
             .map(|capture: Captures| {
-                let group = capture.get(0).unwrap();
-                let backslashes = capture.get(1).unwrap().as_str().len();
-                let path = capture.get(2).unwrap().as_str();
+                let backslashes = capture.get(1).unwrap().range();
+                let group = capture.get(2).unwrap();
+                let path = capture.get(3).unwrap().as_str();
 
                 RequestDependencyEval::new(path, group.range(), backslashes)
             })
@@ -88,9 +90,15 @@ impl RequestSource {
     }
 
     pub fn parse(self) -> Result<RequestWrapper> {
-        let request = match self.gql_file() {
-            true => parse_gql_str(&self.text)?,
-            false => parse_str(&self.source_path, &self.text)?,
+        let path = self.source_path.to_str().to_lowercase();
+        let request = if path.ends_with(".gql.http") || path.ends_with(".graphql.http") {
+            parse_gql_str(&self.text)?
+        } else if path.ends_with(".json") {
+            parse_request_from_json(&self.source_path, &self.text)?
+        } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+            parse_request_from_yaml(&self.source_path, &self.text)?
+        } else {
+            parse_str(&self.source_path, &self.text)?
         };
 
         Ok(
@@ -99,12 +107,6 @@ impl RequestSource {
                 request,
             }
         )
-    }
-
-    fn gql_file(&self) -> bool {
-        let filename = self.source_path.file_name();
-
-        filename.ends_with(".gql.http") || filename.ends_with(".graphql.http")
     }
 }
 

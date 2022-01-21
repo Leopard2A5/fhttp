@@ -262,7 +262,7 @@ fn parse_profile(
     let mut default = profiles.remove("default")
         .unwrap_or_else(|| Profile::empty(&path));
     let profile = match profile {
-        Some(ref name) => profiles.remove(name).ok_or_else(|| anyhow!("profile not found"))?,
+        Some(ref name) => profiles.remove(name).ok_or_else(|| anyhow!("profile '{}' not found in '{}'", name, path.to_str().unwrap()))?,
         None => Profile::empty(&path),
     };
 
