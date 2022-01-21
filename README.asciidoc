@@ -71,6 +71,7 @@ ____
 * export to cURL command
 
 == Anatomy of a request file
+=== HTTP format
 A request file looks like this:
 [source]
 ----
@@ -99,6 +100,61 @@ content-type: application/json; charset=UTF-8
     json $.access_token
 %}
 ----
+
+### JSON and YAML
+Since version 1.6, FHTTP supports requests in json and yaml file formats. The main advantage of these formats is that
+they are well-known and that they allow you to create multipart requests with greater control. They are also the only
+way in FHTTP to mix file parts and form-data parts in a multipart request. The format and structure of the formats  is
+the same.
+
+YAML format is recommended because of JSON's
+verbosity and YAML's improved multiline string handling features.
+
+.Graphql request
+```yaml
+method: post
+url: http://localhost/graphql
+headers:
+  authorization: Bearer ${request("token.http")}
+  content-type: application/json
+body: |
+  {
+    "query": "query($series: String!) { characters(series: $series) { name } }",
+    "variables": {
+      "series": "Breaking Bad"
+    }
+  }
+response_handler:
+  json: "$.data.characters"
+```
+
+.Multipart json request
+```json
+{
+    "method": "post",
+    "url": "http://localhost/upload",
+    "body": [
+        {
+            "name": "metadata",
+            "text": "{ \"foo\": \"bar\" }",
+            "mime": "application/json"
+        },
+        {
+            "name": "file",
+            "filepath": "image.png"
+        }
+    ]
+}
+```
+
+As with *.http files, method and url are mandatory, while headers, body and response_handler are optional fields.
+
+Note that json and yaml formats don't have a graphQL convenience function as *.gql.http requests do.
+
+The body atttribute can either be a plain string or a list of objects to create a multipart request. Each object needs
+a `name` and either a `text` or `filepath`. Optionally you can force a content-type for that part via the `mime`
+attribute.
+
 
 == Output
 FHTTP conveniently prints log messages to stderr and response bodies to stdout. For example:
@@ -169,6 +225,10 @@ You can use expressions in your request files. Expressions have the form `${expr
 
 You can use all expressions inside included files, including `include` itself, this is especially useful when working with GraphQL fragments.
 | method, url, headers, body
+
+| `${include_indent("PATH")}`
+| like `include`, but preserve the indentation of the point of invocation in the included text. Particularly useful in yaml requests, where the normal include may invalidate the yaml document.
+| see ${include("PATH")}
 
 | `${file("NAME", "PATH")}`
 | Only supported in the body segment of a request. replaces all other body content except for other `file(...)` expressions. Use this to send a multipart request, uploading the given file(s).
