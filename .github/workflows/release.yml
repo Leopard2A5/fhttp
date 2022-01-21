@@ -132,20 +132,6 @@ jobs:
           asset_name: fhttp.linux_x64
           asset_content_type: application/octet-stream
 
-  release_snap:
-    name: release snap
-    runs-on: ubuntu-20.04
-    needs: create_release
-    steps:
-      - uses: actions/checkout@v2
-      - uses: snapcore/action-build@v1
-        id: build
-      - uses: snapcore/action-publish@v1
-        with:
-          store_login: ${{ secrets.SNAPSTORE_LOGIN }}
-          snap: ${{ steps.build.outputs.snap }}
-          release: stable
-
   test_cargo_install_ubuntu:
     name: test cargo install ubuntu
     needs: publish_crates
