@@ -363,6 +363,10 @@ mod replace_variables {
 
     #[test]
     fn should_replace_random_numbers() -> Result<()> {
+        RANDOM_INT_CALLS.with(|cell| {
+            cell.borrow_mut().clear();
+        });
+
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(r##"

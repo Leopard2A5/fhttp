@@ -14,4 +14,4 @@ jobs:
         with:
           toolchain: stable
       - name: test
-        run: for i in 1 2 3; do cargo test --workspace && break; done
+        run: for i in 1 2 3; do cargo test --workspace -- --test-threads=1 && break; done
