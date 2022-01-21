@@ -8,6 +8,8 @@ use mockito::mock;
 
 #[test]
 fn use_custom_profile_file_through_cli_option() {
+    reset_env_vars();
+
     let url = &mockito::server_url();
     env::set_var("URL", &url);
 
@@ -29,6 +31,8 @@ fn use_custom_profile_file_through_cli_option() {
 
 #[test]
 fn use_custom_profile_file_through_env_var() {
+    reset_env_vars();
+
     let url = &mockito::server_url();
     env::set_var("URL", &url);
     env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
@@ -50,6 +54,8 @@ fn use_custom_profile_file_through_env_var() {
 
 #[test]
 fn profile_file_cli_should_override_env_var() {
+    reset_env_vars();
+
     let url = &mockito::server_url();
     env::set_var("URL", &url);
     env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles2.json");
@@ -72,6 +78,8 @@ fn profile_file_cli_should_override_env_var() {
 
 #[test]
 fn profile_through_env_var() {
+    reset_env_vars();
+
     let url = &mockito::server_url();
     env::set_var("URL", &url);
     env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
@@ -93,9 +101,10 @@ fn profile_through_env_var() {
 
 #[test]
 fn profile_through_cli_option_should_precede_env_var() {
+    reset_env_vars();
+
     let url = &mockito::server_url();
     env::set_var("URL", &url);
-    env::set_var("FHTTP_PROFILE_FILE", "../resources/it/profiles.json");
     env::set_var("FHTTP_PROFILE", "it");
 
     let token = mock("POST", "/token")
@@ -104,6 +113,7 @@ fn profile_through_cli_option_should_precede_env_var() {
         .create();
 
     let assert = Command::cargo_bin("fhttp").unwrap()
+        .arg("-f").arg("../resources/it/profiles.json")
         .arg("-p").arg("it2")
         .arg("../resources/it/requests/token.http")
         .assert();
@@ -111,4 +121,10 @@ fn profile_through_cli_option_should_precede_env_var() {
     assert.success();
 
     token.assert();
+}
+
+fn reset_env_vars() {
+    env::remove_var("URL");
+    env::remove_var("FHTTP_PROFILE_FILE");
+    env::remove_var("FHTTP_PROFILE");
 }
