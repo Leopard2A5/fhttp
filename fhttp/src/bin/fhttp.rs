@@ -1,113 +1,37 @@
 use std::collections::HashMap;
-use std::env;
+use std::{env, mem};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 
 use anyhow::{anyhow, Result};
-use clap::{App, Arg, crate_authors, crate_version, value_t, Values};
+use clap::Parser;
+use fhttp::Args;
 use itertools::Itertools;
 
-use fhttp_core::{Config, Profile, Profiles, RequestSource};
+use fhttp_core::{Profile, Profiles, RequestSource, Config};
 use fhttp_core::Client;
 use fhttp_core::execution::curl::Curl;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_core::Requestpreprocessor;
 
 fn main() -> Result<()> {
-    let matches = App::new("fhttp")
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about("file-based http client")
-        .arg(Arg::with_name("files")
-            .multiple(true)
-            .required(true)
-            .min_values(1)
-            .value_name("FILES")
-            .help("the request files to execute"))
-        .arg(Arg::with_name("no-prompt")
-            .long("no-prompt")
-            .help("don't prompt for missing environment variables"))
-        .arg(Arg::with_name("profile")
-            .long("profile")
-            .short("p")
-            .takes_value(true)
-            .help("profile to use. can be overridden by env var FHTTP_PROFILE"))
-        .arg(Arg::with_name("profile-file")
-            .long("profile-file")
-            .short("f")
-            .takes_value(true)
-            .help("profile file to use. can be overridden by env var FHTTP_PROFILE_FILE. defaults to fhttp-config.json"))
-        .arg(Arg::with_name("v")
-            .short("v")
-            .long("--verbose")
-            .multiple(true)
-            .help("sets the level of verbosity"))
-        .arg(Arg::with_name("quiet")
-            .short("q")
-            .long("quiet")
-            .help("suppress log outputs")
-            .conflicts_with("v"))
-        .arg(Arg::with_name("print-paths")
-            .short("P")
-            .long("print-paths")
-            .help("print request file paths instead of method and url"))
-        .arg(Arg::with_name("timeout-ms")
-            .short("t")
-            .long("timeout-ms")
-            .takes_value(true)
-            .help("time out after this many ms on each request"))
-        .arg(Arg::with_name("curl")
-            .short("c")
-            .long("curl")
-            .help("print curl commands instead of executing given requests. Dependencies are still executed."))
-        .get_matches();
+    let mut args = Args::parse();
+    let files = mem::take(&mut args.files);
+    let profile = mem::take(&mut args.profile);
+    let profile_file = mem::take(&mut args.profile_file);
+    let config = args.into();
 
-    let config = Config::new(
-        !matches.is_present("no-prompt"),
-        matches.occurrences_of("v") as u8 + 1,
-        matches.is_present("quiet"),
-        matches.is_present("print-paths"),
-        value_t!(matches, "timeout-ms", u64)
-            .ok()
-            .map(Duration::from_millis),
-        matches.is_present("curl"),
-    );
-
-    let profile_path = matches.value_of("profile-file")
-        .map(str::to_owned)
-        .or_else(|| {
-            match env::var("FHTTP_PROFILE_FILE") {
-                Ok(path) => Some(path),
-                Err(_) => None,
-            }
-        });
-
-    let profile_name = matches.value_of("profile")
-        .map(str::to_owned)
-        .or_else(|| {
-            match env::var("FHTTP_PROFILE") {
-                Ok(name) => Some(name),
-                Err(_) => None,
-            }
-        });
-
-    do_it(
-        matches.values_of("files").unwrap(),
-        config,
-        profile_path,
-        profile_name
-    )
+    do_it(files, profile, profile_file, config)
 }
 
 fn do_it(
-    file_values: Values,
+    files: Vec<String>,
+    profile: Option<String>,
+    profile_file: Option<String>,
     config: Config,
-    profile_path: Option<String>,
-    profile_name: Option<String>
 ) -> Result<()> {
-    let profile = parse_profile(profile_path, profile_name)?;
-    let requested_files = file_values
+    let profile = parse_profile(profile, profile_file)?;
+    let requested_files = files.iter()
         .map(|file| PathBuf::from_str(file).unwrap())
         .collect::<Vec<_>>();
     let requests: Vec<RequestSource> = validate_and_parse_files(&requested_files)?;
@@ -199,13 +123,13 @@ fn validate_and_parse_files(files: &[PathBuf]) -> Result<Vec<RequestSource>> {
 }
 
 fn check_curl_requested_for_dependencies(
-    config: &Config,
+    program: &Config,
     requested_files: &[PathBuf],
     requests: &[RequestSource],
 ) -> Result<()> {
     use fhttp_core::path_utils;
 
-    if config.curl() {
+    if program.curl() {
         let requested_files = requested_files.iter()
             .map(|it| path_utils::canonicalize(it))
             .collect::<Result<Vec<CanonicalizedPathBuf>>>()?;
@@ -237,10 +161,10 @@ fn check_curl_requested_for_dependencies(
 }
 
 fn parse_profile(
-    profile_path: Option<String>,
-    profile: Option<String>
+    profile: Option<String>,
+    profile_file: Option<String>,
 ) -> Result<Profile> {
-    let profile_path = profile_path.map(|it| PathBuf::from_str(&it).unwrap());
+    let profile_path = profile_file.map(|it| PathBuf::from_str(&it).unwrap());
 
     let path = match profile_path {
         Some(profile_path) => {

@@ -12,7 +12,7 @@ readme = "../README.asciidoc"
 
 [dependencies]
 fhttp-core = { version = "1.6.0", path = "../fhttp-core" }
-clap = "2.33.0"
+clap = { version = "4.0.14", features = ["derive", "env"] }
 itertools = "0.10"
 anyhow = "1.0"
 

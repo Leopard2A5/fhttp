@@ -1,65 +1,51 @@
-use std::fmt::Display;
-use std::time::Duration;
+use std::{fmt::Display, time::Duration};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Config {
-    prompt_missing_env_vars: bool,
-    verbosity: u8,
+    no_prompt: bool,
+    verbose: u8,
     quiet: bool,
-    print_file_paths: bool,
-    timeout: Option<Duration>,
+    print_paths: bool,
+    timeout_ms: Option<u64>,
     curl: bool,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            prompt_missing_env_vars: false,
-            verbosity: 1,
-            quiet: false,
-            print_file_paths: false,
-            timeout: None,
-            curl: false,
-        }
-    }
-}
-
 impl Config {
-    pub const fn new(
-        prompt_missing_env_vars: bool,
-        verbosity: u8,
+    pub fn new(
+        no_prompt: bool,
+        verbose: u8,
         quiet: bool,
-        print_file_paths: bool,
-        timeout: Option<Duration>,
+        print_paths: bool,
+        timeout_ms: Option<u64>,
         curl: bool,
     ) -> Self {
         Config {
-            prompt_missing_env_vars,
-            verbosity,
+            no_prompt,
+            verbose,
             quiet,
-            print_file_paths,
-            timeout,
+            print_paths,
+            timeout_ms,
             curl,
         }
     }
 
     pub fn prompt_missing_env_vars(&self) -> bool {
-        self.prompt_missing_env_vars
+        !self.no_prompt
     }
 
     pub fn verbosity(&self) -> u8 {
         match self.quiet {
             true => 0,
-            false => self.verbosity
+            false => self.verbose + 1
         }
     }
 
     pub fn print_file_paths(&self) -> bool {
-        self.print_file_paths
+        self.print_paths
     }
 
     pub fn timeout(&self) -> Option<Duration> {
-        self.timeout
+        self.timeout_ms.map(|it| Duration::from_millis(it))
     }
 
     pub fn curl(&self) -> bool {
