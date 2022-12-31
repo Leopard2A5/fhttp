@@ -1,11 +1,11 @@
 use anyhow::Result;
-use regex::{Captures, Regex};
+use regex::Captures;
 use uuid::Uuid;
 
-use crate::{Config, Profile, RequestSource, ResponseStore};
 use crate::path_utils::RelativePath;
 use crate::preprocessing::evaluation::{BaseEvaluation, Evaluation};
 use crate::preprocessing::random_numbers::{parse_min_max, random_int, RandomNumberEval};
+use crate::{Config, Profile, RequestSource, ResponseStore};
 
 pub trait VariableSupport {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence>;
@@ -25,7 +25,7 @@ pub struct EnvVarOccurrence<'a> {
     pub base_evaluation: BaseEvaluation,
 }
 
-impl <'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
+impl<'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
     fn as_ref(&self) -> &BaseEvaluation {
         &self.base_evaluation
     }
@@ -33,11 +33,10 @@ impl <'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
 
 impl VariableSupport for RequestSource {
     fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
-        lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##).unwrap();
-        };
+        let re_env = regex!(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##);
 
-        RE_ENV.captures_iter(&self.text)
+        re_env
+            .captures_iter(&self.text)
             .collect::<Vec<Captures>>()
             .into_iter()
             .rev()
@@ -45,8 +44,7 @@ impl VariableSupport for RequestSource {
                 let backslashes = capture.get(1).unwrap().range();
                 let group = capture.get(2).unwrap();
                 let key = capture.get(3).unwrap().as_str();
-                let default = capture.get(5)
-                    .map(|m| m.as_str());
+                let default = capture.get(5).map(|m| m.as_str());
                 EnvVarOccurrence {
                     name: key,
                     default,
@@ -103,11 +101,10 @@ fn _replace_env_vars(
 }
 
 fn _replace_uuids(req: &mut RequestSource) {
-    lazy_static! {
-        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)(\$\{uuid\(\)})").unwrap();
-    };
+    let re_env = regex!(r"(?m)(\\*)(\$\{uuid\(\)})");
 
-    let reversed_evaluations: Vec<BaseEvaluation> = RE_ENV.captures_iter(&req.text)
+    let reversed_evaluations: Vec<BaseEvaluation> = re_env
+        .captures_iter(&req.text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
@@ -122,7 +119,7 @@ fn _replace_uuids(req: &mut RequestSource) {
         let mut buffer = req.text.clone();
 
         for eval in reversed_evaluations {
-            let _ = eval.replace(&mut buffer, || { Ok(Uuid::new_v4().to_string()) });
+            let _ = eval.replace(&mut buffer, || Ok(Uuid::new_v4().to_string()));
         }
 
         req.text = buffer;
@@ -130,11 +127,10 @@ fn _replace_uuids(req: &mut RequestSource) {
 }
 
 fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
-    lazy_static! {
-        static ref RE_ENV: Regex = Regex::new(r"(?m)(\\*)(\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)})").unwrap();
-    };
+    let re_env = regex!(r"(?m)(\\*)(\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)})");
 
-    let reversed_random_nums: Vec<RandomNumberEval> = RE_ENV.captures_iter(&req.text)
+    let reversed_random_nums: Vec<RandomNumberEval> = re_env
+        .captures_iter(&req.text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
@@ -154,10 +150,7 @@ fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
 
         for eval in reversed_random_nums {
             eval.replace(&mut buffer, || {
-                let (min, max) = parse_min_max(
-                    eval.min,
-                    eval.max,
-                )?;
+                let (min, max) = parse_min_max(eval.min, eval.max)?;
                 Ok(random_int(min, max).to_string())
             })?;
         }
@@ -170,7 +163,7 @@ fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
 
 fn _replace_request_dependencies(
     req: &mut RequestSource,
-    response_store: &ResponseStore
+    response_store: &ResponseStore,
 ) -> Result<()> {
     let reversed_evals = req.request_dependencies()?;
 
@@ -208,28 +201,32 @@ mod replace_variables {
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://${env(SERVER)}
                 Authorization: ${env(TOKEN)}
 
                 X${env(BODY)}X
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         assert_eq!(
             &req.text,
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://server
                 Authorization: token
 
                 XbodyX
-            "##)
+            "##
+            )
         );
 
         Ok(())
@@ -241,32 +238,36 @@ mod replace_variables {
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://${env(VAR)}
 
                 \${env(VAR)}
                 \\${env(VAR)}
                 \\\${env(VAR)}
                 \\\\${env(VAR)}
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         assert_eq!(
             &req.text,
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://X
 
                 ${env(VAR)}
                 \X
                 \${env(VAR)}
                 \\X
-            "##)
+            "##
+            )
         );
 
         Ok(())
@@ -278,26 +279,30 @@ mod replace_variables {
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET ${env(SRV, "http://localhost:8080")}
 
                 ${env(BODY, "default body")}
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         assert_eq!(
             &req.text,
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://localhost:8080
 
                 body
-            "##)
+            "##
+            )
         );
 
         Ok(())
@@ -305,25 +310,24 @@ mod replace_variables {
 
     #[test]
     fn should_replace_uuids() -> Result<()> {
-        use regex::Regex;
-        lazy_static! {
-            static ref REGEX: Regex = Regex::new(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X").unwrap();
-        };
+        let regex = regex!(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X");
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://X${uuid()}X
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
-        assert!(REGEX.is_match(&req.text));
+        assert!(regex.is_match(&req.text));
 
         Ok(())
     }
@@ -334,12 +338,17 @@ mod replace_variables {
 
         let pattern = "[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}";
         let uuid = "$\\{uuid\\(\\)\\}";
-        let format = format!("{p}\\n\\{u}\\n\\\\{p}\\n\\\\\\{u}\\n\\\\\\\\{p}", p=pattern, u=uuid);
+        let format = format!(
+            "{p}\\n\\{u}\\n\\\\{p}\\n\\\\\\{u}\\n\\\\\\\\{p}",
+            p = pattern,
+            u = uuid
+        );
         let regex = Regex::new(&format).unwrap();
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://server
 
                 ${uuid()}
@@ -347,13 +356,14 @@ mod replace_variables {
                 \\${uuid()}
                 \\\${uuid()}
                 \\\\${uuid()}
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         assert!(regex.is_match(&req.text));
@@ -369,27 +379,28 @@ mod replace_variables {
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://server
 
                 ${randomInt()}
                 ${randomInt(-5)}
                 ${randomInt(-5, 7)}
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         RANDOM_INT_CALLS.with(|calls| {
-            assert_eq!(*calls.borrow(), vec![
-                (-5, 7),
-                (-5, std::i32::MAX),
-                (0, std::i32::MAX),
-            ]);
+            assert_eq!(
+                *calls.borrow(),
+                vec![(-5, 7), (-5, std::i32::MAX), (0, std::i32::MAX),]
+            );
         });
 
         Ok(())
@@ -405,23 +416,31 @@ mod replace_variables {
             RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("GET ${{randomInt({})}}", std::i32::MIN as i64 - 1)
-            )?.replace_variables(&profile, &config, &response_store),
-            format!("min param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
+            )?
+            .replace_variables(&profile, &config, &response_store),
+            format!(
+                "min param out of bounds: {}..{}",
+                std::i32::MIN,
+                std::i32::MAX
+            )
         );
 
         assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
                 format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1)
-            )?.replace_variables(&profile, &config, &response_store),
-            format!("max param out of bounds: {}..{}", std::i32::MIN, std::i32::MAX)
+            )?
+            .replace_variables(&profile, &config, &response_store),
+            format!(
+                "max param out of bounds: {}..{}",
+                std::i32::MIN,
+                std::i32::MAX
+            )
         );
 
         assert_err!(
-            RequestSource::new(
-                env::current_dir().unwrap(),
-                "${randomInt(3, 2)}"
-            )?.replace_variables(&profile, &config, &response_store),
+            RequestSource::new(env::current_dir().unwrap(), "${randomInt(3, 2)}")?
+                .replace_variables(&profile, &config, &response_store),
             "min cannot be greater than max"
         );
 
@@ -432,7 +451,8 @@ mod replace_variables {
     fn replace_random_numbers_should_respect_backslashes() -> Result<()> {
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://server
 
                 ${randomInt()}
@@ -440,18 +460,20 @@ mod replace_variables {
                 \\${randomInt()}
                 \\\${randomInt()}
                 \\\\${randomInt()}
-            "##)
+            "##
+            ),
         )?;
 
         req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
-            &ResponseStore::new()
+            &ResponseStore::new(),
         )?;
 
         assert_eq!(
             &req.text,
-            indoc!(r##"
+            indoc!(
+                r##"
                 GET http://server
 
                 7
@@ -459,7 +481,8 @@ mod replace_variables {
                 \7
                 \${randomInt()}
                 \\7
-            "##)
+            "##
+            )
         );
 
         Ok(())
@@ -467,8 +490,7 @@ mod replace_variables {
 
     #[test]
     fn should_replace_request_dependencies() -> Result<()> {
-        let path = root()
-            .join("resources/test/requests/dummy.http");
+        let path = root().join("resources/test/requests/dummy.http");
         let profile = Profile::empty(env::current_dir().unwrap());
         let config = Config::default();
         let response_store = {
@@ -479,30 +501,33 @@ mod replace_variables {
 
         let mut req = RequestSource::new(
             env::current_dir().unwrap(),
-            indoc!(r#"
+            indoc!(
+                r#"
                 GET server
 
                 ${request("../resources/test/requests/dummy.http")}
                 \${request("../resources/test/requests/dummy.http")}
                 \\${request("../resources/test/requests/dummy.http")}
                 \\\${request("../resources/test/requests/dummy.http")}
-            "#)
+            "#
+            ),
         )?;
         req.replace_variables(&profile, &config, &response_store)?;
 
         assert_eq!(
             req.text,
-            indoc!(r#"
+            indoc!(
+                r#"
                 GET server
 
                 FOO
                 ${request("../resources/test/requests/dummy.http")}
                 \FOO
                 \${request("../resources/test/requests/dummy.http")}
-            "#)
+            "#
+            )
         );
 
         Ok(())
     }
-
 }

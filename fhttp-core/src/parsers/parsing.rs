@@ -8,7 +8,7 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 
 use crate::parsers::normal_parser::{RequestParser, Rule};
-use crate::parsers::Request;
+use crate::parsers::{Request, fileupload_regex};
 use crate::path_utils::RelativePath;
 use crate::postprocessing::response_handler::ResponseHandler;
 use crate::request::body::{Body, MultipartPart};
@@ -132,14 +132,13 @@ fn plain_body_or_files(
     source_path: &Path,
     body: String,
 ) -> Result<Body> {
-    use crate::parsers::file_upload_regex;
-    let captures = file_upload_regex::RE_FILE.captures_iter(&body);
+    let captures = fileupload_regex().captures_iter(&body);
 
     if captures.count() == 0 {
         Ok(Body::Plain(body))
     } else {
         // TODO can we reuse captures?
-        let files = file_upload_regex::RE_FILE.captures_iter(&body)
+        let files = fileupload_regex().captures_iter(&body)
             .map(|capture| {
                 let name = capture.get(1).unwrap().as_str().to_owned();
                 let path = capture.get(2).unwrap().as_str();

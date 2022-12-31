@@ -1,27 +1,25 @@
+use std::path::Path;
 #[cfg(test)]
 use std::path::PathBuf;
-use std::path::Path;
 
-use regex::{Captures, Regex};
+use regex::Captures;
 
-use anyhow::Result;
-use file_includes::load_file_recursively;
 use crate::parsers::{parse_gql_str, parse_str};
 use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
-use crate::request_sources::request_wrapper::RequestWrapper;
-use crate::request_sources::request_dependency_eval::RequestDependencyEval;
 use crate::preprocessing::evaluation::Evaluation;
-use crate::request_sources::structured_request_source::{parse_request_from_json, parse_request_from_yaml};
+use crate::request_sources::request_dependency_eval::RequestDependencyEval;
+use crate::request_sources::request_wrapper::RequestWrapper;
+use crate::request_sources::structured_request_source::{
+    parse_request_from_json, parse_request_from_yaml,
+};
+use anyhow::Result;
+use file_includes::load_file_recursively;
 
-pub mod variable_support;
-pub mod request_wrapper;
-pub mod request_dependency_eval;
 pub mod file_includes;
+pub mod request_dependency_eval;
+pub mod request_wrapper;
 pub mod structured_request_source;
-
-lazy_static!{
-    pub static ref RE_REQUEST: Regex = Regex::new(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#).unwrap();
-}
+pub mod variable_support;
 
 // #[derive(Debug, Eq)]
 pub struct RequestSource {
@@ -31,11 +29,7 @@ pub struct RequestSource {
 }
 
 impl RequestSource {
-
-    pub fn from_file<P: AsRef<Path>>(
-        path: P,
-        dependency: bool,
-    ) -> Result<Self> {
+    pub fn from_file<P: AsRef<Path>>(path: P, dependency: bool) -> Result<Self> {
         let path = canonicalize(path.as_ref())?;
         let content = load_file_recursively(&path)?;
 
@@ -43,10 +37,7 @@ impl RequestSource {
     }
 
     #[cfg(test)]
-    pub fn new<P: Into<PathBuf>, T: Into<String>>(
-        path: P,
-        text: T
-    ) -> Result<Self> {
+    pub fn new<P: Into<PathBuf>, T: Into<String>>(path: P, text: T) -> Result<Self> {
         let path = canonicalize(&path.into())?;
         RequestSource::_new(path, text, false)
     }
@@ -54,7 +45,7 @@ impl RequestSource {
     fn _new<T: Into<String>>(
         path: CanonicalizedPathBuf,
         text: T,
-        dependency: bool
+        dependency: bool,
     ) -> Result<Self> {
         let ret = RequestSource {
             source_path: path,
@@ -66,14 +57,18 @@ impl RequestSource {
     }
 
     pub fn dependencies(&self) -> Result<Vec<CanonicalizedPathBuf>> {
-        self.request_dependencies()?.iter()
+        self.request_dependencies()?
+            .iter()
             .filter(|dep| !dep.is_escaped())
             .map(|dep| self.get_dependency_path(dep.path))
             .collect()
     }
 
     pub fn request_dependencies(&self) -> Result<Vec<RequestDependencyEval>> {
-        let deps = RE_REQUEST.captures_iter(&self.text)
+        let re_request = regex!(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#);
+
+        let deps = re_request
+            .captures_iter(&self.text)
             .collect::<Vec<_>>()
             .into_iter()
             .rev()
@@ -101,12 +96,10 @@ impl RequestSource {
             parse_str(&self.source_path, &self.text)?
         };
 
-        Ok(
-            RequestWrapper {
-                source_path: self.source_path,
-                request,
-            }
-        )
+        Ok(RequestWrapper {
+            source_path: self.source_path,
+            request,
+        })
     }
 }
 
@@ -117,10 +110,7 @@ impl AsRef<Path> for RequestSource {
 }
 
 impl PartialEq for RequestSource {
-    fn eq(
-        &self,
-        other: &Self
-    ) -> bool {
+    fn eq(&self, other: &Self) -> bool {
         self.source_path == other.source_path
     }
 }
