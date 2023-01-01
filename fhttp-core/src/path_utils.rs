@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -13,6 +14,10 @@ pub fn canonicalize(p: &Path) -> Result<CanonicalizedPathBuf> {
 pub struct CanonicalizedPathBuf(PathBuf);
 
 impl CanonicalizedPathBuf {
+    pub fn new<P: Into<PathBuf>>(p: P) -> Self {
+        CanonicalizedPathBuf(p.into())
+    }
+
     pub fn to_str(&self) -> &str {
         self.0.to_str().expect("encountered a non-utf8 character in file path!")
     }
@@ -33,6 +38,12 @@ impl CanonicalizedPathBuf {
     pub fn file_name(&self) -> &str {
         self.0.file_name().unwrap()
             .to_str().expect("encountered a non-utf8 character in file path!")
+    }
+}
+
+impl Display for CanonicalizedPathBuf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.display().fmt(f)
     }
 }
 
