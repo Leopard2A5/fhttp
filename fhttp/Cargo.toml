@@ -10,6 +10,9 @@ documentation = "https://github.com/Leopard2A5/fhttp"
 repository = "https://github.com/Leopard2A5/fhttp"
 readme = "../README.asciidoc"
 
+[build]
+jobs = 1 # tests that rely on environment variables cannot be run in parallel
+
 [dependencies]
 fhttp-core = { version = "1.6.0", path = "../fhttp-core" }
 clap = { version = "4.0.14", features = ["derive", "env"] }
@@ -24,3 +27,4 @@ wiremock = "0.5"
 async-std = "1.10"
 assert_cmd = "1.0.1"
 reqwest = { version = "0.10.6", features = ["rustls-tls", "blocking"] }
+temp-dir = "0.1.11"

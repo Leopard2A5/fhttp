@@ -3,33 +3,41 @@ extern crate mockito;
 extern crate reqwest;
 extern crate async_std;
 
-use std::env;
-
+use anyhow::Result;
 use assert_cmd::Command;
 use async_std::task::block_on;
-use wiremock::MockServer;
-
-use fhttp_core::test_utils::root;
+use temp_dir::TempDir;
+use fhttp_core::path_utils::CanonicalizedPathBuf;
 
 #[test]
-fn should_show_error_when_asked_to_output_dependencies() {
+fn should_show_error_when_asked_to_output_dependencies() -> Result<()> {
     block_on(test())
 }
 
-async fn test() {
-    let root = root();
-    let mock_server = MockServer::start().await;
-    env::set_var("URL", mock_server.uri());
+async fn test() -> Result<()> {
+    let workdir = TempDir::new()?;
+
+    let req1 = workdir.child("req1.http");
+    std::fs::write(&req1, "GET http://localhost".as_bytes())?;
+
+    let req2 = workdir.child("req2.http");
+    std::fs::write(&req2, r#"GET ${request("req1.http")}"#.as_bytes())?;
+
+    let workdir = CanonicalizedPathBuf::new(workdir.path());
+    let req1 = workdir.join(req1);
+    let req2 = workdir.join(req2);
 
     Command::cargo_bin("fhttp").unwrap()
         .arg("--curl")
-        .arg("../resources/it/curl/token.http")
-        .arg("../resources/it/curl/create.http")
+        .arg(req1.to_str())
+        .arg(req2.to_str())
         .assert()
         .failure()
         .stderr(format!(
             "Error: {}\nis a dependency of\n{}.\nIf you want me to print the curl snippet for both requests you'll need to do them separately.\n",
-            root.join("resources/it/curl/token.http").to_str(),
-            root.join("resources/it/curl/create.http").to_str(),
+            req1,
+            req2,
         ));
+
+    Ok(())
 }
