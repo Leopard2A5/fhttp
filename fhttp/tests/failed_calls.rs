@@ -4,6 +4,7 @@ extern crate rstest;
 
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_test_utils::write_test_file;
 use mockito::mock;
 use rstest::{rstest, fixture};
 use temp_dir::TempDir;
@@ -18,16 +19,22 @@ struct TestData {
 fn test_data() -> TestData {
     let workdir = TempDir::new().unwrap();
 
-    let req1 = workdir.child("req1");
-    std::fs::write(&req1, "GET ${env(URL)}/1".as_bytes()).unwrap();
+    let req1 = write_test_file(
+        &workdir,
+        "req1",
+        "GET ${env(URL)}/1"
+    ).unwrap();
 
-    let req2 = workdir.child("req2");
-    std::fs::write(&req2, "GET ${env(URL)}/2".as_bytes()).unwrap();
+    let req2 = write_test_file(
+        &workdir,
+        "req2",
+        "GET ${env(URL)}/2"
+    ).unwrap();
 
     TestData {
         _workdir: workdir,
-        req1: CanonicalizedPathBuf::new(req1),
-        req2: CanonicalizedPathBuf::new(req2),
+        req1,
+        req2,
     }
 }
 

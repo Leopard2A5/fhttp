@@ -9,6 +9,7 @@ use fhttp_core::execution::curl::Curl;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_core::request::body::Body;
 use fhttp_core::request::Request;
+use fhttp_test_utils::write_test_file;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
 use temp_dir::TempDir;
@@ -56,9 +57,9 @@ async fn test() -> Result<()> {
 
     let workdir = TempDir::new()?;
 
-    let token = workdir.child("token.http");
-    std::fs::write(
-        &token,
+    write_test_file(
+        &workdir,
+        "token.http",
         indoc!("
             POST ${env(URL)}/token
             Content-Type: application/json
@@ -71,13 +72,13 @@ async fn test() -> Result<()> {
             > {%
                 json $.token
             %}
-        ").as_bytes()
+        ")
     )?;
 
-    let req = workdir.child("req.http");
-    std::fs::write(
-        &req,
-        formatdoc!("
+    let req = write_test_file(
+        &workdir,
+        "req.http",
+        &formatdoc!("
             POST ${{env(URL)}}/resources
             Authorization: Bearer ${{request(\"token.http\")}}
             Content-Type: application/json
@@ -87,7 +88,7 @@ async fn test() -> Result<()> {
             > {{%
                 json $.id
             %}}
-        ", body = body).as_bytes()
+        ", body = body)
     )?;
 
     let workdir = CanonicalizedPathBuf::new(workdir.path());

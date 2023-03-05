@@ -6,6 +6,7 @@ extern crate rstest;
 
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_test_utils::write_test_file;
 use mockito::mock;
 use serde_json::json;
 use temp_dir::TempDir;
@@ -22,10 +23,10 @@ struct TestData {
 fn test_data() -> TestData {
     let workdir = TempDir::new().unwrap();
 
-    let profile = workdir.child("profiles.json");
-    std::fs::write(
-        &profile, 
-        serde_json::to_string(
+    let profile = write_test_file(
+        &workdir,
+        "profile.json",
+        &serde_json::to_string(
             &json!({
                 "default": {
                     "variables": {
@@ -42,21 +43,21 @@ fn test_data() -> TestData {
         ).unwrap()
     ).unwrap();
 
-    let req = workdir.child("req.http");
-    std::fs::write(
-        &req,
+    let req = write_test_file(
+        &workdir,
+        "req.http",
         indoc!("
             POST ${env(URL)}/foo
 
             A=${env(A)}
             B=${env(B)}
-        ").as_bytes()
+        ")
     ).unwrap();
 
     TestData {
         _workdir: workdir,
-        profile: CanonicalizedPathBuf::new(profile),
-        req: CanonicalizedPathBuf::new(req),
+        profile,
+        req,
     }
 }
 

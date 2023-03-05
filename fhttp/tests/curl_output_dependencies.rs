@@ -6,6 +6,7 @@ extern crate async_std;
 use anyhow::Result;
 use assert_cmd::Command;
 use async_std::task::block_on;
+use fhttp_test_utils::write_test_file;
 use temp_dir::TempDir;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 
@@ -17,11 +18,17 @@ fn should_show_error_when_asked_to_output_dependencies() -> Result<()> {
 async fn test() -> Result<()> {
     let workdir = TempDir::new()?;
 
-    let req1 = workdir.child("req1.http");
-    std::fs::write(&req1, "GET http://localhost".as_bytes())?;
+    let req1 = write_test_file(
+        &workdir,
+        "req1.http",
+        "GET http://localhost"
+    )?;
 
-    let req2 = workdir.child("req2.http");
-    std::fs::write(&req2, r#"GET ${request("req1.http")}"#.as_bytes())?;
+    let req2 = write_test_file(
+        &workdir,
+        "req2.http",
+        r#"GET ${request("req1.http")}"#
+    )?;
 
     let workdir = CanonicalizedPathBuf::new(workdir.path());
     let req1 = workdir.join(req1);

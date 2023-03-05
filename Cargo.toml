@@ -2,4 +2,5 @@
 members = [
     "fhttp",
     "fhttp-core",
+    "fhttp-test-utils",
 ]

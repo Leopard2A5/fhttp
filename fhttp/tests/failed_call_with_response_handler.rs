@@ -6,6 +6,7 @@ extern crate wiremock;
 use anyhow::Result;
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_test_utils::write_test_file;
 use indoc::indoc;
 use rstest::rstest;
 use temp_dir::TempDir;
@@ -18,16 +19,16 @@ async fn test() -> Result<()> {
 
     let workdir = TempDir::new()?;
 
-    let req = workdir.child("req.http");
-    std::fs::write(
-        &req,
+    let req = write_test_file(
+        &workdir,
+        "req.http",
         indoc!("
             POST ${env(URL)}/
 
             > {%
                 json $.data.numbers
             %}
-        ").as_bytes(),
+        ")
     )?;
 
     Mock::given(method("POST"))

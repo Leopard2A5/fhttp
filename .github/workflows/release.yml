@@ -19,6 +19,10 @@ jobs:
           cd fhttp-core
           for i in 1 2; do cargo publish && break; done
           cd -
+          sleep 3
+          cd fhttp-test-utils
+          for i in 1 2; do cargo publish && break; done
+          cd -
           sleep 10
           cd fhttp
           for i in 1 2; do cargo publish && break; done
