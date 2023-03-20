@@ -1,5 +1,4 @@
 extern crate assert_cmd;
-extern crate async_std;
 extern crate rstest;
 extern crate wiremock;
 

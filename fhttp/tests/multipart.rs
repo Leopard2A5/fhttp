@@ -1,6 +1,5 @@
 extern crate assert_cmd;
 extern crate wiremock;
-extern crate async_std;
 
 use assert_cmd::Command;
 use fhttp_test_utils::write_test_file;

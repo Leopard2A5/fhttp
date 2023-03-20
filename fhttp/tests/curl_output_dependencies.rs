@@ -1,7 +1,6 @@
 extern crate assert_cmd;
 extern crate mockito;
 extern crate reqwest;
-extern crate async_std;
 
 use anyhow::Result;
 use assert_cmd::Command;
