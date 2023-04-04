@@ -1,0 +1,16 @@
+[package]
+name = "fhttp-test-utils"
+version = "1.6.0"
+authors = ["René Perschon <rperschon85@gmail.com>"]
+edition = "2021"
+license = "MIT"
+description = "test utils library for the fhttp tool"
+homepage = "https://github.com/Leopard2A5/fhttp"
+documentation = "https://docs.rs/fhttp-test-utils"
+repository = "https://github.com/Leopard2A5/fhttp"
+readme = "../README.asciidoc"
+
+[dependencies]
+fhttp-core = { path = "../fhttp-core", version = "1.6.0" }
+temp-dir = "0.1.11"
+anyhow = "1.0"

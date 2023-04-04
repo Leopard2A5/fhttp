@@ -6,7 +6,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use itertools::Itertools;
-use regex::{Captures, Match, Regex};
+use regex::{Captures, Match};
 
 use crate::path_utils::{canonicalize, CanonicalizedPathBuf, RelativePath};
 use crate::preprocessing::evaluation::{BaseEvaluation, Evaluation};
@@ -28,10 +28,7 @@ impl RecursiveFileLoader {
         }
     }
 
-    fn load_file_recursively(
-        &self,
-        path: &CanonicalizedPathBuf,
-    ) -> Result<String> {
+    fn load_file_recursively(&self, path: &CanonicalizedPathBuf) -> Result<String> {
         self.get_text_for_path(path)
     }
 
@@ -40,11 +37,10 @@ impl RecursiveFileLoader {
         source_path: &CanonicalizedPathBuf,
         text: &str,
     ) -> Result<Vec<Include>> {
-        lazy_static! {
-            static ref RE_ENV: Regex = Regex::new(r##"(?m)(^\s*)?(\\*)(\$\{include(_indent)?\("([^"]*)"\)})"##).unwrap();
-        };
+        let re_env = regex!(r##"(?m)(^\s*)?(\\*)(\$\{include(_indent)?\("([^"]*)"\)})"##);
 
-        let reversed_captures: Result<Vec<Include>> = RE_ENV.captures_iter(text)
+        let reversed_captures: Result<Vec<Include>> = re_env
+            .captures_iter(text)
             .collect::<Vec<Captures>>()
             .into_iter()
             .rev()
@@ -58,26 +54,21 @@ impl RecursiveFileLoader {
 
                 let indentation = indent.map(|_| indentation);
 
-                Ok(
-                    Include::new(
-                        expression.range(),
-                        path,
-                        backslashes,
-                        indentation,
-                    )
-                )
+                Ok(Include::new(
+                    expression.range(),
+                    path,
+                    backslashes,
+                    indentation,
+                ))
             })
             .collect();
 
         reversed_captures
     }
 
-    fn get_text_for_path(
-        &self,
-        path: &CanonicalizedPathBuf,
-    ) -> Result<String> {
+    fn get_text_for_path(&self, path: &CanonicalizedPathBuf) -> Result<String> {
         if let Some(content) = self.resolved_paths.borrow().get(path) {
-            return Ok(content.clone())
+            return Ok(content.clone());
         }
 
         if self.resolution_stack.borrow().contains(path) {
@@ -87,7 +78,7 @@ impl RecursiveFileLoader {
                 "cyclic dependency detected between '{}' and '{}'",
                 last,
                 path.to_str(),
-            ))
+            ));
         } else {
             self.resolution_stack.borrow_mut().push(path.clone());
         }
@@ -101,30 +92,30 @@ impl RecursiveFileLoader {
                 let text = self.get_text_for_path(&include.path)?;
                 let text = match &include.indentation {
                     None => text,
-                    Some(indentation) => text.lines().enumerate()
-                        .map(|(index, line)| {
-                            match index {
-                                0 => line.to_string(),
-                                _ => {
-                                    let mut tmp = indentation.clone();
-                                    tmp += line;
-                                    tmp
-                                },
+                    Some(indentation) => text
+                        .lines()
+                        .enumerate()
+                        .map(|(index, line)| match index {
+                            0 => line.to_string(),
+                            _ => {
+                                let mut tmp = indentation.clone();
+                                tmp += line;
+                                tmp
                             }
                         })
                         .join("\n"),
                 };
 
-                Ok(
-                    match text.chars().last() {
-                        Some('\n') => text[0..(text.len() - 1)].to_owned(),
-                        _ => text,
-                    }
-                )
+                Ok(match text.chars().last() {
+                    Some('\n') => text[0..(text.len() - 1)].to_owned(),
+                    _ => text,
+                })
             })?;
         }
 
-        self.resolved_paths.borrow_mut().insert(path.clone(), content.clone());
+        self.resolved_paths
+            .borrow_mut()
+            .insert(path.clone(), content.clone());
         self.resolution_stack.borrow_mut().pop();
 
         Ok(content)
@@ -147,10 +138,7 @@ impl Include {
     ) -> Self {
         Include {
             path,
-            base_eval: BaseEvaluation {
-                range,
-                backslashes,
-            },
+            base_eval: BaseEvaluation { range, backslashes },
             indentation,
         }
     }
@@ -174,19 +162,17 @@ mod test {
 
     #[test]
     fn should_load_files_recursively() {
-        let result = load_file_recursively(
-            &root().join("resources/nested_file_includes/normal/start.txt")
-        );
+        let result =
+            load_file_recursively(&root().join("resources/nested_file_includes/normal/start.txt"));
 
-        let expectation = String::from_str(
-            indoc!{r##"
+        let expectation = String::from_str(indoc! {r##"
                 START
                 LEVEL-1
                 LEVEL-2
                 LEVEL-3
                 LEVEL-3
-            "##}
-        ).unwrap();
+            "##})
+        .unwrap();
 
         assert_ok!(result, expectation);
     }
@@ -196,7 +182,7 @@ mod test {
         let one = root().join("resources/nested_file_includes/cyclic_dependency/level-1.txt");
         let three = root().join("resources/nested_file_includes/cyclic_dependency/level-3.txt");
         let result = load_file_recursively(
-            &root().join("resources/nested_file_includes/cyclic_dependency/start.txt")
+            &root().join("resources/nested_file_includes/cyclic_dependency/start.txt"),
         );
 
         assert_err!(
@@ -211,12 +197,10 @@ mod test {
 
     #[test]
     fn should_respect_escapes() {
-        let result = load_file_recursively(
-            &root().join("resources/nested_file_includes/escaped/start.txt")
-        );
+        let result =
+            load_file_recursively(&root().join("resources/nested_file_includes/escaped/start.txt"));
 
-        let expectation = String::from_str(
-            indoc!{r##"
+        let expectation = String::from_str(indoc! {r##"
                 START
                 LEVEL 1
                 ${include("level-1.txt")}
@@ -225,8 +209,8 @@ mod test {
                 \\LEVEL 1
                 \\${include("level-1.txt")}
                 \\\LEVEL 1
-            "##}
-        ).unwrap();
+            "##})
+        .unwrap();
 
         assert_ok!(result, expectation);
     }
@@ -238,7 +222,7 @@ mod test {
 
         assert_eq!(
             text,
-            indoc!{r#"
+            indoc! {r#"
                 method: POST
                 url: http://localhost/foo
                 body: |

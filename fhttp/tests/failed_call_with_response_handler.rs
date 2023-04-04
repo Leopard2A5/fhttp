@@ -1,22 +1,33 @@
 extern crate assert_cmd;
-extern crate async_std;
+extern crate rstest;
 extern crate wiremock;
 
-use std::env;
-
-use wiremock::{MockServer, ResponseTemplate, Mock};
-use wiremock::matchers::method;
+use anyhow::Result;
 use assert_cmd::Command;
-use async_std::task::block_on;
+use fhttp_test_utils::write_test_file;
+use indoc::indoc;
+use rstest::rstest;
+use temp_dir::TempDir;
+use wiremock::matchers::method;
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
-#[test]
-fn should_not_execute_response_handler_on_unsuccessful_requests() {
-    block_on(async_test());
-}
-
-async fn async_test() {
+#[rstest]
+async fn test() -> Result<()> {
     let mock_server = MockServer::start().await;
-    env::set_var("URL", mock_server.uri());
+
+    let workdir = TempDir::new()?;
+
+    let req = write_test_file(
+        &workdir,
+        "req.http",
+        indoc!("
+            POST ${env(URL)}/
+
+            > {%
+                json $.data.numbers
+            %}
+        ")
+    )?;
 
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(500))
@@ -24,12 +35,16 @@ async fn async_test() {
         .mount(&mock_server)
         .await;
 
-    Command::cargo_bin("fhttp").unwrap()
-        .arg("../resources/it/requests/empty_response_body.http")
+    Command::cargo_bin("fhttp")
+        .unwrap()
+        .env("URL", mock_server.uri())
+        .arg(req.to_str())
         .assert()
         .failure()
         .stderr(format!(
             "POST {}/... 500 Internal Server Error\nError: no response body\n",
             mock_server.uri()
         ));
+
+    Ok(())
 }

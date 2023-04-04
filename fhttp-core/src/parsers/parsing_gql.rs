@@ -9,7 +9,7 @@ use serde_json::map::Map;
 use serde_json::Value;
 
 use crate::parsers::gql_parser::{RequestParser, Rule};
-use crate::parsers::Request;
+use crate::parsers::{Request, fileupload_regex};
 use crate::postprocessing::response_handler::ResponseHandler;
 use crate::request::body::Body;
 
@@ -149,9 +149,7 @@ fn ensure_content_type_json(mut map: HeaderMap) -> HeaderMap {
 }
 
 fn disallow_file_uploads(body: &str) -> Result<()> {
-    use crate::parsers::file_upload_regex;
-
-    let captures = file_upload_regex::RE_FILE.captures_iter(body);
+    let captures = fileupload_regex().captures_iter(body);
 
     match captures.count() {
         0 => Ok(()),

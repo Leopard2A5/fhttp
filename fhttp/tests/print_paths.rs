@@ -1,23 +1,28 @@
 extern crate assert_cmd;
-extern crate async_std;
 extern crate wiremock;
+extern crate predicates;
 
-use std::env;
-
+use anyhow::Result;
 use assert_cmd::Command;
-use async_std::task::block_on;
+use fhttp_test_utils::{write_test_file};
+use rstest::rstest;
+use temp_dir::TempDir;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 use wiremock::matchers::{method, path};
-use fhttp_core::test_utils::root;
 
-#[test]
-fn should_respect_print_paths_option() {
-    block_on(async_test());
-}
+#[rstest]
+async fn should_respect_print_paths_option() -> Result<()> {
+    use predicates::prelude::*;
 
-async fn async_test() {
     let mock_server = MockServer::start().await;
-    env::set_var("URL", mock_server.uri());
+
+    let workdir = TempDir::new()?;
+
+    let request = write_test_file(
+        &workdir,
+        "request.txt",
+        "GET ${env(URL)}/1\n"
+    )?;
 
     Mock::given(method("GET"))
         .and(path("/1"))
@@ -27,9 +32,12 @@ async fn async_test() {
         .await;
 
     Command::cargo_bin("fhttp").unwrap()
-        .arg("../resources/it/requests/1.http")
+        .env("URL", mock_server.uri())
+        .arg(request.to_str())
         .arg("-P")
         .assert()
         .success()
-        .stderr(format!("{}/resources/it/requests/1.http... 200 OK\n", root().to_str()));
+        .stderr(predicate::str::contains(format!("{}... 200 OK\n", request.to_str())));
+
+    Ok(())
 }

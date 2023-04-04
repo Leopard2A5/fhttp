@@ -1,11 +1,15 @@
 mod parsing;
 mod parsing_gql;
-mod file_upload_regex;
 
 pub use crate::request::Request;
 
+use lazy_regex::Regex;
 pub use parsing::parse_str;
 pub use parsing_gql::parse_gql_str;
+
+pub fn fileupload_regex() -> &'static Regex {
+    regex!(r##"(?m)\$\{\s*file\s*\(\s*"([^}]+)"\s*,\s*"([^}]+)"\s*\)\s*\}"##)
+}
 
 pub mod normal_parser {
     #[derive(Parser)]

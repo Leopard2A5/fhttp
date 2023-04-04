@@ -107,42 +107,46 @@ mod test {
 #[cfg(test)]
 mod curl {
     use super::*;
+    use rstest::{rstest, fixture};
 
-    static CONFIG: Config = Config::new(
-        false,
-        0,
-        false,
-        false,
-        None,
-        true,
-    );
+    #[fixture]
+    fn program() -> Config {
+        Config::new(
+            false,
+            0,
+            false,
+            false,
+            None,
+            true,
+        )
+    }
 
-    #[test]
-    fn string_value_should_return_normally() {
+    #[rstest]
+    fn string_value_should_return_normally(program: Config) {
         let var = ProfileVariable::StringValue(String::from("value"));
-        let result = var.get(&CONFIG, false);
+        let result = var.get(&program, false);
 
         assert_ok!(result, String::from("value"));
     }
 
-    #[test]
-    fn pass_should_return_pass_invocation_string_for_non_dependencies() {
+    #[rstest]
+    fn pass_should_return_pass_invocation_string_for_non_dependencies(program: Config) {
         PASS_INVOCATIONS.with(|it| it.borrow_mut().clear());
 
         let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
-        let result = var.get(&CONFIG, false);
+        let result = var.get(&program, false);
 
         assert_ok!(result, String::from("$(pass path/to/secret)"));
 
         PASS_INVOCATIONS.with(|it| assert_eq!(it.borrow().len(), 0));
     }
 
-    #[test]
-    fn pass_should_invoke_pass_for_dependencies() {
+    #[rstest]
+    fn pass_should_invoke_pass_for_dependencies(program: Config) {
         PASS_INVOCATIONS.with(|it| it.borrow_mut().clear());
 
         let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
-        let result = var.get(&CONFIG, true);
+        let result = var.get(&program, true);
 
         assert_ok!(result, String::from("pass_secret"));
 
