@@ -6,7 +6,7 @@ use anyhow::Result;
 use assert_cmd::Command;
 use async_std::task::block_on;
 use fhttp_core::execution::curl::Curl;
-use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_core::path_utils::canonicalize;
 use fhttp_core::request::body::Body;
 use fhttp_core::request::Request;
 use fhttp_test_utils::write_test_file;
@@ -91,7 +91,7 @@ async fn test() -> Result<()> {
         ", body = body)
     )?;
 
-    let workdir = CanonicalizedPathBuf::new(workdir.path());
+    let workdir = canonicalize(workdir.path())?;
     let req = workdir.join(req);
 
     Command::cargo_bin("fhttp")

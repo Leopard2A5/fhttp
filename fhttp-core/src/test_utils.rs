@@ -1,5 +1,9 @@
+#[cfg(test)] extern crate temp_dir;
 use std::path::PathBuf;
 use crate::path_utils::{CanonicalizedPathBuf, canonicalize};
+
+#[cfg(test)] use anyhow::Result;
+#[cfg(test)] use temp_dir::TempDir;
 
 pub fn root() -> CanonicalizedPathBuf {
     canonicalize(
@@ -37,3 +41,14 @@ macro_rules! assert_ok(
         };
     };
 );
+
+#[cfg(test)]
+pub fn write_test_file<S: AsRef<str>>(
+    workdir: &TempDir,
+    filename: S,
+    content: S,
+) -> Result<CanonicalizedPathBuf> {
+    let file = workdir.child(filename.as_ref());
+    std::fs::write(&file, content.as_ref().as_bytes())?;
+    canonicalize(&file)
+}

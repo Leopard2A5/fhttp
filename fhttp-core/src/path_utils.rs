@@ -14,10 +14,6 @@ pub fn canonicalize(p: &Path) -> Result<CanonicalizedPathBuf> {
 pub struct CanonicalizedPathBuf(PathBuf);
 
 impl CanonicalizedPathBuf {
-    pub fn new<P: Into<PathBuf>>(p: P) -> Self {
-        CanonicalizedPathBuf(p.into())
-    }
-
     pub fn to_str(&self) -> &str {
         self.0.to_str().expect("encountered a non-utf8 character in file path!")
     }

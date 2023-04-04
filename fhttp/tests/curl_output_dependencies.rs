@@ -7,7 +7,7 @@ use assert_cmd::Command;
 use async_std::task::block_on;
 use fhttp_test_utils::write_test_file;
 use temp_dir::TempDir;
-use fhttp_core::path_utils::CanonicalizedPathBuf;
+use fhttp_core::path_utils::canonicalize;
 
 #[test]
 fn should_show_error_when_asked_to_output_dependencies() -> Result<()> {
@@ -29,7 +29,7 @@ async fn test() -> Result<()> {
         r#"GET ${request("req1.http")}"#
     )?;
 
-    let workdir = CanonicalizedPathBuf::new(workdir.path());
+    let workdir = canonicalize(workdir.path())?;
     let req1 = workdir.join(req1);
     let req2 = workdir.join(req2);
 

@@ -4,7 +4,6 @@ extern crate wiremock;
 
 use anyhow::Result;
 use assert_cmd::Command;
-use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_test_utils::write_test_file;
 use indoc::indoc;
 use rstest::rstest;
@@ -39,7 +38,7 @@ async fn test() -> Result<()> {
     Command::cargo_bin("fhttp")
         .unwrap()
         .env("URL", mock_server.uri())
-        .arg(CanonicalizedPathBuf::new(req).to_str())
+        .arg(req.to_str())
         .assert()
         .failure()
         .stderr(format!(

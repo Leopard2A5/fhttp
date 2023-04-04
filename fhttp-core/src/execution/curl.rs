@@ -200,12 +200,12 @@ mod test {
             .multipart(&[
                 MultipartPart::File {
                     name: "file1".to_string(),
-                    file_path: root().join("resources/it/profiles.json"),
+                    file_path: root().join("Cargo.toml"),
                     mime_str: None,
                 },
                 MultipartPart::File {
                     name: "file2".to_string(),
-                    file_path: root().join("resources/it/profiles2.json"),
+                    file_path: root().join("Cargo.lock"),
                     mime_str: None,
                 },
             ])
@@ -216,8 +216,8 @@ mod test {
             formatdoc!(r#"
                 curl -X GET \
                 -H "content-type: application/json" \
-                -F file1="@{base}/resources/it/profiles.json" \
-                -F file2="@{base}/resources/it/profiles2.json" \
+                -F file1="@{base}/Cargo.toml" \
+                -F file2="@{base}/Cargo.lock" \
                 --url "http://localhost/555""#,
                 base = root().to_str().to_string(),
             )

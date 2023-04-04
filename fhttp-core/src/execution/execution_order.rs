@@ -80,36 +80,42 @@ mod tests {
 
     use anyhow::Result;
     use indoc::indoc;
+    use temp_dir::TempDir;
 
+    use crate::path_utils::canonicalize;
     use crate::{Config, Profile, RequestSource, ResponseStore};
     use crate::execution::execution_order::plan_request_order;
-    use crate::test_utils::root;
+    use crate::test_utils::write_test_file;
 
     #[test]
     fn should_resolve_nested_dependencies() -> Result<()> {
-        let root = root()
-            .join("resources/test/requests/nested_dependencies");
-        let init_path = root.join("1.http");
+        let workdir = TempDir::new()?;
+        let r1 = write_test_file(&workdir, "1.http", r#"GET ${request("2.http")}"#)?;
+        let r2 = write_test_file(&workdir, "2.http", r#"GET ${request("3.http")}"#)?;
+        let r3 = write_test_file(&workdir, "3.http", r#"GET ${request("4.http")}"#)?;
+        let r4 = write_test_file(&workdir, "4.http", r#"GET ${request("5.http")}"#)?;
+        let r5 = write_test_file(&workdir, "5.http", r#"GET http://localhost"#)?;
 
-        let init_request = RequestSource::from_file(&init_path, false)?;
+        let init_request = RequestSource::from_file(&r1, false)?;
 
-        let profile = Profile::empty(env::current_dir().unwrap());
+        let profile = Profile::empty(env::current_dir()?);
         let mut response_store = ResponseStore::new();
         let config = Config::default();
 
-        for i in 2..=5 {
-            let path = root.join(format!("{}.http", i));
-            response_store.store(path, &format!("{}", i));
-        }
+        let requests = vec![r1, r2, r3, r4, r5];
+        requests.iter()
+            .enumerate()
+            .for_each(|(i, r)| {
+                response_store.store(r.clone(), &format!("{}", i));
+            });
 
         let coll = plan_request_order(vec![init_request], &profile, &config)?
             .into_iter()
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
 
-        let foo = (1..=5).into_iter()
+        let foo = requests.into_iter()
             .rev()
-            .map(|i| root.join(format!("{}.http", i)))
             .collect::<Vec<_>>();
         assert_eq!(&coll, &foo);
 
@@ -118,44 +124,42 @@ mod tests {
 
     #[test]
     fn should_not_resolve_duplicate_dependencies() -> Result<()> {
-        let root = root()
-            .join("resources/test/requests/duplicate_dependencies");
-        let path1 = root.join("1.http");
-        let path2 = root.join("2.http");
-        let dep_path = root.join("dependency.http");
+        let workdir = TempDir::new()?;
+        let r1 = write_test_file(&workdir, "1.http", r#"GET ${request("dependency.http")}"#)?;
+        let r2 = write_test_file(&workdir, "2.http", r#"GET ${request("dependency.http")}"#)?;
+        let dep = write_test_file(&workdir, "dependency.http", r#"GET http://localhost"#)?;
 
-        let req1 = RequestSource::from_file(&path1, false)?;
-        let req2 = RequestSource::from_file(&path2, false)?;
+        let req1 = RequestSource::from_file(&r1, false)?;
+        let req2 = RequestSource::from_file(&r2, false)?;
 
         let profile = Profile::empty(env::current_dir().unwrap());
         let mut response_store = ResponseStore::new();
         let config = Config::default();
 
-        response_store.store(dep_path.clone(), "");
+        response_store.store(dep.clone(), "");
         let coll = plan_request_order(vec![req1, req2], &profile, &config)?
             .into_iter()
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
 
-        assert_eq!(&coll, &[dep_path, path1, path2]);
+        assert_eq!(&coll, &[dep, r1, r2]);
 
         Ok(())
     }
 
     #[test]
     fn should_not_resolve_escaped_dependencies() -> Result<()> {
-        let root = root()
-            .join("resources/test/requests/nested_dependencies");
-        let path = root.join("4.http");
-
-        let request = RequestSource::new(
-            path.clone(),
+        let workdir = TempDir::new()?;
+        let r1 = write_test_file(
+            &workdir,
+            "1.http",
             indoc!(r#"
                 GET server
 
                 \${request("4.http")}
             "#)
         )?;
+        let request = RequestSource::from_file(&r1, false)?;
 
         let profile = Profile::empty(env::current_dir().unwrap());
         let config = Config::default();
@@ -165,7 +169,7 @@ mod tests {
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
 
-        assert_eq!(&coll, &[path]);
+        assert_eq!(&coll, &[r1]);
 
         Ok(())
     }
@@ -173,10 +177,25 @@ mod tests {
     #[test]
     #[should_panic]
     fn should_panic_on_cyclic_dependency() {
-        let root = root()
-            .join("resources/test/requests/cyclic_dependencies");
-        let path1 = root.join("1.http");
-        let req1 = RequestSource::from_file(&path1, false).unwrap();
+        let workdir = TempDir::new().unwrap();
+        let r1 = &workdir.child("1.http");
+        let r2 = &workdir.child("2.http");
+        std::fs::File::create(&r1).unwrap();
+        std::fs::File::create(&r2).unwrap();
+
+        let r1 = canonicalize(r1).unwrap();
+        let r2 = canonicalize(r2).unwrap();
+
+        std::fs::write(
+            &r1,
+            format!(r#"GET ${{request("{}")}}"#, &r2.to_str()).as_bytes()
+        ).unwrap();
+        std::fs::write(
+            &r2,
+            format!(r#"GET ${{request("{}")}}"#, &r1.to_str()).as_bytes()
+        ).unwrap();
+
+        let req1 = RequestSource::from_file(&r1, false).unwrap();
 
         plan_request_order(
             vec![req1],

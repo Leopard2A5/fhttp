@@ -102,7 +102,7 @@ impl Default for Client {
 
 #[cfg(test)]
 mod tests {
-    use async_std::task::block_on;
+    use rstest::rstest;
     use wiremock::{Mock, MockServer, ResponseTemplate};
     use wiremock::matchers::method;
     use wiremock_multipart::prelude::*;
@@ -112,11 +112,7 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn should_correctly_handle_new_multiparts() -> Result<()> {
-        block_on(should_correctly_handle_new_multiparts_async())
-    }
-
+    #[rstest]
     async fn should_correctly_handle_new_multiparts_async() -> Result<()> {
         let mock_server = MockServer::start().await;
         let image_path = root().join("resources/image.jpg");
