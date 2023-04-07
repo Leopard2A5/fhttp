@@ -36,6 +36,9 @@ pub struct Args {
 
     #[arg(short, long, help = "print curl commands instead of executing given requests. Dependencies are still executed")]
     pub curl: bool,
+
+    #[arg(short, long, help = "redirect output to the specified file")]
+    pub out: Option<String>,
 }
 
 impl Into<Config> for Args {

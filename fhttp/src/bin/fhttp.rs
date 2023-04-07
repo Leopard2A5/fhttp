@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::{env, mem};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -19,15 +21,17 @@ fn main() -> Result<()> {
     let files = mem::take(&mut args.files);
     let profile = mem::take(&mut args.profile);
     let profile_file = mem::take(&mut args.profile_file);
+    let out = get_target_writer(&args.out)?;
     let config = args.into();
 
-    do_it(files, profile, profile_file, config)
+    do_it(files, profile, profile_file, out, config)
 }
 
 fn do_it(
     files: Vec<String>,
     profile: Option<String>,
     profile_file: Option<String>,
+    mut out: Box<dyn Write>,
     config: Config,
 ) -> Result<()> {
     let profile = parse_profile(profile, profile_file)?;
@@ -83,7 +87,8 @@ fn do_it(
             preprocessor.notify_response(&path, resp.body());
 
             if !dependency {
-                println!("{}", resp.body());
+                writeln!(&mut out, "{}", resp.body())?;
+                // println!("{}", resp.body());
             }
         }
     }
@@ -192,4 +197,21 @@ fn parse_profile(
 
     default.override_with(profile);
     Ok(default)
+}
+
+fn get_target_writer(out: &Option<String>) -> Result<Box<dyn Write>> {
+    match out {
+        None => Ok(Box::new(std::io::stdout())),
+        Some(path) => {
+            Ok(
+                Box::new(
+                    OpenOptions::new()
+                        .create(true)
+                        .write(true)
+                        .truncate(true)
+                        .open(path)?
+                )
+            )
+        },
+    }
 }

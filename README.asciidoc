@@ -445,4 +445,10 @@ Can be overwritten by env var FHTTP_PROFILE_FILE.
 | --timeout-ms
 | Set a timeout in ms per request.
 
+| -o
+| --out
+| Path to write stdout output to.
+
+Will create set file or overwrite contents of existing file.
+
 |===
