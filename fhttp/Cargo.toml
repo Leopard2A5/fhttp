@@ -1,6 +1,6 @@
 [package]
 name = "fhttp"
-version = "1.6.0"
+version = "1.6.1"
 authors = ["René Perschon <rperschon85@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -14,7 +14,7 @@ readme = "../README.asciidoc"
 jobs = 1 # tests that rely on environment variables cannot be run in parallel
 
 [dependencies]
-fhttp-core = { version = "1.6.0", path = "../fhttp-core" }
+fhttp-core = { version = "1.6.1", path = "../fhttp-core" }
 clap = { version = "4.0.14", features = ["derive", "env"] }
 itertools = "0.10"
 anyhow = "1.0"
