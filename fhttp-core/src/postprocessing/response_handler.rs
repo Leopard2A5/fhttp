@@ -4,8 +4,7 @@ use std::fmt::Debug;
 use anyhow::{Context, Result};
 use deno_core::{RuntimeOptions, Snapshot};
 
-static FHTTP_SNAPSHOT: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/FHTTP_SNAPSHOT.bin"));
+static FHTTP_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/FHTTP_SNAPSHOT.bin"));
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ResponseHandler {
@@ -27,22 +26,17 @@ impl ResponseHandler {
     }
 }
 
-fn process_body_json(
-    json_path: &str,
-    body: &str
-) -> Result<String> {
+fn process_body_json(json_path: &str, body: &str) -> Result<String> {
     use jsonpath::Selector;
     use serde_json::Value;
 
     let value: Value = serde_json::from_str(body)
-        .with_context(|| format!(
-            "failed to parse response body as json\nBody was '{}'",
-            body
-        ))?;
+        .with_context(|| format!("failed to parse response body as json\nBody was '{}'", body))?;
 
     let mut selector = Selector::new();
     let json_path_results = selector
-        .str_path(json_path).unwrap()
+        .str_path(json_path)
+        .unwrap()
         .value(&value)
         .select()
         .unwrap();
@@ -53,7 +47,7 @@ fn process_body_json(
 
     match result {
         Value::String(string) => Ok(string),
-        _ => Ok(serde_json::to_string(&result).unwrap())
+        _ => Ok(serde_json::to_string(&result).unwrap()),
     }
 }
 
@@ -63,7 +57,6 @@ fn process_body_deno(
     headers: &HashMap<&str, &str>,
     body: &str,
 ) -> Result<String> {
-    use deno_core::op_sync;
     use deno_core::JsRuntime;
     use std::cell::Cell;
     use std::rc::Rc;
@@ -71,25 +64,24 @@ fn process_body_deno(
     let result: Rc<Cell<String>> = Rc::new(Cell::new(body.to_string()));
     let runtime_options = RuntimeOptions {
         startup_snapshot: Some(Snapshot::Static(FHTTP_SNAPSHOT)),
+
         ..RuntimeOptions::default()
     };
     let mut runtime = JsRuntime::new(runtime_options);
 
-    let result_ref = result.clone();
-    runtime.register_op(
-        "op_set_result",
-        op_sync(move |_state, result: String, _: ()| {
-            result_ref.set(result);
-            Ok(())
-        }),
-    );
-    runtime.sync_ops_cache();
+    // let result_ref = result.clone();
+    // runtime.register_op(
+    //     "op_set_result",
+    //     op_sync(move |_state, result: String, _: ()| {
+    //         result_ref.set(result);
+    //         Ok(())
+    //     }),
+    // );
+    // runtime.sync_ops_cache();
 
     let program = prepare_deno_code(program, status, headers, body);
 
-    runtime
-        .execute_script("", &program)
-        .unwrap();
+    runtime.execute_script("", program.into()).unwrap();
 
     Ok(result.take())
 }
@@ -100,14 +92,15 @@ fn prepare_deno_code(
     headers: &HashMap<&str, &str>,
     body: &str,
 ) -> String {
-    let header_lines = headers.iter()
-        .map(|(name, value)|
+    let header_lines = headers
+        .iter()
+        .map(|(name, value)| {
             format!(
                 "    '{}': '{}'",
-                name.replace("'", "\\'"),
-                value.replace("'", "\\'")
+                name.replace('\'', "\\'"),
+                value.replace('"', "\\'")
             )
-        )
+        })
         .collect::<Vec<_>>()
         .join(",\n");
 
@@ -122,7 +115,7 @@ fn prepare_deno_code(
             {program}
         "#,
         status = status,
-        body = &body.replace("'", "\\'"),
+        body = &body.replace('\'', "\\'"),
         headers = &header_lines,
         program = &program,
     )
@@ -136,7 +129,8 @@ mod json_tests {
 
     #[test]
     fn should_apply_the_jsonpath_expression() {
-        let body = indoc!("
+        let body = indoc!(
+            "
             {
                 \"a\": {
                     \"b\": {
@@ -145,8 +139,11 @@ mod json_tests {
                     \"c\": \"failure\"
                 }
             }
-        ");
-        let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
+        "
+        );
+        let handler = ResponseHandler::Json {
+            json_path: "$.a.b.c".into(),
+        };
         let result = handler.process_body(200, &HashMap::new(), body);
 
         assert_ok!(result, String::from("success"));
@@ -154,7 +151,8 @@ mod json_tests {
 
     #[test]
     fn should_convert_numbers_to_string() {
-        let body = indoc!("
+        let body = indoc!(
+            "
             {
                 \"a\": {
                     \"b\": {
@@ -162,8 +160,11 @@ mod json_tests {
                     }
                 }
             }
-        ");
-        let handler = ResponseHandler::Json { json_path: "$.a.b.c".into() };
+        "
+        );
+        let handler = ResponseHandler::Json {
+            json_path: "$.a.b.c".into(),
+        };
         let result = handler.process_body(200, &HashMap::new(), body);
 
         assert_ok!(result, String::from("3.141"));
@@ -179,7 +180,9 @@ mod deno_tests {
     #[test]
     fn should_default_to_response_body_as_result() {
         let body = "this is the response body";
-        let handler = ResponseHandler::Deno { program: String::new() };
+        let handler = ResponseHandler::Deno {
+            program: String::new(),
+        };
         let result = handler.process_body(200, &HashMap::new(), body);
 
         assert_ok!(result, String::from("this is the response body"));
@@ -191,7 +194,8 @@ mod deno_tests {
         let handler = ResponseHandler::Deno {
             program: r#"
                 setResult(body.toUpperCase());
-            "#.into()
+            "#
+            .into(),
         };
         let result = handler.process_body(200, &HashMap::new(), body);
 
@@ -201,14 +205,15 @@ mod deno_tests {
     #[test]
     fn should_have_access_to_result_headers() {
         let body = "this is the response body";
-        let headers = hashmap!{
+        let headers = hashmap! {
             "content-type" => "application/json",
             "accept" => "application/json,application/xml"
         };
         let handler = ResponseHandler::Deno {
             program: r#"
                 setResult(headers['accept']);
-            "#.into()
+            "#
+            .into(),
         };
         let result = handler.process_body(200, &headers, body);
 
@@ -218,13 +223,11 @@ mod deno_tests {
     #[test]
     fn should_escape_headers() {
         let body = "this is the response body";
-        let headers = hashmap!{
+        let headers = hashmap! {
             "content'type" => "appli'cation",
         };
         let handler = ResponseHandler::Deno {
-            program: r#"
-                setResult(headers['content\'type']);
-            "#.into()
+            program: "setResult(headers['content\'type']);".into(),
         };
         let result = handler.process_body(200, &headers, body);
 
@@ -234,11 +237,12 @@ mod deno_tests {
     #[test]
     fn should_escape_body() {
         let body = "this is the 'response' body";
-        let headers = hashmap!{};
+        let headers = hashmap! {};
         let handler = ResponseHandler::Deno {
             program: r#"
                 setResult(body);
-            "#.into()
+            "#
+            .into(),
         };
         let result = handler.process_body(200, &headers, body);
 
@@ -248,7 +252,7 @@ mod deno_tests {
     #[test]
     fn should_have_access_to_status_code() {
         let body = "this is the response body";
-        let headers = hashmap!{};
+        let headers = hashmap! {};
         let handler = ResponseHandler::Deno {
             program: r#"
                 if (status === 404)
@@ -257,11 +261,11 @@ mod deno_tests {
                     setResult('ok');
                 else
                     setResult('who knows?');
-            "#.into()
+            "#
+            .into(),
         };
         let result = handler.process_body(200, &headers, body);
 
         assert_ok!(result, String::from("ok"));
     }
-
 }

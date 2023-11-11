@@ -1,29 +1,21 @@
 use std::env;
 use std::path::PathBuf;
 
-use deno_core::{JsRuntime, RuntimeOptions};
+use deno_core::{extension, JsRuntimeForSnapshot, RuntimeOptions};
 
 fn main() {
-    let fhttp_extension = deno_core::Extension::builder()
-        .js(deno_core::include_js_files!(
-            prefix "fhttp",
-            "src/postprocessing/bootstrap.js",
-        ))
-        .build();
+    extension!(fhttp, js = ["src/postprocessing/bootstrap.js"]);
 
     let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let snapshot_path = out_dir.join("FHTTP_SNAPSHOT.bin");
     let options = RuntimeOptions {
-        will_snapshot: true,
-        extensions: vec![
-            fhttp_extension,
-        ],
+        extensions: vec![fhttp::init_ops_and_esm()],
         ..Default::default()
     };
-    let mut isolate = JsRuntime::new(options);
+    let isolate = JsRuntimeForSnapshot::new(options);
 
     let snapshot = isolate.snapshot();
-    let snapshot_slice: &[u8] = &*snapshot;
+    let snapshot_slice: &[u8] = &snapshot;
     println!("Snapshot size: {}", snapshot_slice.len());
     std::fs::write(&snapshot_path, snapshot_slice).unwrap();
     println!("Snapshot written to: {} ", snapshot_path.display());
