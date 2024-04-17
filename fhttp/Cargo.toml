@@ -22,7 +22,7 @@ indoc = "2.0.5"
 mockito = "1.4.0"
 wiremock = "0.6.0"
 async-std = { version = "1.10", features = ["attributes"] }
-assert_cmd = "1.0.1"
+assert_cmd = "2.0.14"
 predicates = "3.0.1"
 reqwest = { version = "0.12.3", features = ["rustls-tls", "blocking"] }
 temp-dir = "0.1.11"

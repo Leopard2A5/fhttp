@@ -16,7 +16,7 @@ thread_local!(
 pub fn random_int(min: i32, max: i32) -> i32 {
     use rand::{thread_rng, Rng};
 
-    thread_rng().gen_range::<i32, i32, i32>(min, max)
+    thread_rng().gen_range(min..max)
 }
 
 #[cfg(test)]
