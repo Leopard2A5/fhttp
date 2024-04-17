@@ -5,7 +5,6 @@ extern crate rstest;
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_test_utils::write_test_file;
-use mockito::mock;
 use rstest::{fixture, rstest};
 use temp_dir::TempDir;
 
@@ -32,13 +31,15 @@ fn test_data() -> TestData {
 
 #[rstest]
 fn should_stop_execution_on_status_400(test_data: TestData) {
-    let url = mockito::server_url();
+    let mut server = mockito::Server::new();
+    let url = server.url();
 
-    let one = mock("GET", "/1")
+    let one = server
+        .mock("GET", "/1")
         .with_status(400)
         .with_body("invalid param")
         .create();
-    let two = mock("GET", "/2").expect(0).with_status(200).create();
+    let two = server.mock("GET", "/2").expect(0).with_status(200).create();
 
     let assert = Command::cargo_bin("fhttp")
         .unwrap()
@@ -72,7 +73,7 @@ fn should_stop_execution_on_connection_issues(test_data: TestData) {
     assert.failure();
 
     let expectation = format!(
-        "GET {base}/1... Error: error sending request for url ({url}/1): error trying to connect:",
+        "GET {base}/1... Error: error sending request for url ({url}/1)",
         url = &url,
         base = url,
     );

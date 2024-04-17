@@ -5,12 +5,12 @@ extern crate temp_dir;
 use assert_cmd::Command;
 use fhttp_test_utils::write_test_file;
 use indoc::{formatdoc, indoc};
-use mockito::mock;
 use temp_dir::TempDir;
 
 #[test]
 fn complex_test() {
-    let url = &mockito::server_url();
+    let mut server = mockito::Server::new();
+    let url = server.url();
 
     let workdir = TempDir::new().unwrap();
 
@@ -90,13 +90,15 @@ fn complex_test() {
     )
     .unwrap();
 
-    let token_mock = mock("POST", "/token")
+    let token_mock = server
+        .mock("POST", "/token")
         .expect(1)
         .match_body("{\n  \"username\": \"gordon.shumway\",\n  \"password\": \"ilikelucky\"\n}")
         .match_header("content-type", "application/json")
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
-    let create_mock = mock("POST", "/resources")
+    let create_mock = server
+        .mock("POST", "/resources")
         .expect(1)
         .match_header("authorization", "Bearer secret_token")
         .match_header("content-type", "application/json")
@@ -104,20 +106,22 @@ fn complex_test() {
         .with_status(201)
         .with_body("{\n  \"id\": \"123456\",\n  \"name\": \"resource\"\n}")
         .create();
-    let update_mock = mock("PATCH", "/resources/123456")
+    let update_mock = server
+        .mock("PATCH", "/resources/123456")
         .expect(1)
         .match_header("authorization", "Bearer secret_token")
         .match_header("content-type", "application/json")
         .match_body("{\n  \"name\": \"changed resource\"\n}")
         .create();
-    let delete_mock = mock("DELETE", "/resources/123456")
+    let delete_mock = server
+        .mock("DELETE", "/resources/123456")
         .expect(1)
         .match_header("authorization", "Bearer secret_token")
         .create();
 
     let assert = Command::cargo_bin("fhttp")
         .unwrap()
-        .env("URL", url)
+        .env("URL", &url)
         .env("USERNAME", "gordon.shumway")
         .env("PASSWORD", "ilikelucky")
         .arg(create.to_str())

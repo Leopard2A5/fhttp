@@ -1,17 +1,16 @@
 extern crate assert_cmd;
-extern crate mockito;
-extern crate serde_json;
 extern crate indoc;
+extern crate mockito;
 extern crate rstest;
+extern crate serde_json;
 
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_test_utils::write_test_file;
-use mockito::mock;
+use indoc::indoc;
+use rstest::{fixture, rstest};
 use serde_json::json;
 use temp_dir::TempDir;
-use indoc::indoc;
-use rstest::{rstest, fixture};
 
 struct TestData {
     pub _workdir: TempDir,
@@ -26,33 +25,36 @@ fn test_data() -> TestData {
     let profile = write_test_file(
         &workdir,
         "profile.json",
-        &serde_json::to_string(
-            &json!({
-                "default": {
-                    "variables": {
-                        "A": "default-a",
-                        "B": "default-b",
-                    }
-                },
-                "test": {
-                    "variables": {
-                        "B": "test-b"
-                    }
+        &serde_json::to_string(&json!({
+            "default": {
+                "variables": {
+                    "A": "default-a",
+                    "B": "default-b",
                 }
-            })
-        ).unwrap()
-    ).unwrap();
+            },
+            "test": {
+                "variables": {
+                    "B": "test-b"
+                }
+            }
+        }))
+        .unwrap(),
+    )
+    .unwrap();
 
     let req = write_test_file(
         &workdir,
         "req.http",
-        indoc!("
+        indoc!(
+            "
             POST ${env(URL)}/foo
 
             A=${env(A)}
             B=${env(B)}
-        ")
-    ).unwrap();
+        "
+        ),
+    )
+    .unwrap();
 
     TestData {
         _workdir: workdir,
@@ -63,7 +65,9 @@ fn test_data() -> TestData {
 
 #[rstest]
 fn should_always_load_default_profile(test_data: TestData) {
-    let request = mock("POST", "/foo")
+    let mut server = mockito::Server::new();
+    let request = server
+        .mock("POST", "/foo")
         .expect(1)
         .match_body("A=default-a\nB=default-b")
         .with_body("OK")
@@ -71,7 +75,7 @@ fn should_always_load_default_profile(test_data: TestData) {
 
     Command::cargo_bin("fhttp")
         .unwrap()
-        .env("URL", &mockito::server_url())
+        .env("URL", server.url())
         .arg("-f")
         .arg(test_data.profile.to_str())
         .arg(test_data.req.to_str())
@@ -83,7 +87,9 @@ fn should_always_load_default_profile(test_data: TestData) {
 
 #[rstest]
 fn should_override_default_profile_with_specified_one(test_data: TestData) {
-    let request = mock("POST", "/foo")
+    let mut server = mockito::Server::new();
+    let request = server
+        .mock("POST", "/foo")
         .expect(1)
         .match_body("A=default-a\nB=test-b")
         .with_body("OK")
@@ -91,7 +97,7 @@ fn should_override_default_profile_with_specified_one(test_data: TestData) {
 
     Command::cargo_bin("fhttp")
         .unwrap()
-        .env("URL", &mockito::server_url())
+        .env("URL", server.url())
         .arg("-f")
         .arg(test_data.profile.to_str())
         .arg("-p")
