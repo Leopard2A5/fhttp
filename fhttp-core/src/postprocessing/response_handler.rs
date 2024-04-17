@@ -20,7 +20,7 @@ impl ResponseHandler {
 }
 
 fn process_body_json(json_path: &str, body: &str) -> Result<String> {
-    use jsonpath::Selector;
+    use jsonpath_lib::Selector;
     use serde_json::Value;
 
     let value: Value = serde_json::from_str(body)

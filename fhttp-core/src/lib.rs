@@ -1,25 +1,13 @@
-extern crate apply;
-extern crate pest;
 #[macro_use]
 extern crate pest_derive;
-extern crate promptly;
-extern crate rand;
-extern crate regex;
 #[macro_use]
 extern crate lazy_regex;
-extern crate anyhow;
 #[cfg(test)]
 extern crate async_std;
 #[cfg(test)]
 extern crate indoc;
-extern crate itertools;
-extern crate jsonpath_lib as jsonpath;
-extern crate reqwest;
 #[cfg(test)]
 extern crate rstest;
-extern crate serde_json;
-extern crate serde_yaml;
-extern crate uuid;
 #[cfg(test)]
 extern crate wiremock_multipart;
 
