@@ -24,7 +24,7 @@ struct StructuredRequestSource {
 #[serde(untagged)]
 enum StructuredBody {
     Plain(String),
-    Mutlipart(Vec<StructuredMultipartPart>)
+    Mutlipart(Vec<StructuredMultipartPart>),
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,35 +43,40 @@ enum StructuredMultipartPart {
 }
 
 impl StructuredMultipartPart {
-    fn to_part(self, reference_location: &CanonicalizedPathBuf) -> Result<MultipartPart> {
-        Ok(
-            match self {
-                StructuredMultipartPart::Text { name, text, mime: mime_str } => MultipartPart::Text {
-                    name,
-                    text,
-                    mime_str,
-                },
-                StructuredMultipartPart::File { name, filepath: file_path, mime: mime_str } => MultipartPart::File {
-                    name,
-                    file_path: reference_location.get_dependency_path(&file_path)?,
-                    mime_str,
-                }
-            }
-        )
+    fn into_part(self, reference_location: &CanonicalizedPathBuf) -> Result<MultipartPart> {
+        Ok(match self {
+            StructuredMultipartPart::Text {
+                name,
+                text,
+                mime: mime_str,
+            } => MultipartPart::Text {
+                name,
+                text,
+                mime_str,
+            },
+            StructuredMultipartPart::File {
+                name,
+                filepath: file_path,
+                mime: mime_str,
+            } => MultipartPart::File {
+                name,
+                file_path: reference_location.get_dependency_path(&file_path)?,
+                mime_str,
+            },
+        })
     }
 }
 
 impl StructuredBody {
-    pub fn to_body(self, reference_location: &CanonicalizedPathBuf) -> Result<Body> {
+    pub fn into_body(self, reference_location: &CanonicalizedPathBuf) -> Result<Body> {
         match self {
             StructuredBody::Plain(text) => Ok(Body::Plain(text.to_string())),
-            StructuredBody::Mutlipart(parts) => Ok(
-                Body::Multipart(
-                    parts.into_iter()
-                        .map(|it| it.to_part(reference_location))
-                        .collect::<Result<Vec<MultipartPart>>>()?
-                )
-            ),
+            StructuredBody::Mutlipart(parts) => Ok(Body::Multipart(
+                parts
+                    .into_iter()
+                    .map(|it| it.into_part(reference_location))
+                    .collect::<Result<Vec<MultipartPart>>>()?,
+            )),
         }
     }
 }
@@ -86,18 +91,19 @@ impl StructuredResponseHandler {
     pub fn response_handler(self) -> Option<ResponseHandler> {
         if let Some(json) = self.json {
             Some(ResponseHandler::Json { json_path: json })
-        } else if let Some(code) = self.deno {
-            Some(ResponseHandler::Deno { program: code })
         } else {
-            None
+            self.deno
+                .map(|code| ResponseHandler::Deno { program: code })
         }
     }
 }
 
-impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource)> for Request {
+impl TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource)> for Request {
     type Error = anyhow::Error;
 
-    fn try_from(arg: (&CanonicalizedPathBuf ,StructuredRequestSource)) -> std::result::Result<Self, Self::Error> {
+    fn try_from(
+        arg: (&CanonicalizedPathBuf, StructuredRequestSource),
+    ) -> std::result::Result<Self, Self::Error> {
         let reference_location = arg.0;
         let value = arg.1;
 
@@ -105,42 +111,39 @@ impl<'a> TryFrom<(&CanonicalizedPathBuf, StructuredRequestSource)> for Request {
             Some(headers) => {
                 let mut tmp = HeaderMap::new();
                 for (name, value) in headers {
-                    tmp.append(
-                        HeaderName::from_str(&name)?,
-                        HeaderValue::from_str(&value)?
-                    );
+                    tmp.append(HeaderName::from_str(&name)?, HeaderValue::from_str(&value)?);
                 }
                 Ok::<HeaderMap, anyhow::Error>(tmp)
-            },
+            }
             None => Ok(HeaderMap::new()),
         }?;
 
-        Ok(
-            Request {
-                method: Method::from_str(&value.method)?,
-                url: value.url.to_string(),
-                headers,
-                body: value.body
-                    .map(|it| it.to_body(reference_location))
-                    .unwrap_or(Ok(Body::Plain("".to_string())))?,
-                response_handler: value.response_handler
-                    .and_then(StructuredResponseHandler::response_handler),
-            }
-        )
+        Ok(Request {
+            method: Method::from_str(&value.method)?,
+            url: value.url.to_string(),
+            headers,
+            body: value
+                .body
+                .map(|it| it.into_body(reference_location))
+                .unwrap_or(Ok(Body::Plain("".to_string())))?,
+            response_handler: value
+                .response_handler
+                .and_then(StructuredResponseHandler::response_handler),
+        })
     }
 }
 
 pub fn parse_request_from_json(
     reference_location: &CanonicalizedPathBuf,
-    text: &str
+    text: &str,
 ) -> Result<Request> {
-    let structured = serde_json::from_str( text)?;
+    let structured = serde_json::from_str(text)?;
     Request::try_from((reference_location, structured))
 }
 
 pub fn parse_request_from_yaml(
     reference_location: &CanonicalizedPathBuf,
-    text: &str
+    text: &str,
 ) -> Result<Request> {
     let structured = serde_yaml::from_str(text)?;
     Request::try_from((reference_location, structured))
@@ -152,19 +155,22 @@ mod tests {
     use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
     use crate::request::body::MultipartPart;
-    use crate::ResponseHandler;
     use crate::test_utils::root;
+    use crate::ResponseHandler;
 
     use super::*;
 
     #[test]
     fn should_parse_minimal_json_request() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo"
             }
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -182,7 +188,9 @@ mod tests {
 
     #[test]
     fn should_parse_json_request_with_headers() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo",
@@ -190,11 +198,15 @@ mod tests {
                     "accept": "application/json"
                 }
             }
-        "#})?;
+        "#},
+        )?;
 
         let headers = {
             let mut tmp = HeaderMap::new();
-            tmp.append(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
+            tmp.append(
+                HeaderName::from_str("accept").unwrap(),
+                HeaderValue::from_str("application/json").unwrap(),
+            );
             tmp
         };
 
@@ -203,7 +215,7 @@ mod tests {
             Request {
                 method: Method::POST,
                 url: "http://localhost/foo".to_string(),
-                headers: headers,
+                headers,
                 body: Body::Plain("".to_string()),
                 response_handler: None
             }
@@ -214,7 +226,9 @@ mod tests {
 
     #[test]
     fn should_parse_json_request_with_json_response_handler() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo",
@@ -222,7 +236,8 @@ mod tests {
                     "json": "$.data"
                 }
             }
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -231,7 +246,9 @@ mod tests {
                 url: "http://localhost/foo".to_string(),
                 headers: HeaderMap::new(),
                 body: Body::Plain("".to_string()),
-                response_handler: Some(ResponseHandler::Json { json_path: "$.data".to_string() }),
+                response_handler: Some(ResponseHandler::Json {
+                    json_path: "$.data".to_string()
+                }),
             }
         );
 
@@ -240,7 +257,9 @@ mod tests {
 
     #[test]
     fn should_parse_json_request_with_deno_response_handler() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo",
@@ -248,7 +267,8 @@ mod tests {
                     "deno": "setResult('ok!');"
                 }
             }
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -257,7 +277,9 @@ mod tests {
                 url: "http://localhost/foo".to_string(),
                 headers: HeaderMap::new(),
                 body: Body::Plain("".to_string()),
-                response_handler: Some(ResponseHandler::Deno { program: "setResult('ok!');".to_string() }),
+                response_handler: Some(ResponseHandler::Deno {
+                    program: "setResult('ok!');".to_string()
+                }),
             }
         );
 
@@ -266,13 +288,16 @@ mod tests {
 
     #[test]
     fn should_parse_json_request_with_plain_body() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo",
                 "body": "plain body"
             }
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -290,7 +315,9 @@ mod tests {
 
     #[test]
     fn should_parse_json_request_with_multipart_body() -> Result<()> {
-        let result = parse_request_from_json(&root(), indoc!{r#"
+        let result = parse_request_from_json(
+            &root(),
+            indoc! {r#"
             {
                 "method": "POST",
                 "url": "http://localhost/foo",
@@ -315,7 +342,8 @@ mod tests {
                     }
                 ]
             }
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -354,11 +382,14 @@ mod tests {
 
     #[test]
     fn should_parse_full_yaml_request() -> Result<()> {
-        let result = parse_request_from_yaml(&root(), indoc!{r#"
+        let result = parse_request_from_yaml(
+            &root(),
+            indoc! {r#"
             method: POST
             url: http://localhost/foo
             body: hello there
-        "#})?;
+        "#},
+        )?;
 
         assert_eq!(
             result,
@@ -376,7 +407,9 @@ mod tests {
 
     #[test]
     fn should_parse_full_yaml_multipart_request() -> Result<()> {
-        let result = parse_request_from_yaml(&root(), indoc!{r#"
+        let result = parse_request_from_yaml(
+            &root(),
+            indoc! {r#"
             method: POST
             url: http://localhost/foo
             headers:
@@ -392,11 +425,15 @@ mod tests {
                 - name: filepart2
                   filepath: resources/image.jpg
                   mime: image/png
-        "#})?;
+        "#},
+        )?;
 
         let headers = {
             let mut tmp = HeaderMap::new();
-            tmp.append(HeaderName::from_str("accept").unwrap(), HeaderValue::from_str("application/json").unwrap());
+            tmp.append(
+                HeaderName::from_str("accept").unwrap(),
+                HeaderValue::from_str("application/json").unwrap(),
+            );
             tmp
         };
 

@@ -8,15 +8,12 @@ use crate::preprocessing::evaluation::BaseEvaluation;
 
 #[cfg(test)]
 thread_local!(
-    pub static RANDOM_INT_CALLS: RefCell<Vec<(i32, i32)>> = RefCell::new(vec![])
+    pub static RANDOM_INT_CALLS: RefCell<Vec<(i32, i32)>> = const { RefCell::new(vec![]) }
 );
 
 #[cfg(not(test))]
 #[allow(unused)]
-pub fn random_int(
-    min: i32,
-    max: i32
-) -> i32 {
+pub fn random_int(min: i32, max: i32) -> i32 {
     use rand::{thread_rng, Rng};
 
     thread_rng().gen_range::<i32, i32, i32>(min, max)
@@ -24,20 +21,14 @@ pub fn random_int(
 
 #[cfg(test)]
 #[allow(unused)]
-pub fn random_int(
-    min: i32,
-    max: i32
-) -> i32 {
+pub fn random_int(min: i32, max: i32) -> i32 {
     RANDOM_INT_CALLS.with(|c| {
         c.borrow_mut().push((min, max));
     });
     7i32
 }
 
-pub fn parse_min_max(
-    min: Option<&str>,
-    max: Option<&str>
-) -> Result<(i32, i32)> {
+pub fn parse_min_max(min: Option<&str>, max: Option<&str>) -> Result<(i32, i32)> {
     let ret_min = min
         .map(|m| m.parse::<i32>())
         .unwrap_or(Ok(0))

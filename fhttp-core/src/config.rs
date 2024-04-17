@@ -36,7 +36,7 @@ impl Config {
     pub fn verbosity(&self) -> u8 {
         match self.quiet {
             true => 0,
-            false => self.verbose + 1
+            false => self.verbose + 1,
         }
     }
 
@@ -45,28 +45,20 @@ impl Config {
     }
 
     pub fn timeout(&self) -> Option<Duration> {
-        self.timeout_ms.map(|it| Duration::from_millis(it))
+        self.timeout_ms.map(Duration::from_millis)
     }
 
     pub fn curl(&self) -> bool {
         self.curl
     }
 
-    pub fn log<S: Display>(
-        &self,
-        level: u8,
-        message: S
-    ) {
+    pub fn log<S: Display>(&self, level: u8, message: S) {
         if self.verbosity() >= level {
             eprint!("{}", message);
         }
     }
 
-    pub fn logln<S: Display>(
-        &self,
-        level: u8,
-        message: S
-    ) {
+    pub fn logln<S: Display>(&self, level: u8, message: S) {
         if self.verbosity() >= level {
             eprintln!("{}", message);
         }

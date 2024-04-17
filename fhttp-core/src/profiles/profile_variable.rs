@@ -12,7 +12,7 @@ pub enum ProfileVariable {
     PassSecret {
         pass: String,
         #[serde(skip)]
-        cache: RefCell<Option<String>>
+        cache: RefCell<Option<String>>,
     },
     Request {
         request: String,
@@ -20,12 +20,7 @@ pub enum ProfileVariable {
 }
 
 impl ProfileVariable {
-
-    pub fn get(
-        &self,
-        config: &Config,
-        for_dependency: bool,
-    ) -> Result<String> {
+    pub fn get(&self, config: &Config, for_dependency: bool) -> Result<String> {
         match self {
             ProfileVariable::StringValue(ref value) => Ok(value.to_owned()),
             ProfileVariable::PassSecret { pass: path, cache } => {
@@ -42,15 +37,16 @@ impl ProfileVariable {
                     Ok(cache.borrow().as_ref().unwrap().clone())
                 }
             }
-            ProfileVariable::Request { request: _ } => panic!("ProfileVariable::Request cannot resolve by itself"),
+            ProfileVariable::Request { request: _ } => {
+                panic!("ProfileVariable::Request cannot resolve by itself")
+            }
         }
     }
-
 }
 
 #[cfg(test)]
 thread_local!(
-    static PASS_INVOCATIONS: RefCell<Vec<String>> = RefCell::new(Vec::new())
+    static PASS_INVOCATIONS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) }
 );
 
 #[cfg(test)]
@@ -61,13 +57,10 @@ fn resolve_pass(path: &str) -> Result<String> {
 
 #[cfg(not(test))]
 fn resolve_pass(path: &str) -> Result<String> {
-    use std::process::Command;
     use anyhow::anyhow;
+    use std::process::Command;
 
-    let output = Command::new("pass")
-        .args(&[path])
-        .output()
-        .unwrap();
+    let output = Command::new("pass").args([path]).output().unwrap();
 
     if output.status.success() {
         let output = output.stdout;
@@ -87,38 +80,38 @@ mod test {
     #[test]
     fn deserialize_string_value() {
         let input = "\"foo\"";
-        let result = serde_json::from_str::<ProfileVariable>(&input).unwrap();
+        let result = serde_json::from_str::<ProfileVariable>(input).unwrap();
         assert_eq!(result, ProfileVariable::StringValue("foo".into()));
     }
 
     #[test]
     fn deserialize_pass_secret() {
-        let input = indoc!(r##"
+        let input = indoc!(
+            r##"
             {
                 "pass": "foo/bar"
             }
-        "##);
-        let result = serde_json::from_str::<ProfileVariable>(&input).unwrap();
-        assert_eq!(result, ProfileVariable::PassSecret { pass: "foo/bar".into(), cache: RefCell::new(None) });
+        "##
+        );
+        let result = serde_json::from_str::<ProfileVariable>(input).unwrap();
+        assert_eq!(
+            result,
+            ProfileVariable::PassSecret {
+                pass: "foo/bar".into(),
+                cache: RefCell::new(None)
+            }
+        );
     }
-
 }
 
 #[cfg(test)]
 mod curl {
     use super::*;
-    use rstest::{rstest, fixture};
+    use rstest::{fixture, rstest};
 
     #[fixture]
     fn program() -> Config {
-        Config::new(
-            false,
-            0,
-            false,
-            false,
-            None,
-            true,
-        )
+        Config::new(false, 0, false, false, None, true)
     }
 
     #[rstest]
@@ -133,7 +126,10 @@ mod curl {
     fn pass_should_return_pass_invocation_string_for_non_dependencies(program: Config) {
         PASS_INVOCATIONS.with(|it| it.borrow_mut().clear());
 
-        let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
+        let var = ProfileVariable::PassSecret {
+            pass: "path/to/secret".to_string(),
+            cache: RefCell::new(None),
+        };
         let result = var.get(&program, false);
 
         assert_ok!(result, String::from("$(pass path/to/secret)"));
@@ -145,15 +141,16 @@ mod curl {
     fn pass_should_invoke_pass_for_dependencies(program: Config) {
         PASS_INVOCATIONS.with(|it| it.borrow_mut().clear());
 
-        let var = ProfileVariable::PassSecret { pass: "path/to/secret".to_string(), cache: RefCell::new(None) };
+        let var = ProfileVariable::PassSecret {
+            pass: "path/to/secret".to_string(),
+            cache: RefCell::new(None),
+        };
         let result = var.get(&program, true);
 
         assert_ok!(result, String::from("pass_secret"));
 
         PASS_INVOCATIONS.with(|it| {
-            let invocations = it.borrow().iter()
-                .map(String::clone)
-                .collect::<Vec<_>>();
+            let invocations = it.borrow().iter().map(String::clone).collect::<Vec<_>>();
             assert_eq!(&invocations, &["path/to/secret".to_string()]);
         });
     }

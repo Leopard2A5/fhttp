@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 pub use profile_variable::ProfileVariable;
 
-use crate::{Config, ResponseStore};
 use crate::path_utils::RelativePath;
+use crate::{Config, ResponseStore};
 
 mod profile_variable;
 
@@ -20,11 +20,12 @@ pub struct Profiles;
 impl Profiles {
     pub fn parse<P: AsRef<Path>>(path: P) -> Result<HashMap<String, Profile>> {
         let path = path.as_ref();
-        let content = std::fs::read_to_string(&path)
+        let content = std::fs::read_to_string(path)
             .with_context(|| format!("Error opening file {}", path.to_str().unwrap()))?;
         let profiles = serde_json::from_str::<HashMap<String, _Profile>>(&content)
             .with_context(|| format!("error reading profile from {}", path.to_str().unwrap()))?;
-        let ret = profiles.into_iter()
+        let ret = profiles
+            .into_iter()
             .map(|(key, value)| {
                 let profile = Profile::new(path, value.variables);
                 (key, profile)
@@ -64,18 +65,17 @@ impl Profile {
         }
     }
 
-    pub fn defined_through_request<K: Into<String>>(
-        &self,
-        key: K
-    ) -> Option<PathBuf> {
+    pub fn defined_through_request<K: Into<String>>(&self, key: K) -> Option<PathBuf> {
         let key = key.into();
 
         match self.variables.contains_key(&key) {
             true => match self.variables.get(&key) {
-                Some(ProfileVariable::Request { request }) => Some(PathBuf::from_str(request).unwrap()),
-                _ => None
+                Some(ProfileVariable::Request { request }) => {
+                    Some(PathBuf::from_str(request).unwrap())
+                }
+                _ => None,
             },
-            false => None
+            false => None,
         }
     }
 
@@ -90,9 +90,11 @@ impl Profile {
         let key = key.into();
 
         match self.variables.get(key) {
-            Some(ProfileVariable::Request { request }) => Ok(response_store.get(&self.get_dependency_path(request)?)),
+            Some(ProfileVariable::Request { request }) => {
+                Ok(response_store.get(&self.get_dependency_path(request)?))
+            }
             Some(var) => var.get(config, for_dependency),
-            None => get_from_environment(key, config, default)
+            None => get_from_environment(key, config, default),
         }
     }
 
@@ -104,10 +106,7 @@ impl Profile {
         self.variables.values().collect()
     }
 
-    pub fn override_with(
-        &mut self,
-        other: Profile
-    ) {
+    pub fn override_with(&mut self, other: Profile) {
         for (key, value) in other.variables {
             self.variables.insert(key, value);
         }
@@ -120,25 +119,23 @@ impl AsRef<Path> for Profile {
     }
 }
 
-fn get_from_environment(
-    key: &str,
-    config: &Config,
-    default: Option<&str>,
-) -> Result<String> {
-    match env::var(&key) {
+fn get_from_environment(key: &str, config: &Config, default: Option<&str>) -> Result<String> {
+    match env::var(key) {
         Ok(value) => Ok(value),
-        Err(VarError::NotUnicode(_)) => Err(anyhow!("environment variable {} is not unicode!", key)),
+        Err(VarError::NotUnicode(_)) => {
+            Err(anyhow!("environment variable {} is not unicode!", key))
+        }
         Err(VarError::NotPresent) => match default {
             Some(default) => Ok(default.to_owned()),
             None => match config.prompt_missing_env_vars() {
                 true => {
                     let value = prompt::<String, _>(&key).unwrap();
-                    env::set_var(&key, &value);
+                    env::set_var(key, &value);
                     Ok(value)
-                },
-                false => Err(anyhow!(format!("missing environment variable {}", key)))
-            }
-        }
+                }
+                false => Err(anyhow!(format!("missing environment variable {}", key))),
+            },
+        },
     }
 }
 
@@ -155,12 +152,11 @@ mod test {
 
     #[test]
     fn should_load_profiles() -> Result<()> {
-        let path = root()
-            .join("resources/test/profiles/profile1.json");
-        let profiles = Profiles::parse(&path)?;
+        let path = root().join("resources/test/profiles/profile1.json");
+        let profiles = Profiles::parse(path)?;
         assert_eq!(
             profiles,
-            hashmap!{
+            hashmap! {
                 "development".into() => Profile {
                     source_path: root().join("resources/test/profiles/profile1.json").path_buf(),
                     variables: hashmap!{},
@@ -221,20 +217,26 @@ mod test {
             hashmap! {
                 String::from("a") => ProfileVariable::StringValue(String::from("A")),
                 String::from("b") => ProfileVariable::StringValue(String::from("B"))
-            }
+            },
         );
         let local = Profile::new(
             env::current_dir().unwrap(),
             hashmap! {
                 String::from("b") => ProfileVariable::StringValue(String::from("BBB")),
                 String::from("c") => ProfileVariable::StringValue(String::from("CCC")),
-            }
+            },
         );
 
         default.override_with(local);
         assert_eq!(default.get("a", &config, &response_store, None, true)?, "A");
-        assert_eq!(default.get("b", &config, &response_store, None, true)?, "BBB");
-        assert_eq!(default.get("c", &config, &response_store, None, true)?, "CCC");
+        assert_eq!(
+            default.get("b", &config, &response_store, None, true)?,
+            "BBB"
+        );
+        assert_eq!(
+            default.get("c", &config, &response_store, None, true)?,
+            "CCC"
+        );
 
         Ok(())
     }

@@ -1,15 +1,14 @@
 extern crate assert_cmd;
-extern crate mockito;
 extern crate indoc;
+extern crate mockito;
 
 use assert_cmd::Command;
 use fhttp_core::path_utils::CanonicalizedPathBuf;
 use fhttp_test_utils::write_test_file;
+use indoc::indoc;
 use mockito::mock;
 use rstest::{fixture, rstest};
 use temp_dir::TempDir;
-use indoc::indoc;
-
 
 struct TestData {
     _workdir: TempDir,
@@ -40,7 +39,8 @@ fn test_data() -> TestData {
             }
           }
         "#,
-    ).unwrap();
+    )
+    .unwrap();
 
     let profile2 = write_test_file(
         &workdir,
@@ -54,12 +54,14 @@ fn test_data() -> TestData {
             }
           }
         "#,
-    ).unwrap();
+    )
+    .unwrap();
 
     let token = write_test_file(
         &workdir,
         "token.http",
-        &indoc!(r#"
+        indoc!(
+            r#"
             POST ${env(URL)}/token
             Content-Type: application/json
             
@@ -71,8 +73,10 @@ fn test_data() -> TestData {
             > {%
               json $.token
             %}
-        "#)
-    ).unwrap();
+        "#
+        ),
+    )
+    .unwrap();
 
     TestData {
         _workdir: workdir,
@@ -89,10 +93,13 @@ fn use_custom_profile_file_through_cli_option(test_data: TestData) {
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
         .env("URL", mockito::server_url())
-        .arg("-f").arg(test_data.profile1.to_str())
-        .arg("-p").arg("it")
+        .arg("-f")
+        .arg(test_data.profile1.to_str())
+        .arg("-p")
+        .arg("it")
         .arg(test_data.token.to_str())
         .assert();
 
@@ -108,10 +115,12 @@ fn use_custom_profile_file_through_env_var(test_data: TestData) {
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
         .env("URL", mockito::server_url())
         .env("FHTTP_PROFILE_FILE", test_data.profile1.to_str())
-        .arg("-p").arg("it")
+        .arg("-p")
+        .arg("it")
         .arg(test_data.token.to_str())
         .assert();
 
@@ -127,11 +136,14 @@ fn profile_file_cli_should_override_env_var(test_data: TestData) {
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
         .env("URL", mockito::server_url())
         .env("FHTTP_PROFILE_FILE", test_data.profile2.to_str())
-        .arg("-f").arg(test_data.profile1.to_str())
-        .arg("-p").arg("it")
+        .arg("-f")
+        .arg(test_data.profile1.to_str())
+        .arg("-p")
+        .arg("it")
         .arg(test_data.token.to_str())
         .assert();
 
@@ -147,7 +159,8 @@ fn profile_through_env_var(test_data: TestData) {
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
         .env("URL", mockito::server_url())
         .env("FHTTP_PROFILE_FILE", test_data.profile1.to_str())
         .env("FHTTP_PROFILE", "it")
@@ -166,11 +179,14 @@ fn profile_through_cli_option_should_precede_env_var(test_data: TestData) {
         .with_body("{\n  \"token\": \"secret_token\"\n}")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
         .env("URL", mockito::server_url())
         .env("FHTTP_PROFILE", "it")
-        .arg("-f").arg(test_data.profile1.to_str())
-        .arg("-p").arg("it2")
+        .arg("-f")
+        .arg(test_data.profile1.to_str())
+        .arg("-p")
+        .arg("it2")
         .arg(test_data.token.to_str())
         .assert();
 

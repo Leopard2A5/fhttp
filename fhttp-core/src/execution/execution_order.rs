@@ -1,14 +1,13 @@
 use anyhow::{anyhow, Result};
 
-use crate::{Config, RequestSource};
 use crate::path_utils::{CanonicalizedPathBuf, RelativePath};
-use crate::Profile;
 use crate::request_sources::variable_support::{EnvVarOccurrence, VariableSupport};
+use crate::Profile;
+use crate::RequestSource;
 
 pub fn plan_request_order(
     initial_requests: Vec<RequestSource>,
     profile: &Profile,
-    config: &Config,
 ) -> Result<Vec<RequestSource>> {
     let mut preprocessor_stack = vec![];
     let mut requests_with_dependencies = vec![];
@@ -20,7 +19,6 @@ pub fn plan_request_order(
                 req,
                 &mut requests_with_dependencies,
                 &mut preprocessor_stack,
-                config
             )?;
         }
     }
@@ -30,7 +28,6 @@ pub fn plan_request_order(
             req,
             &mut requests_with_dependencies,
             &mut preprocessor_stack,
-            config
         )?;
     }
 
@@ -39,9 +36,8 @@ pub fn plan_request_order(
 
 fn preprocess_request(
     req: RequestSource,
-    mut list: &mut Vec<RequestSource>,
-    mut preprocessor_stack: &mut Vec<CanonicalizedPathBuf>,
-    config: &Config
+    list: &mut Vec<RequestSource>,
+    preprocessor_stack: &mut Vec<CanonicalizedPathBuf>,
 ) -> Result<()> {
     if list.contains(&req) {
         return Ok(());
@@ -53,7 +49,7 @@ fn preprocess_request(
 
     for dep in req.dependencies()? {
         let dep = RequestSource::from_file(dep, true)?;
-        preprocess_request(dep, &mut list, &mut preprocessor_stack, config)?;
+        preprocess_request(dep, list, preprocessor_stack)?;
     }
 
     preprocessor_stack.pop();
@@ -64,12 +60,11 @@ fn preprocess_request(
 
 fn get_env_vars_defined_through_requests(
     profile: &Profile,
-    req: &RequestSource
+    req: &RequestSource,
 ) -> Result<Vec<CanonicalizedPathBuf>> {
     let vars: Vec<EnvVarOccurrence> = req.get_env_vars();
     vars.into_iter()
-        .map(|occ| profile.defined_through_request(occ.name))
-        .flatten()
+        .flat_map(|occ| profile.defined_through_request(occ.name))
         .map(|path| profile.get_dependency_path(path.to_str().unwrap()))
         .collect()
 }
@@ -82,10 +77,10 @@ mod tests {
     use indoc::indoc;
     use temp_dir::TempDir;
 
-    use crate::path_utils::canonicalize;
-    use crate::{Config, Profile, RequestSource, ResponseStore};
     use crate::execution::execution_order::plan_request_order;
+    use crate::path_utils::canonicalize;
     use crate::test_utils::write_test_file;
+    use crate::{Profile, RequestSource, ResponseStore};
 
     #[test]
     fn should_resolve_nested_dependencies() -> Result<()> {
@@ -100,23 +95,18 @@ mod tests {
 
         let profile = Profile::empty(env::current_dir()?);
         let mut response_store = ResponseStore::new();
-        let config = Config::default();
 
         let requests = vec![r1, r2, r3, r4, r5];
-        requests.iter()
-            .enumerate()
-            .for_each(|(i, r)| {
-                response_store.store(r.clone(), &format!("{}", i));
-            });
+        requests.iter().enumerate().for_each(|(i, r)| {
+            response_store.store(r.clone(), &format!("{}", i));
+        });
 
-        let coll = plan_request_order(vec![init_request], &profile, &config)?
+        let coll = plan_request_order(vec![init_request], &profile)?
             .into_iter()
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
 
-        let foo = requests.into_iter()
-            .rev()
-            .collect::<Vec<_>>();
+        let foo = requests.into_iter().rev().collect::<Vec<_>>();
         assert_eq!(&coll, &foo);
 
         Ok(())
@@ -134,10 +124,9 @@ mod tests {
 
         let profile = Profile::empty(env::current_dir().unwrap());
         let mut response_store = ResponseStore::new();
-        let config = Config::default();
 
         response_store.store(dep.clone(), "");
-        let coll = plan_request_order(vec![req1, req2], &profile, &config)?
+        let coll = plan_request_order(vec![req1, req2], &profile)?
             .into_iter()
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
@@ -153,18 +142,19 @@ mod tests {
         let r1 = write_test_file(
             &workdir,
             "1.http",
-            indoc!(r#"
+            indoc!(
+                r#"
                 GET server
 
                 \${request("4.http")}
-            "#)
+            "#
+            ),
         )?;
         let request = RequestSource::from_file(&r1, false)?;
 
         let profile = Profile::empty(env::current_dir().unwrap());
-        let config = Config::default();
 
-        let coll = plan_request_order(vec![request], &profile, &config)?
+        let coll = plan_request_order(vec![request], &profile)?
             .into_iter()
             .map(|req| req.source_path)
             .collect::<Vec<_>>();
@@ -180,27 +170,25 @@ mod tests {
         let workdir = TempDir::new().unwrap();
         let r1 = &workdir.child("1.http");
         let r2 = &workdir.child("2.http");
-        std::fs::File::create(&r1).unwrap();
-        std::fs::File::create(&r2).unwrap();
+        std::fs::File::create(r1).unwrap();
+        std::fs::File::create(r2).unwrap();
 
         let r1 = canonicalize(r1).unwrap();
         let r2 = canonicalize(r2).unwrap();
 
         std::fs::write(
             &r1,
-            format!(r#"GET ${{request("{}")}}"#, &r2.to_str()).as_bytes()
-        ).unwrap();
+            format!(r#"GET ${{request("{}")}}"#, &r2.to_str()).as_bytes(),
+        )
+        .unwrap();
         std::fs::write(
             &r2,
-            format!(r#"GET ${{request("{}")}}"#, &r1.to_str()).as_bytes()
-        ).unwrap();
+            format!(r#"GET ${{request("{}")}}"#, &r1.to_str()).as_bytes(),
+        )
+        .unwrap();
 
         let req1 = RequestSource::from_file(&r1, false).unwrap();
 
-        plan_request_order(
-            vec![req1],
-            &Profile::empty(env::current_dir().unwrap()),
-            &Config::default()
-        ).unwrap();
+        plan_request_order(vec![req1], &Profile::empty(env::current_dir().unwrap())).unwrap();
     }
 }

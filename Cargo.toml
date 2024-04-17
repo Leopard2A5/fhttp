@@ -1,6 +1,4 @@
 [workspace]
-members = [
-    "fhttp",
-    "fhttp-core",
-    "fhttp-test-utils",
-]
+resolver = "2"
+
+members = ["fhttp", "fhttp-core", "fhttp-test-utils"]

@@ -1,8 +1,8 @@
 use anyhow::Result;
 
-use crate::Config;
 use crate::execution::execution_order::plan_request_order;
 use crate::path_utils::CanonicalizedPathBuf;
+use crate::Config;
 use crate::Profile;
 use crate::RequestSource;
 use crate::ResponseStore;
@@ -17,33 +17,22 @@ pub struct Requestpreprocessor {
 }
 
 impl Requestpreprocessor {
+    pub fn new(profile: Profile, requests: Vec<RequestSource>, config: Config) -> Result<Self> {
+        let requests_in_order = plan_request_order(requests, &profile)?;
 
-    pub fn new(
-        profile: Profile,
-        requests: Vec<RequestSource>,
-        config: Config,
-    ) -> Result<Self> {
-        let requests_in_order = plan_request_order(requests, &profile, &config)?;
-
-        Ok(
-            Requestpreprocessor {
-                profile,
-                config,
-                requests: requests_in_order,
-                response_data: ResponseStore::new(),
-            }
-        )
+        Ok(Requestpreprocessor {
+            profile,
+            config,
+            requests: requests_in_order,
+            response_data: ResponseStore::new(),
+        })
     }
 
     pub fn is_empty(&self) -> bool {
         self.requests.is_empty()
     }
 
-    pub fn notify_response(
-        &mut self,
-        path: &CanonicalizedPathBuf,
-        response: &str
-    ) {
+    pub fn notify_response(&mut self, path: &CanonicalizedPathBuf, response: &str) {
         self.response_data.store(path.clone(), response);
     }
 }
@@ -57,7 +46,8 @@ impl Iterator for Requestpreprocessor {
         } else {
             let mut req = self.requests.remove(0);
 
-            let req = req.replace_variables(&self.profile, &self.config, &self.response_data)
+            let req = req
+                .replace_variables(&self.profile, &self.config, &self.response_data)
                 .map(|_| req);
             Some(req)
         }
@@ -68,24 +58,23 @@ impl Iterator for Requestpreprocessor {
 mod dependencies {
     use std::env;
 
-    use crate::RequestSource;
     use crate::test_utils::root;
+    use crate::RequestSource;
 
     use super::*;
 
     #[test]
     fn should_replace_dependencies_on_next_calls() -> Result<()> {
-        let root = root()
-            .join("resources/test/requests/nested_dependencies");
+        let root = root().join("resources/test/requests/nested_dependencies");
         let init_path = root.join("4.http");
         let dep_path = root.join("5.http");
 
-        let init_request = RequestSource::from_file(&init_path, false)?;
+        let init_request = RequestSource::from_file(init_path, false)?;
 
         let mut preprocessor = Requestpreprocessor::new(
             Profile::empty(env::current_dir().unwrap()),
             vec![init_request],
-            Config::default()
+            Config::default(),
         )?;
 
         preprocessor.next();

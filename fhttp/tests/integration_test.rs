@@ -4,9 +4,9 @@ extern crate temp_dir;
 
 use assert_cmd::Command;
 use fhttp_test_utils::write_test_file;
+use indoc::{formatdoc, indoc};
 use mockito::mock;
 use temp_dir::TempDir;
-use indoc::{indoc, formatdoc};
 
 #[test]
 fn complex_test() {
@@ -17,7 +17,8 @@ fn complex_test() {
     let token = write_test_file(
         &workdir,
         "token",
-        indoc!(r#"
+        indoc!(
+            r#"
             POST ${env(URL)}/token
             Content-Type: application/json
             
@@ -29,13 +30,16 @@ fn complex_test() {
             > {%
               json $.token
             %}
-        "#)
-    ).unwrap();
+        "#
+        ),
+    )
+    .unwrap();
 
     let create = write_test_file(
         &workdir,
         "create",
-        &formatdoc!("
+        &formatdoc!(
+            "
             POST ${{env(URL)}}/resources
             Authorization: Bearer ${{request(\"{}\")}}
             Content-Type: application/json
@@ -47,14 +51,17 @@ fn complex_test() {
             > {{%
               json $.id
             %}}
-            ", token.to_str(),
-        )
-    ).unwrap();
+            ",
+            token.to_str(),
+        ),
+    )
+    .unwrap();
 
     let update = write_test_file(
         &workdir,
         "update",
-        &formatdoc!("
+        &formatdoc!(
+            "
             PATCH ${{env(URL)}}/resources/${{request(\"{create}\")}}
             Authorization: Bearer ${{request(\"{token}\")}}
             Content-Type: application/json
@@ -66,19 +73,22 @@ fn complex_test() {
             create = create.to_str(),
             token = token.to_str(),
         ),
-    ).unwrap();
+    )
+    .unwrap();
 
     let delete = write_test_file(
         &workdir,
         "delete",
-        &formatdoc!("
+        &formatdoc!(
+            "
             DELETE ${{env(URL)}}/resources/${{request(\"{create}\")}}
             Authorization: Bearer ${{request(\"{token}\")}}
             ",
             create = create.to_str(),
             token = token.to_str(),
         ),
-    ).unwrap();
+    )
+    .unwrap();
 
     let token_mock = mock("POST", "/token")
         .expect(1)
@@ -105,22 +115,22 @@ fn complex_test() {
         .match_header("authorization", "Bearer secret_token")
         .create();
 
-    let assert = Command::cargo_bin("fhttp").unwrap()
-        .env("URL", &url)
+    let assert = Command::cargo_bin("fhttp")
+        .unwrap()
+        .env("URL", url)
         .env("USERNAME", "gordon.shumway")
         .env("PASSWORD", "ilikelucky")
         .arg(create.to_str())
         .arg(update.to_str())
         .arg(delete.to_str())
         .assert();
-    assert
-        .success()
-        .stdout("123456\n\n\n")
-        .stderr(format!(r##"POST {base}/token... 200 OK
+    assert.success().stdout("123456\n\n\n").stderr(format!(
+        r##"POST {base}/token... 200 OK
 POST {base}/resources... 201 Created
 PATCH {base}/resources/123456... 200 OK
 DELETE {base}/resources/123456... 200 OK
-"##, base=url
+"##,
+        base = url
     ));
 
     token_mock.assert();

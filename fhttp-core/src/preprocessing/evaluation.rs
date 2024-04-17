@@ -30,11 +30,8 @@ pub trait Evaluation {
     }
 }
 
-fn escape_backslashes(
-    target: &mut String,
-    backslashes: &Range<usize>,
-) {
-    if backslashes.len() == 0 {
+fn escape_backslashes(target: &mut String, backslashes: &Range<usize>) {
+    if backslashes.is_empty() {
         return;
     }
 
@@ -51,14 +48,8 @@ pub struct BaseEvaluation {
 }
 
 impl BaseEvaluation {
-    pub fn new(
-        range: Range<usize>,
-        backslashes: Range<usize>,
-    ) -> Self {
-        BaseEvaluation {
-            range,
-            backslashes,
-        }
+    pub fn new(range: Range<usize>, backslashes: Range<usize>) -> Self {
+        BaseEvaluation { range, backslashes }
     }
 }
 
@@ -68,7 +59,7 @@ impl AsRef<BaseEvaluation> for BaseEvaluation {
     }
 }
 
-impl <T: AsRef<BaseEvaluation>> Evaluation for T {
+impl<T: AsRef<BaseEvaluation>> Evaluation for T {
     fn backslashes(&self) -> &Range<usize> {
         &self.as_ref().backslashes
     }

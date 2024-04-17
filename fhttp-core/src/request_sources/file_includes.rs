@@ -163,7 +163,7 @@ mod test {
     #[test]
     fn should_load_files_recursively() {
         let result =
-            load_file_recursively(&root().join("resources/nested_file_includes/normal/start.txt"));
+            load_file_recursively(root().join("resources/nested_file_includes/normal/start.txt"));
 
         let expectation = String::from_str(indoc! {r##"
                 START
@@ -182,7 +182,7 @@ mod test {
         let one = root().join("resources/nested_file_includes/cyclic_dependency/level-1.txt");
         let three = root().join("resources/nested_file_includes/cyclic_dependency/level-3.txt");
         let result = load_file_recursively(
-            &root().join("resources/nested_file_includes/cyclic_dependency/start.txt"),
+            root().join("resources/nested_file_includes/cyclic_dependency/start.txt"),
         );
 
         assert_err!(
@@ -198,7 +198,7 @@ mod test {
     #[test]
     fn should_respect_escapes() {
         let result =
-            load_file_recursively(&root().join("resources/nested_file_includes/escaped/start.txt"));
+            load_file_recursively(root().join("resources/nested_file_includes/escaped/start.txt"));
 
         let expectation = String::from_str(indoc! {r##"
                 START
@@ -218,7 +218,7 @@ mod test {
     #[test]
     fn should_include_files_preserving_indentation() -> Result<()> {
         let location = root().join("resources/file_includes_indent/request.yaml");
-        let text = load_file_recursively(&location)?;
+        let text = load_file_recursively(location)?;
 
         assert_eq!(
             text,

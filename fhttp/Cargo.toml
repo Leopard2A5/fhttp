@@ -1,6 +1,6 @@
 [package]
 name = "fhttp"
-version = "1.6.1"
+version = "2.0.0"
 authors = ["René Perschon <rperschon85@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -10,11 +10,8 @@ documentation = "https://github.com/Leopard2A5/fhttp"
 repository = "https://github.com/Leopard2A5/fhttp"
 readme = "../README.asciidoc"
 
-[build]
-jobs = 1 # tests that rely on environment variables cannot be run in parallel
-
 [dependencies]
-fhttp-core = { version = "1.6.1", path = "../fhttp-core" }
+fhttp-core = { version = "2.0.0", path = "../fhttp-core" }
 clap = { version = "4.0.14", features = ["derive", "env"] }
 itertools = "0.10"
 anyhow = "1.0"
@@ -27,8 +24,8 @@ wiremock = "0.5"
 async-std = { version = "1.10", features = ["attributes"] }
 assert_cmd = "1.0.1"
 predicates = "3.0.1"
-reqwest = { version = "0.10.6", features = ["rustls-tls", "blocking"] }
+reqwest = { version = "0.12.3", features = ["rustls-tls", "blocking"] }
 temp-dir = "0.1.11"
 serde_json = "1.0.91"
 rstest = "0.16.0"
-fhttp-test-utils = { path = "../fhttp-test-utils", version = "1.6.0" }
+fhttp-test-utils = { path = "../fhttp-test-utils", version = "2.0.0" }
