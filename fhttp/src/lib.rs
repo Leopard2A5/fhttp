@@ -3,6 +3,6 @@ extern crate fhttp_test_utils;
 #[cfg(test)]
 extern crate temp_dir;
 
-mod program;
+mod args;
 
-pub use program::Args;
+pub use args::Args;
