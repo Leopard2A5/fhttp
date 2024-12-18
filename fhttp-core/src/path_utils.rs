@@ -57,7 +57,10 @@ impl From<CanonicalizedPathBuf> for PathBuf {
     }
 }
 
-fn get_dependency_path<O: AsRef<Path>>(origin_path: O, path: &str) -> Result<CanonicalizedPathBuf> {
+pub fn get_dependency_path<O: AsRef<Path>>(
+    origin_path: O,
+    path: &str,
+) -> Result<CanonicalizedPathBuf> {
     let origin_path = origin_path.as_ref();
     let path = Path::new(path);
     let ret = if path.is_absolute() {

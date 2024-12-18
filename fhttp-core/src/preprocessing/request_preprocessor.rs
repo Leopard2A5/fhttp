@@ -2,11 +2,11 @@ use anyhow::Result;
 
 use crate::execution::execution_order::plan_request_order;
 use crate::path_utils::CanonicalizedPathBuf;
+use crate::request_sources::Preprocessed;
 use crate::Config;
 use crate::Profile;
 use crate::RequestSource;
 use crate::ResponseStore;
-use crate::VariableSupport;
 
 // #[derive(Debug)]
 pub struct Requestpreprocessor {
@@ -38,17 +38,15 @@ impl Requestpreprocessor {
 }
 
 impl Iterator for Requestpreprocessor {
-    type Item = Result<RequestSource>;
+    type Item = Result<RequestSource<Preprocessed>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.requests.is_empty() {
             None
         } else {
-            let mut req = self.requests.remove(0);
+            let req = self.requests.remove(0);
 
-            let req = req
-                .replace_variables(&self.profile, &self.config, &self.response_data)
-                .map(|_| req);
+            let req = req.replace_variables(&self.profile, &self.config, &self.response_data);
             Some(req)
         }
     }

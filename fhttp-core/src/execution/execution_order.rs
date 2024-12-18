@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 
 use crate::path_utils::{CanonicalizedPathBuf, RelativePath};
-use crate::request_sources::variable_support::{EnvVarOccurrence, VariableSupport};
+use crate::request_sources::variable_support::{get_env_vars, EnvVarOccurrence};
 use crate::Profile;
 use crate::RequestSource;
 
@@ -47,7 +47,7 @@ fn preprocess_request(
     }
     preprocessor_stack.push(req.source_path.clone());
 
-    for dep in req.dependencies()? {
+    for dep in req.unescaped_dependency_paths()? {
         let dep = RequestSource::from_file(dep, true)?;
         preprocess_request(dep, list, preprocessor_stack)?;
     }
@@ -62,7 +62,7 @@ fn get_env_vars_defined_through_requests(
     profile: &Profile,
     req: &RequestSource,
 ) -> Result<Vec<CanonicalizedPathBuf>> {
-    let vars: Vec<EnvVarOccurrence> = req.get_env_vars();
+    let vars: Vec<EnvVarOccurrence> = get_env_vars(&req.text);
     vars.into_iter()
         .flat_map(|occ| profile.defined_through_request(occ.name))
         .map(|path| profile.get_dependency_path(path.to_str().unwrap()))

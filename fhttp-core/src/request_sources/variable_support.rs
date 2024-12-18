@@ -1,22 +1,14 @@
+use std::path::Path;
+
 use anyhow::Result;
 use regex::Captures;
 use uuid::Uuid;
 
-use crate::path_utils::RelativePath;
+use crate::path_utils::get_dependency_path;
+use crate::preprocessing::dependant::request_dependencies;
 use crate::preprocessing::evaluation::{BaseEvaluation, Evaluation};
 use crate::preprocessing::random_numbers::{parse_min_max, random_int, RandomNumberEval};
-use crate::{Config, Profile, RequestSource, ResponseStore};
-
-pub trait VariableSupport {
-    fn get_env_vars(&self) -> Vec<EnvVarOccurrence>;
-
-    fn replace_variables(
-        &mut self,
-        profile: &Profile,
-        config: &Config,
-        response_store: &ResponseStore,
-    ) -> Result<()>;
-}
+use crate::{Config, Profile, ResponseStore};
 
 #[derive(Debug)]
 pub struct EnvVarOccurrence<'a> {
@@ -31,58 +23,59 @@ impl<'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
     }
 }
 
-impl VariableSupport for RequestSource {
-    fn get_env_vars(&self) -> Vec<EnvVarOccurrence> {
-        let re_env = regex!(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##);
-
-        re_env
-            .captures_iter(&self.text)
-            .collect::<Vec<Captures>>()
-            .into_iter()
-            .rev()
-            .map(|capture: Captures| {
-                let backslashes = capture.get(1).unwrap().range();
-                let group = capture.get(2).unwrap();
-                let key = capture.get(3).unwrap().as_str();
-                let default = capture.get(5).map(|m| m.as_str());
-                EnvVarOccurrence {
-                    name: key,
-                    default,
-                    base_evaluation: BaseEvaluation {
-                        range: group.range(),
-                        backslashes,
-                    },
-                }
-            })
-            .collect()
-    }
-
-    fn replace_variables(
-        &mut self,
-        profile: &Profile,
-        config: &Config,
-        response_store: &ResponseStore,
-    ) -> Result<()> {
-        _replace_env_vars(self, profile, config, response_store)?;
-        _replace_uuids(self);
-        _replace_random_ints(self)?;
-        _replace_request_dependencies(self, response_store)?;
-
-        Ok(())
-    }
-}
-
-fn _replace_env_vars(
-    req: &mut RequestSource,
+pub fn replace_evals(
+    text: String,
+    base_path: impl AsRef<Path>,
+    dependency: bool,
     profile: &Profile,
     config: &Config,
     response_store: &ResponseStore,
-) -> Result<()> {
-    let variables = req.get_env_vars();
+) -> Result<String> {
+    let text = replace_env_vars(text, dependency, profile, config, response_store)?;
+    let text = replace_uuids(text);
+    let text = replace_random_ints(text)?;
+    let text = replace_request_dependencies(text, base_path, response_store)?;
+    Ok(text)
+}
 
-    if !variables.is_empty() {
-        let mut buffer = req.text.clone();
+pub fn get_env_vars(text: &str) -> Vec<EnvVarOccurrence> {
+    let re_env = regex!(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##);
 
+    re_env
+        .captures_iter(&text)
+        .collect::<Vec<Captures>>()
+        .into_iter()
+        .rev()
+        .map(|capture: Captures| {
+            let backslashes = capture.get(1).unwrap().range();
+            let group = capture.get(2).unwrap();
+            let key = capture.get(3).unwrap().as_str();
+            let default = capture.get(5).map(|m| m.as_str());
+            EnvVarOccurrence {
+                name: key,
+                default,
+                base_evaluation: BaseEvaluation {
+                    range: group.range(),
+                    backslashes,
+                },
+            }
+        })
+        .collect()
+}
+
+fn replace_env_vars(
+    text: String,
+    dependency: bool,
+    profile: &Profile,
+    config: &Config,
+    response_store: &ResponseStore,
+) -> Result<String> {
+    let variables = get_env_vars(&text);
+
+    if variables.is_empty() {
+        Ok(text)
+    } else {
+        let mut buffer = text.clone();
         for occurrence in variables {
             occurrence.replace(&mut buffer, || {
                 profile.get(
@@ -90,21 +83,19 @@ fn _replace_env_vars(
                     config,
                     response_store,
                     occurrence.default,
-                    req.dependency,
+                    dependency,
                 )
             })?;
         }
-        req.text = buffer;
+        Ok(buffer)
     }
-
-    Ok(())
 }
 
-fn _replace_uuids(req: &mut RequestSource) {
+fn replace_uuids(text: String) -> String {
     let re_env = regex!(r"(?m)(\\*)(\$\{uuid\(\)})");
 
     let reversed_evaluations: Vec<BaseEvaluation> = re_env
-        .captures_iter(&req.text)
+        .captures_iter(&text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
@@ -115,22 +106,24 @@ fn _replace_uuids(req: &mut RequestSource) {
         })
         .collect();
 
-    if !reversed_evaluations.is_empty() {
-        let mut buffer = req.text.clone();
+    if reversed_evaluations.is_empty() {
+        text
+    } else {
+        let mut buffer = text.clone();
 
         for eval in reversed_evaluations {
             let _ = eval.replace(&mut buffer, || Ok(Uuid::new_v4().to_string()));
         }
 
-        req.text = buffer;
+        buffer
     }
 }
 
-fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
+fn replace_random_ints(text: String) -> Result<String> {
     let re_env = regex!(r"(?m)(\\*)(\$\{randomInt\(\s*([+-]?\d+)?\s*(,\s*([+-]?\d+)\s*)?\)})");
 
     let reversed_random_nums: Vec<RandomNumberEval> = re_env
-        .captures_iter(&req.text)
+        .captures_iter(&text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()
@@ -145,8 +138,10 @@ fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
         })
         .collect();
 
-    if !reversed_random_nums.is_empty() {
-        let mut buffer = req.text.clone();
+    if reversed_random_nums.is_empty() {
+        Ok(text)
+    } else {
+        let mut buffer = text.clone();
 
         for eval in reversed_random_nums {
             eval.replace(&mut buffer, || {
@@ -155,31 +150,30 @@ fn _replace_random_ints(req: &mut RequestSource) -> Result<()> {
             })?;
         }
 
-        req.text = buffer;
+        Ok(buffer)
     }
-
-    Ok(())
 }
 
-fn _replace_request_dependencies(
-    req: &mut RequestSource,
+fn replace_request_dependencies(
+    text: String,
+    base_path: impl AsRef<Path>,
     response_store: &ResponseStore,
-) -> Result<()> {
-    let reversed_evals = req.request_dependencies()?;
+) -> Result<String> {
+    let reversed_evals = request_dependencies(&text)?;
 
-    if !reversed_evals.is_empty() {
-        let mut buffer = req.text.clone();
+    if reversed_evals.is_empty() {
+        Ok(text)
+    } else {
+        let mut buffer = text.clone();
 
         for eval in reversed_evals {
             eval.replace(&mut buffer, || {
-                Ok(response_store.get(&req.get_dependency_path(eval.path)?))
+                Ok(response_store.get(&get_dependency_path(&base_path, eval.path)?))
             })?;
         }
 
-        req.text = buffer;
+        Ok(buffer)
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

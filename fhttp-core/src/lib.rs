@@ -18,7 +18,6 @@ pub use postprocessing::response::Response;
 pub use postprocessing::response_handler::ResponseHandler;
 pub use preprocessing::request_preprocessor::Requestpreprocessor;
 pub use profiles::{Profile, Profiles};
-pub use request_sources::variable_support::VariableSupport;
 pub use request_sources::RequestSource;
 
 #[macro_use]

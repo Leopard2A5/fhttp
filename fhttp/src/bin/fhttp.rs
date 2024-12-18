@@ -136,7 +136,7 @@ fn check_curl_requested_for_dependencies(
             .collect::<Result<Vec<CanonicalizedPathBuf>>>()?;
         let dependencies = requests
             .iter()
-            .map(|req| Ok((req.source_path.clone(), req.dependencies()?)))
+            .map(|req| Ok((req.source_path.clone(), req.unescaped_dependency_paths()?)))
             .collect::<Result<Vec<(CanonicalizedPathBuf, Vec<CanonicalizedPathBuf>)>>>()?;
         let dependencies = dependencies
             .into_iter()
