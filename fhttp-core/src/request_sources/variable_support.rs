@@ -184,6 +184,7 @@ mod replace_variables {
 
     use crate::preprocessing::random_numbers::RANDOM_INT_CALLS;
     use crate::test_utils::root;
+    use crate::RequestSource;
 
     use super::*;
 
@@ -193,7 +194,7 @@ mod replace_variables {
         env::set_var("TOKEN", "token");
         env::set_var("BODY", "body");
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -205,7 +206,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -230,7 +231,7 @@ mod replace_variables {
     fn should_respect_backslashes_for_escaping_env_vars() -> Result<()> {
         env::set_var("VAR", "X");
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -244,7 +245,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -271,7 +272,7 @@ mod replace_variables {
     fn should_handle_env_var_default_values() -> Result<()> {
         env::set_var("BODY", "body");
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -282,7 +283,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -306,7 +307,7 @@ mod replace_variables {
     fn should_replace_uuids() -> Result<()> {
         let regex = regex!(r"X[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}X");
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -315,7 +316,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -339,7 +340,7 @@ mod replace_variables {
         );
         let regex = Regex::new(&format).unwrap();
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -354,7 +355,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -371,7 +372,7 @@ mod replace_variables {
             cell.borrow_mut().clear();
         });
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -443,7 +444,7 @@ mod replace_variables {
 
     #[test]
     fn replace_random_numbers_should_respect_backslashes() -> Result<()> {
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r##"
@@ -458,7 +459,7 @@ mod replace_variables {
             ),
         )?;
 
-        req.replace_variables(
+        let req = req.replace_variables(
             &Profile::empty(env::current_dir().unwrap()),
             &Config::default(),
             &ResponseStore::new(),
@@ -493,7 +494,7 @@ mod replace_variables {
             tmp
         };
 
-        let mut req = RequestSource::new(
+        let req = RequestSource::new(
             env::current_dir().unwrap(),
             indoc!(
                 r#"
@@ -506,7 +507,7 @@ mod replace_variables {
             "#
             ),
         )?;
-        req.replace_variables(&profile, &config, &response_store)?;
+        let req = req.replace_variables(&profile, &config, &response_store)?;
 
         assert_eq!(
             req.text,
