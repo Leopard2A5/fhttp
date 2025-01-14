@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::path::Path;
 #[cfg(test)]
@@ -22,10 +23,12 @@ pub mod request_wrapper;
 pub mod structured_request_source;
 pub mod variable_support;
 
+#[derive(Debug, Eq, PartialEq)]
 pub struct Raw;
+#[derive(Debug, Eq, PartialEq)]
 pub struct Preprocessed;
 
-// #[derive(Debug, Eq)]
+#[derive(Debug, Eq)]
 pub struct RequestSource<State = Raw> {
     state: PhantomData<State>,
     pub source_path: CanonicalizedPathBuf,
@@ -130,5 +133,11 @@ impl<T> AsRef<Path> for RequestSource<T> {
 impl<T> PartialEq for RequestSource<T> {
     fn eq(&self, other: &Self) -> bool {
         self.source_path == other.source_path
+    }
+}
+
+impl Hash for RequestSource {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.source_path.hash(state);
     }
 }

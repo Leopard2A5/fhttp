@@ -34,6 +34,7 @@ pest_derive = "2.1.0"
 anyhow = "1.0"
 itertools = "0.12.1"
 recursive-file-loader = "1.0.3"
+linked_hash_set = "0.1.5"
 
 [dev-dependencies]
 indoc = "2.0.5"

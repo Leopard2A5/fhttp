@@ -1,4 +1,5 @@
 use anyhow::Result;
+use linked_hash_set::LinkedHashSet;
 
 use crate::execution::execution_order::plan_request_order;
 use crate::path_utils::CanonicalizedPathBuf;
@@ -12,7 +13,7 @@ use crate::ResponseStore;
 pub struct Requestpreprocessor {
     profile: Profile,
     config: Config,
-    requests: Vec<RequestSource>,
+    requests: LinkedHashSet<RequestSource>,
     response_data: ResponseStore,
 }
 
@@ -41,14 +42,9 @@ impl Iterator for Requestpreprocessor {
     type Item = Result<RequestSource<Preprocessed>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.requests.is_empty() {
-            None
-        } else {
-            let req = self.requests.remove(0);
-
-            let req = req.replace_variables(&self.profile, &self.config, &self.response_data);
-            Some(req)
-        }
+        self.requests
+            .pop_front()
+            .map(|req| req.replace_variables(&self.profile, &self.config, &self.response_data))
     }
 }
 

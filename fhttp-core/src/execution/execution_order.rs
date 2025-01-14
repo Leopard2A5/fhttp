@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use linked_hash_set::LinkedHashSet;
 
 use crate::path_utils::{CanonicalizedPathBuf, RelativePath};
 use crate::request_sources::variable_support::{get_env_vars, EnvVarOccurrence};
@@ -8,9 +9,9 @@ use crate::RequestSource;
 pub fn plan_request_order(
     initial_requests: Vec<RequestSource>,
     profile: &Profile,
-) -> Result<Vec<RequestSource>> {
+) -> Result<LinkedHashSet<RequestSource>> {
     let mut preprocessor_stack = vec![];
-    let mut requests_with_dependencies = vec![];
+    let mut requests_with_dependencies = LinkedHashSet::new();
 
     for req in &initial_requests {
         for path in get_env_vars_defined_through_requests(profile, req)? {
@@ -36,10 +37,10 @@ pub fn plan_request_order(
 
 fn preprocess_request(
     req: RequestSource,
-    list: &mut Vec<RequestSource>,
+    all_requests: &mut LinkedHashSet<RequestSource>,
     preprocessor_stack: &mut Vec<CanonicalizedPathBuf>,
 ) -> Result<()> {
-    if list.contains(&req) {
+    if all_requests.contains(&req) {
         return Ok(());
     }
     if preprocessor_stack.contains(&req.source_path) {
@@ -49,11 +50,11 @@ fn preprocess_request(
 
     for dep in req.unescaped_dependency_paths()? {
         let dep = RequestSource::from_file(dep, true)?;
-        preprocess_request(dep, list, preprocessor_stack)?;
+        preprocess_request(dep, all_requests, preprocessor_stack)?;
     }
 
     preprocessor_stack.pop();
-    list.push(req);
+    all_requests.insert(req);
 
     Ok(())
 }
