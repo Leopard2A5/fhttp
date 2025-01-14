@@ -98,7 +98,7 @@ mod tests {
 
         let requests = vec![r1, r2, r3, r4, r5];
         requests.iter().enumerate().for_each(|(i, r)| {
-            response_store.store(r.clone(), &format!("{}", i));
+            response_store.store(r.clone(), format!("{}", i));
         });
 
         let coll = plan_request_order(vec![init_request], &profile)?

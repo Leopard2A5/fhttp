@@ -19,7 +19,7 @@ pub fn request_dependencies(text: &str) -> Result<Vec<RequestDependencyEval>> {
     let re_request = regex!(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#);
 
     let deps = re_request
-        .captures_iter(&text)
+        .captures_iter(text)
         .collect::<Vec<_>>()
         .into_iter()
         .rev()

@@ -6,12 +6,8 @@ pub struct RequestDependencyEval<'a> {
     pub base_eval: BaseEvaluation,
 }
 
-impl <'a> RequestDependencyEval<'a> {
-    pub fn new(
-        path: &'a str,
-        range: Range<usize>,
-        backslashes: Range<usize>,
-    ) -> Self {
+impl<'a> RequestDependencyEval<'a> {
+    pub fn new(path: &'a str, range: Range<usize>, backslashes: Range<usize>) -> Self {
         RequestDependencyEval {
             path,
             base_eval: BaseEvaluation::new(range, backslashes),
@@ -19,7 +15,7 @@ impl <'a> RequestDependencyEval<'a> {
     }
 }
 
-impl <'a> AsRef<BaseEvaluation> for RequestDependencyEval<'a> {
+impl AsRef<BaseEvaluation> for RequestDependencyEval<'_> {
     fn as_ref(&self) -> &BaseEvaluation {
         &self.base_eval
     }

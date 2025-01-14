@@ -17,7 +17,7 @@ pub struct EnvVarOccurrence<'a> {
     pub base_evaluation: BaseEvaluation,
 }
 
-impl<'a> AsRef<BaseEvaluation> for EnvVarOccurrence<'a> {
+impl AsRef<BaseEvaluation> for EnvVarOccurrence<'_> {
     fn as_ref(&self) -> &BaseEvaluation {
         &self.base_evaluation
     }
@@ -42,7 +42,7 @@ pub fn get_env_vars(text: &str) -> Vec<EnvVarOccurrence> {
     let re_env = regex!(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##);
 
     re_env
-        .captures_iter(&text)
+        .captures_iter(text)
         .collect::<Vec<Captures>>()
         .into_iter()
         .rev()
@@ -394,7 +394,7 @@ mod replace_variables {
         RANDOM_INT_CALLS.with(|calls| {
             assert_eq!(
                 *calls.borrow(),
-                vec![(-5, 7), (-5, std::i32::MAX), (0, std::i32::MAX),]
+                vec![(-5, 7), (-5, i32::MAX), (0, i32::MAX),]
             );
         });
 
@@ -410,27 +410,19 @@ mod replace_variables {
         assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
-                format!("GET ${{randomInt({})}}", std::i32::MIN as i64 - 1)
+                format!("GET ${{randomInt({})}}", i32::MIN as i64 - 1)
             )?
             .replace_variables(&profile, &config, &response_store),
-            format!(
-                "min param out of bounds: {}..{}",
-                std::i32::MIN,
-                std::i32::MAX
-            )
+            format!("min param out of bounds: {}..{}", i32::MIN, i32::MAX)
         );
 
         assert_err!(
             RequestSource::new(
                 env::current_dir().unwrap(),
-                format!("${{randomInt(0, {})}}", std::i32::MAX as i64 + 1)
+                format!("${{randomInt(0, {})}}", i32::MAX as i64 + 1)
             )?
             .replace_variables(&profile, &config, &response_store),
-            format!(
-                "max param out of bounds: {}..{}",
-                std::i32::MIN,
-                std::i32::MAX
-            )
+            format!("max param out of bounds: {}..{}", i32::MIN, i32::MAX)
         );
 
         assert_err!(

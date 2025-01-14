@@ -35,7 +35,7 @@ pub fn parse_min_max(min: Option<&str>, max: Option<&str>) -> Result<(i32, i32)>
         .map_err(|_| anyhow!("min param out of bounds: {}..{}", i32::MIN, i32::MAX))?;
     let ret_max = max
         .map(|m| m.parse::<i32>())
-        .unwrap_or(Ok(std::i32::MAX))
+        .unwrap_or(Ok(i32::MAX))
         .map_err(|_| anyhow!("max param out of bounds: {}..{}", i32::MIN, i32::MAX))?;
 
     if ret_max < ret_min {
@@ -66,7 +66,7 @@ impl<'a> RandomNumberEval<'a> {
     }
 }
 
-impl<'a> AsRef<BaseEvaluation> for RandomNumberEval<'a> {
+impl AsRef<BaseEvaluation> for RandomNumberEval<'_> {
     fn as_ref(&self) -> &BaseEvaluation {
         &self.base_eval
     }
