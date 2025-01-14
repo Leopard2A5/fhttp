@@ -68,27 +68,9 @@ impl<State> RequestSource<State> {
             .map(|dep| self.get_dependency_path(dep.path))
             .collect()
     }
-
-    pub fn parse(self) -> Result<RequestWrapper> {
-        let path = self.source_path.to_str().to_lowercase();
-        let request = if path.ends_with(".gql.http") || path.ends_with(".graphql.http") {
-            parse_gql_str(&self.text)?
-        } else if path.ends_with(".json") {
-            parse_request_from_json(&self.source_path, &self.text)?
-        } else if path.ends_with(".yaml") || path.ends_with(".yml") {
-            parse_request_from_yaml(&self.source_path, &self.text)?
-        } else {
-            parse_str(&self.source_path, &self.text)?
-        };
-
-        Ok(RequestWrapper {
-            source_path: self.source_path,
-            request,
-        })
-    }
 }
 
-impl RequestSource {
+impl RequestSource<Raw> {
     pub fn replace_variables(
         self,
         profile: &Profile,
@@ -109,6 +91,26 @@ impl RequestSource {
             state: PhantomData,
             source_path: self.source_path,
             dependency: self.dependency,
+        })
+    }
+}
+
+impl RequestSource<Preprocessed> {
+    pub fn parse(self) -> Result<RequestWrapper> {
+        let path = self.source_path.to_str().to_lowercase();
+        let request = if path.ends_with(".gql.http") || path.ends_with(".graphql.http") {
+            parse_gql_str(&self.text)?
+        } else if path.ends_with(".json") {
+            parse_request_from_json(&self.source_path, &self.text)?
+        } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+            parse_request_from_yaml(&self.source_path, &self.text)?
+        } else {
+            parse_str(&self.source_path, &self.text)?
+        };
+
+        Ok(RequestWrapper {
+            source_path: self.source_path,
+            request,
         })
     }
 }
