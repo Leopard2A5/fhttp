@@ -40,10 +40,10 @@ $$**$$ requires account
 
 There are multiple ways to install FHTTP:
 
+* through cargo (recommended, currently the only way to install for apple silicon)
+. run `cargo install fhttp` (note: on ubuntu you need the apt packages `build-essential`, `pkg-config` and `libssl-dev`)
 * homebrew
 . run `brew tap Leopard2A5/fhttp && brew install fhttp`
-* through cargo
-. run `cargo install fhttp` (note: on ubuntu you need the apt packages `build-essential`, `pkg-config` and `libssl-dev`)
 * manually
 . download the latest version https://github.com/Leopard2A5/fhttp/releases[here]
 . rename the downloaded file?
