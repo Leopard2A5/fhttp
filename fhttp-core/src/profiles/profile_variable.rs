@@ -14,6 +14,11 @@ pub enum ProfileVariable {
         #[serde(skip)]
         cache: RefCell<Option<String>>,
     },
+    OnePasswordSecret {
+        onepassword: String,
+        #[serde(skip)]
+        cache: RefCell<Option<String>>,
+    },
     Request {
         request: String,
     },
@@ -37,6 +42,20 @@ impl ProfileVariable {
                     Ok(cache.borrow().as_ref().unwrap().clone())
                 }
             }
+            ProfileVariable::OnePasswordSecret { onepassword, cache } => {
+                if config.curl() && !for_dependency {
+                    Ok(format!("$(op read {})", onepassword))
+                } else {
+                    if cache.borrow().is_none() {
+                        config.log(2, format!("resolving onepassword secret '{}'... ", &onepassword));
+                        let value = resolve_onepassword(onepassword)?.trim().to_owned();
+                        config.logln(2, "done");
+                        cache.borrow_mut().replace(value);
+                    }
+
+                    Ok(cache.borrow().as_ref().unwrap().clone())
+                }
+            }
             ProfileVariable::Request { request: _ } => {
                 panic!("ProfileVariable::Request cannot resolve by itself")
             }
@@ -47,6 +66,11 @@ impl ProfileVariable {
 #[cfg(test)]
 thread_local!(
     static PASS_INVOCATIONS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) }
+);
+
+#[cfg(test)]
+thread_local!(
+    static ONEPASSWORD_INVOCATIONS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) }
 );
 
 #[cfg(test)]
@@ -68,6 +92,28 @@ fn resolve_pass(path: &str) -> Result<String> {
     } else {
         let stderr = String::from_utf8(output.stderr).unwrap();
         Err(anyhow!("pass returned an error: '{}'", stderr))
+    }
+}
+
+#[cfg(test)]
+fn resolve_onepassword(path: &str) -> Result<String> {
+    ONEPASSWORD_INVOCATIONS.with(|it| it.borrow_mut().push(path.to_string()));
+    Ok("onepassword_secret".to_string())
+}
+
+#[cfg(not(test))]
+fn resolve_onepassword(path: &str) -> Result<String> {
+    use anyhow::anyhow;
+    use std::process::Command;
+
+    let output = Command::new("op").args(["read", path]).output().unwrap();
+
+    if output.status.success() {
+        let output = output.stdout;
+        Ok(String::from_utf8(output).unwrap())
+    } else {
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        Err(anyhow!("onepassword returned an error: '{}'", stderr))
     }
 }
 
@@ -98,6 +144,25 @@ mod test {
             result,
             ProfileVariable::PassSecret {
                 pass: "foo/bar".into(),
+                cache: RefCell::new(None)
+            }
+        );
+    }
+
+    #[test]
+    fn deserialize_onepassword_secret() {
+        let input = indoc!(
+            r##"
+            {
+                "onepassword": "op://pass/word"
+            }
+        "##
+        );
+        let result = serde_json::from_str::<ProfileVariable>(input).unwrap();
+        assert_eq!(
+            result,
+            ProfileVariable::OnePasswordSecret {
+                onepassword: "op://pass/word".into(),
                 cache: RefCell::new(None)
             }
         );

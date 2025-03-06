@@ -24,6 +24,7 @@ FHTTP is not a curl replacement. It’s meant to be a developers’ tool to make
 |Env vars                                       |✓   |✓   |✕   |✕   |✓
 |Profiles                                       |✕   |✓   |✓   |✓   |✕
 |https://www.passwordstore.org/[Pass] secrets   |✕*  |✓   |✕   |✕   |✕
+|https://1password.com/[1Password] secrets      |✕*  |✓   |✕   |✕   |✕
 |Run multiple requests in one operation         |✕   |✓   |✓   |✕   |✕
 |Share collections                              |✕*  |✓   |✓** |✕   |✓
 |Full JavaScript response processing            |✕   |✕   |✓   |✕   |✓
@@ -63,7 +64,7 @@ ____
 * Save a collection of requests right in your project repository
 * Use profiles to easily switch between environments
 * Resolve (environment) variables in your requests
-* Resolve secrets stored in https://www.passwordstore.org/[pass]
+* Resolve secrets stored in https://www.passwordstore.org/[pass] or https://1password.com/[1Password]
 * Add dependencies between requests
 * Support for graphql requests
 * multipart file uploads
@@ -174,7 +175,7 @@ In this example `get-entities.http` has a dependency on another request to fetch
 You can tell FHTTP to print the paths to the executed request files instead of methods and urls, by passing the `-P` or `--print-paths` flag. This is particularly useful when working with graphql servers that combine several queries and mutations under a single path (/graphql).
 
 === Verbose option
-By increasing the verbosity with the `-v` option, you can tell FHTTP to also log usage of pass secrets. This can be useful if FHTTP seems slow, because the pass lookup can take some time.
+By increasing the verbosity with the `-v` option, you can tell FHTTP to also log usage of secrets. This can be useful if FHTTP seems slow, because the secret lookup can take some time.
 
 == How does it work?
 
@@ -315,6 +316,15 @@ a|[source,json]
 ----
 {
     "pass": "path/in/pass"
+}
+----
+
+| 1Password secret
+| Resolves the variable using the https://1password.com/[1Password] password store (requires the https://developer.1password.com/docs/cli/[CLI binary]). FHTTP will call `op read {path}`, so have a look at the 1Password documentation about the `op read` command.
+a|[source,json]
+----
+{
+    "onepassword": "op://path/in/store"
 }
 ----
 
