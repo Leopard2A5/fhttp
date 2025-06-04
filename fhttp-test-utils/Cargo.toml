@@ -11,6 +11,6 @@ repository = "https://github.com/Leopard2A5/fhttp"
 readme = "../README.asciidoc"
 
 [dependencies]
-fhttp-core = { path = "../fhttp-core", version = "2.0.0" }
-temp-dir = "0.1.11"
-anyhow = "1.0"
+fhttp-core = { path = "../fhttp-core" }
+temp-dir.workspace = true
+anyhow.workspace = true

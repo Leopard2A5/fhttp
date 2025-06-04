@@ -3,7 +3,6 @@ use std::cell::RefCell;
 use std::ops::Range;
 
 use anyhow::{anyhow, Result};
-
 use crate::preprocessing::evaluation::BaseEvaluation;
 
 #[cfg(test)]
@@ -14,9 +13,9 @@ thread_local!(
 #[cfg(not(test))]
 #[allow(unused)]
 pub fn random_int(min: i32, max: i32) -> i32 {
-    use rand::{thread_rng, Rng};
+    use rand::{rng, Rng};
 
-    thread_rng().gen_range(min..max)
+    rng().random_range(min..max)
 }
 
 #[cfg(test)]
