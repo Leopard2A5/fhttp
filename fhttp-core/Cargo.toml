@@ -28,6 +28,7 @@ rand.workspace = true
 pest.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
+rhai.workspace = true
 
 [dev-dependencies]
 apply.workspace = true
@@ -38,3 +39,4 @@ wiremock.workspace = true
 wiremock-multipart.workspace = true
 rstest.workspace = true
 temp-dir.workspace = true
+insta.workspace = true
