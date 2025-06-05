@@ -167,4 +167,41 @@ mod rhai_tests {
         let result = handler.process_body(input).expect("failed to invoke handler");
         assert_debug_snapshot!(result, @r#""hello, world!""#);
     }
+
+    #[test]
+    fn should_allow_throwing_errors() {
+        let input = ResponseHandlerInput {
+            body: "hello".to_string(),
+            status_code: 500,
+        };
+        let handler = ResponseHandler::Rhai {
+            program: indoc! ("
+                if status != 200 {
+                    throw \"status was not 200!\";
+                }
+            ").to_string(),
+        };
+        let result = handler.process_body(input);
+        assert_debug_snapshot!(result, @r#"
+        Err(
+            "Runtime error: status was not 200! (line 2, position 5)",
+        )
+        "#);
+    }
+
+    #[test]
+    fn should_allow_parsing_json() {
+        let input = ResponseHandlerInput {
+            body: r#"{ "foo": [1, 2, 3] }"#.to_string(),
+            status_code: 200,
+        };
+        let handler = ResponseHandler::Rhai {
+            program: indoc! ("
+                let parsed = parse_json(body);
+                parsed[\"foo\"][1].to_string()
+            ").to_string(),
+        };
+        let result = handler.process_body(input).expect("failed to invoke handler");
+        assert_debug_snapshot!(result, @r#""2""#);
+    }
 }
