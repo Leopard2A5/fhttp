@@ -7,6 +7,7 @@ use reqwest::{Method, Url};
 
 use crate::request::body::{Body, MultipartPart};
 use crate::{Response, ResponseHandler};
+use crate::postprocessing::response_handler::ResponseHandlerInput;
 
 pub struct Client;
 
@@ -75,16 +76,16 @@ impl Client {
 
         let response = req_builder.send()?;
         let status = response.status();
-        let text = response.text().unwrap();
+        let text = response.text()?;
+        let response_handler_input = ResponseHandlerInput { status_code: status.as_u16(), body: text };
 
-        let body = match status.is_success() {
-            true => match response_handler {
-                Some(handler) => handler.process_body(&text)?,
-                None => text,
-            },
-            false => text,
+        let body = match (status.is_success(), response_handler) {
+            | (_, Some(handler @ ResponseHandler::Rhai { .. }))
+            | (true, Some(handler))
+            => handler.process_body(response_handler_input)?,
+            _ => response_handler_input.body,
         };
-
+        
         Ok(Response::new(status, body))
     }
 }

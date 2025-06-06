@@ -85,15 +85,19 @@ impl StructuredBody {
 struct StructuredResponseHandler {
     pub json: Option<String>,
     pub deno: Option<String>,
+    pub rhai: Option<String>,
 }
 
 impl StructuredResponseHandler {
     pub fn response_handler(self) -> Option<ResponseHandler> {
         if let Some(json) = self.json {
             Some(ResponseHandler::Json { json_path: json })
+        } else if let Some(program) = self.deno {
+            Some(ResponseHandler::Deno { program })
+        } else if let Some(program) = self.rhai {
+            Some(ResponseHandler::Rhai { program })
         } else {
-            self.deno
-                .map(|code| ResponseHandler::Deno { program: code })
+            None
         }
     }
 }
@@ -466,6 +470,32 @@ mod tests {
                     },
                 ]),
                 response_handler: None
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_request_with_rhai_response_handler() -> Result<()> {
+        let result = parse_request_from_yaml(
+            &root(),
+            indoc! {r#"
+            method: GET
+            url: http://localhost/foo
+            response_handler:
+              rhai: program
+        "#},
+        )?;
+
+        assert_eq!(
+            result,
+            Request {
+                method: Method::GET,
+                url: "http://localhost/foo".to_string(),
+                headers: HeaderMap::new(),
+                body: Body::Plain("".to_string()),
+                response_handler: Some(ResponseHandler::Rhai { program: "program".to_string() })
             }
         );
 
