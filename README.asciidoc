@@ -28,6 +28,7 @@ FHTTP is not a curl replacement. It’s meant to be a developers’ tool to make
 |Run multiple requests in one operation         |✕   |✓   |✓   |✕   |✕
 |Share collections                              |✕*  |✓   |✓** |✕   |✓
 |Full JavaScript response processing            |✕   |✕   |✓   |✕   |✓
+|Rhai response processing                       |✕   |✓   |✕   |✕   |✕
 |Plugins                                        |✕   |✕   |✕   |✓   |✕
 |GraphQL schema autocompletion                  |✕   |✕   |✕   |✓   |✕
 
@@ -257,9 +258,52 @@ POST http://localhost:8080
 |===
 | Handler | Description
 
-| json | Accepts a https://support.smartbear.com/readyapi/docs/testing/jsonpath-reference.html[jsonpath] expression that is applied to the response body.
-| deno | *** Deno is no longer supported. ***
+| json                   | Accepts a https://support.smartbear.com/readyapi/docs/testing/jsonpath-reference.html[jsonpath] expression that is applied to the response body.
+| deno                   | *** Deno is no longer supported. ***
+| https://rhai.rs/[rhai] | Accepts a rhai script that can be used for complex checks and transformations of the response.
 |===
+
+### Rhai response handlers
+
+In contrast to the other reponse handlers, a rhai script will be invoked even if the http status code of the response does not indicate success (200-299). This allows for more flexibility overall, but the script author is responsible for checking the status code.
+
+The status code and the response body are passed into the script as `status` and `body`.
+
+If the script returns a string, then that is used as the output of the response handler. If the script returns nothing, the original body of the response is used.
+
+Consider the following response and the script to handle it.
+
+```json
+{
+  "data": {
+    "numbers": [11, 42, 13]
+  }
+}
+```
+
+```
+GET https://...
+
+> {% rhai
+    if status > 299 {
+        throw `Request failed with status ${status} and body '${body}'`;
+    }
+
+    // parse the body as json
+    let parsed_body = parse_json(body);
+
+    // process data
+    let tmp = parsed_body.data.numbers[1] * 2;
+
+    // convert to string
+    tmp.to_string()
+%}
+```
+
+For successful status codes, this script will yield:
+```
+"84"
+```
 
 ## Profiles
 You can create profiles to avoid having to provide variables manually every time you invoke FHTTP. Profiles allow you to easily switch the target environment of a request. By default, FHTTP will use a file called `fhttp-config.json` if present. A profile file could look like this:
