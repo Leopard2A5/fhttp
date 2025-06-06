@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use anyhow::{bail, format_err, Context, Result};
-use rhai::{Engine, Scope};
+use rhai::{Engine, EvalAltResult, Scope};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum ResponseHandler {
@@ -58,10 +58,20 @@ fn process_response_rhai(program: &String, response: ResponseHandlerInput) -> Re
     let mut scope = Scope::new();
 
     scope.push("status", status_code as i64); // use i64 for seamless comparisons in-script
-    scope.push("body", body);
+    scope.push("body", body.clone());
 
-    engine.eval_with_scope::<String>(&mut scope, program)
-        .map_err(|e| format_err!("{}", e))
+    match engine.eval_with_scope::<String>(&mut scope, program) {
+        Ok(ret) => Ok(ret),
+        Err(e) => match *e {
+            EvalAltResult::ErrorMismatchOutputType(_type_requested, type_got, _pos) => {
+                match type_got.as_str() {
+                    "()" => Ok(body),
+                    _ => bail!("Rhai scripts must return a String or nothing at all, this script returned type '{type_got}'"),
+                }
+            },
+            _ => Err(format_err!("{}", e)),
+        },
+    }
 }
 
 #[cfg(test)]
@@ -203,5 +213,35 @@ mod rhai_tests {
         };
         let result = handler.process_body(input).expect("failed to invoke handler");
         assert_debug_snapshot!(result, @r#""2""#);
+    }
+
+    #[test]
+    fn should_fall_back_to_body_if_script_returned_nothing() {
+        let input = ResponseHandlerInput {
+            body: "body".to_string(),
+            status_code: 200,
+        };
+        let handler = ResponseHandler::Rhai {
+            program: "let x = 2 + 2;".to_string(),
+        };
+        let result = handler.process_body(input).expect("failed to invoke handler");
+        assert_debug_snapshot!(result, @r#""body""#);
+    }
+
+    #[test]
+    fn should_give_explanation_if_script_returned_wrong_type() {
+        let input = ResponseHandlerInput {
+            body: "body".to_string(),
+            status_code: 200,
+        };
+        let handler = ResponseHandler::Rhai {
+            program: "2 + 2".to_string(),
+        };
+        let result = handler.process_body(input);
+        assert_debug_snapshot!(result, @r#"
+        Err(
+            "Rhai scripts must return a String or nothing at all, this script returned type 'i64'",
+        )
+        "#);
     }
 }
