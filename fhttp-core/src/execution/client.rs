@@ -78,7 +78,7 @@ impl Client {
         let status = response.status();
         let text = response.text()?;
         let response_handler_input = ResponseHandlerInput { status_code: status.as_u16(), body: text };
-        
+
         let body = match (status.is_success(), response_handler) {
             | (_, Some(handler @ ResponseHandler::Rhai { .. }))
             | (true, Some(handler))

@@ -96,4 +96,13 @@ impl Request {
 
         self
     }
+
+    pub fn response_handler_rhai(
+        mut self,
+        handler: &'static str,
+    ) -> Self {
+        self.response_handler = Some(ResponseHandler::Rhai { program: handler.to_owned(), });
+
+        self
+    }
 }

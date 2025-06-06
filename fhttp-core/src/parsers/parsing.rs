@@ -37,6 +37,9 @@ pub fn parse_str<P: AsRef<Path>, T: AsRef<str>>(path: P, source: T) -> Result<Re
             Rule::response_handler_deno => {
                 parse_deno_response_handler(&mut response_handler, element)
             }
+            Rule::response_handler_rhai => {
+                parse_rhai_response_handler(&mut response_handler, element)
+            }
             _ => (),
         }
     }
@@ -107,6 +110,20 @@ fn parse_deno_response_handler(
     element.into_inner().for_each(|exp| match exp.as_rule() {
         Rule::response_handler_exp => {
             *response_handler = Some(ResponseHandler::Deno {
+                program: exp.as_str().trim().to_owned(),
+            });
+        }
+        _ => unreachable!(),
+    });
+}
+
+fn parse_rhai_response_handler(
+    response_handler: &mut Option<ResponseHandler>,
+    element: Pair<Rule>,
+) {
+    element.into_inner().for_each(|exp| match exp.as_rule() {
+        Rule::response_handler_exp => {
+            *response_handler = Some(ResponseHandler::Rhai {
                 program: exp.as_str().trim().to_owned(),
             });
         }
@@ -230,6 +247,30 @@ mod parse_normal_requests {
         assert_eq!(
             result,
             Request::basic("DELETE", "http://localhost:9000/foo").response_handler_json("$.data")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_parse_with_rhai_response_handler() -> Result<()> {
+        let result = parse_str(
+            current_dir().unwrap(),
+            indoc!(
+                r##"
+            DELETE http://localhost:9000/foo
+
+            > {%
+                rhai
+                (2 + 2).to_string()
+            %}
+        "##
+            ),
+        )?;
+
+        assert_eq!(
+            result,
+            Request::basic("DELETE", "http://localhost:9000/foo").response_handler_rhai("(2 + 2).to_string()")
         );
 
         Ok(())

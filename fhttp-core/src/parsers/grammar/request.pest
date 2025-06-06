@@ -19,9 +19,11 @@ response_handler_end = _{ "%}" }
 response_handler_exp = { (!response_handler_end ~ ANY)+ }
 response_handler_json = { "json" ~ response_handler_exp }
 response_handler_deno = { "deno" ~ response_handler_exp }
+response_handler_rhai = { "rhai" ~ response_handler_exp }
 response_handler_impl = _{
 	response_handler_json |
-	response_handler_deno
+	response_handler_deno |
+	response_handler_rhai
 }
 response_handler = _{
 	">" ~ "{%" ~ NEWLINE* ~
