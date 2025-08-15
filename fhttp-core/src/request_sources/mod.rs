@@ -44,6 +44,14 @@ impl<State> RequestSource<State> {
         Self::_new(path, content, dependency)
     }
 
+    pub fn stdin<P: AsRef<Path>>(path: P, content: String) -> Result<Self> {
+        let path = path.as_ref();
+        debug_assert!(path.is_dir(), "stdin expects a directory path");
+        let path = canonicalize(path)?;
+
+        Self::_new(path, content, false)
+    }
+
     #[cfg(test)]
     pub fn new<P: Into<PathBuf>, T: Into<String>>(path: P, text: T) -> Result<Self> {
         let path = canonicalize(&path.into())?;
