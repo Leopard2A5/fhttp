@@ -16,17 +16,7 @@ jobs:
         run: |
           cargo login ${{ secrets.CRATESIO_APIKEY }}
           sleep 3
-          cd fhttp-core
-          for i in 1 2; do cargo publish && break; done
-          cd -
-          sleep 3
-          cd fhttp-test-utils
-          for i in 1 2; do cargo publish && break; done
-          cd -
-          sleep 10
-          cd fhttp
-          for i in 1 2; do cargo publish && break; done
-          cd -
+          cargo publish --workspace
 
   create_release:
     name: create release
