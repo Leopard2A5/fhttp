@@ -4,9 +4,9 @@ use anyhow::Result;
 use regex::Captures;
 
 pub trait Dependant {
-    fn dependencies(&self) -> Result<Vec<RequestDependencyEval>>;
+    fn dependencies(&self) -> Result<Vec<RequestDependencyEval<'_>>>;
 
-    fn unescaped_dependencies(&self) -> Result<Vec<RequestDependencyEval>> {
+    fn unescaped_dependencies(&self) -> Result<Vec<RequestDependencyEval<'_>>> {
         Ok(self
             .dependencies()?
             .into_iter()
@@ -15,7 +15,7 @@ pub trait Dependant {
     }
 }
 
-pub fn request_dependencies(text: &str) -> Result<Vec<RequestDependencyEval>> {
+pub fn request_dependencies(text: &str) -> Result<Vec<RequestDependencyEval<'_>>> {
     let re_request = regex!(r#"(?m)(\\*)(\$\{request\("([^"]+)"\)})"#);
 
     let deps = re_request

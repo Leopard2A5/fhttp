@@ -127,7 +127,7 @@ impl RequestSource<Preprocessed> {
 }
 
 impl<T> Dependant for RequestSource<T> {
-    fn dependencies(&self) -> Result<Vec<RequestDependencyEval>> {
+    fn dependencies(&self) -> Result<Vec<RequestDependencyEval<'_>>> {
         request_dependencies(&self.text)
     }
 }
