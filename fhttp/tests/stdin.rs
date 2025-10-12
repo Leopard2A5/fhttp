@@ -1,7 +1,7 @@
 use assert_cmd::Command;
 use rstest::rstest;
-use wiremock::{Mock, MockServer, ResponseTemplate};
 use wiremock::matchers::method;
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[rstest]
 async fn test_stdin() -> anyhow::Result<()> {
@@ -17,11 +17,20 @@ async fn test_stdin() -> anyhow::Result<()> {
         .arg("-")
         .write_stdin(format!("GET {}/", mock_server.uri()))
         .assert()
-        .stderr(format!(
-            "GET {}/... 200 OK\n",
-            mock_server.uri()
-        ))
+        .stderr(format!("GET {}/... 200 OK\n", mock_server.uri()))
         .stdout("ok\n");
+
+    Ok(())
+}
+
+#[rstest]
+async fn should_not_allow_mixing_stdin_and_file_mode() -> anyhow::Result<()> {
+    Command::cargo_bin("fhttp")?
+        .arg("-")
+        .arg("non-existent file")
+        .write_stdin("GET http://localhost/foo/")
+        .assert()
+        .stderr("Error: Cannot mix reading from stdin (-) and file paths.");
 
     Ok(())
 }
