@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, mem};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use fhttp::Args;
 use itertools::Itertools;
@@ -40,12 +40,14 @@ fn do_it(
         let mut text = String::new();
         std::io::stdin().read_to_string(&mut text)?;
         vec![RequestSource::stdin(env::current_dir()?, text)?]
+    } else if files.iter().any(|f| f == "-") {
+        bail!("Cannot mix reading from stdin (-) and file paths.")
     } else {
         let requested_files = files
             .iter()
             .map(|file| PathBuf::from_str(file).unwrap())
             .collect::<Vec<_>>();
-        
+
         let tmp = validate_and_parse_files(&requested_files)?;
         check_curl_requested_for_dependencies(&config, &requested_files, &tmp)?;
         tmp
