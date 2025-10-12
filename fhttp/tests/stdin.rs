@@ -30,7 +30,7 @@ async fn should_not_allow_mixing_stdin_and_file_mode() -> anyhow::Result<()> {
         .arg("non-existent file")
         .write_stdin("GET http://localhost/foo/")
         .assert()
-        .stderr("Error: Cannot mix reading from stdin (-) and file paths.");
+        .stderr("Error: Cannot mix reading from stdin (-) and file paths.\n");
 
     Ok(())
 }
