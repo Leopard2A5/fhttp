@@ -1,10 +1,9 @@
 use assert_cmd::Command;
-use indoc::indoc;
+use fhttp_test_utils::write_test_file;
 use rstest::rstest;
 use temp_dir::TempDir;
-use wiremock::{Mock, MockServer, ResponseTemplate};
 use wiremock::matchers::method;
-use fhttp_test_utils::write_test_file;
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const SCRIPT: &str = r#"POST ${env(URL)}/
 
@@ -31,11 +30,7 @@ async fn test_success() -> anyhow::Result<()> {
     let mock_server = MockServer::start().await;
     let workdir = TempDir::new()?;
 
-    let req = write_test_file(
-        &workdir,
-        "req.http",
-        SCRIPT,
-    )?;
+    let req = write_test_file(&workdir, "req.http", SCRIPT)?;
 
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(200).set_body_string(RESPONSE))
@@ -46,10 +41,7 @@ async fn test_success() -> anyhow::Result<()> {
         .env("URL", mock_server.uri())
         .arg(req.to_str())
         .assert()
-        .stderr(format!(
-            "POST {}/... 200 OK\n",
-            mock_server.uri()
-        ))
+        .stderr(format!("POST {}/... 200 OK\n", mock_server.uri()))
         .stdout("84\n");
 
     Ok(())
@@ -60,11 +52,7 @@ async fn test_failure() -> anyhow::Result<()> {
     let mock_server = MockServer::start().await;
     let workdir = TempDir::new()?;
 
-    let req = write_test_file(
-        &workdir,
-        "req.http",
-        SCRIPT,
-    )?;
+    let req = write_test_file(&workdir, "req.http", SCRIPT)?;
 
     Mock::given(method("POST"))
         .respond_with(ResponseTemplate::new(500).set_body_string("Internal server error"))

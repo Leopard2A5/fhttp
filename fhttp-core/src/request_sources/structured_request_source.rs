@@ -94,11 +94,7 @@ impl StructuredResponseHandler {
             Some(ResponseHandler::Json { json_path: json })
         } else if let Some(program) = self.deno {
             Some(ResponseHandler::Deno { program })
-        } else if let Some(program) = self.rhai {
-            Some(ResponseHandler::Rhai { program })
-        } else {
-            None
-        }
+        } else { self.rhai.map(|program| ResponseHandler::Rhai { program }) }
     }
 }
 

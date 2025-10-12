@@ -8,7 +8,7 @@ pub trait Evaluation {
     fn range(&self) -> &Range<usize>;
 
     fn is_escaped(&self) -> bool {
-        self.backslashes().len() % 2 != 0
+        !self.backslashes().len().is_multiple_of(2)
     }
 
     fn replace<S: Into<String>, F: FnOnce() -> Result<S>>(

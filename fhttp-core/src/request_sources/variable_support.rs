@@ -38,7 +38,7 @@ pub fn replace_evals(
     Ok(text)
 }
 
-pub fn get_env_vars(text: &str) -> Vec<EnvVarOccurrence> {
+pub fn get_env_vars(text: &str) -> Vec<EnvVarOccurrence<'_>> {
     let re_env = regex!(r##"(?m)(\\*)(\$\{env\(([a-zA-Z0-9-_]+)(\s*,\s*"([^"]*)")?\)})"##);
 
     re_env
