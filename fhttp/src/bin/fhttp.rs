@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, mem};
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::Parser;
 use fhttp::Args;
 use itertools::Itertools;
@@ -35,13 +35,23 @@ fn do_it(
     config: Config,
 ) -> Result<()> {
     let profile = parse_profile(profile, profile_file)?;
-    let requested_files = files
-        .iter()
-        .map(|file| PathBuf::from_str(file).unwrap())
-        .collect::<Vec<_>>();
-    let requests: Vec<RequestSource> = validate_and_parse_files(&requested_files)?;
 
-    check_curl_requested_for_dependencies(&config, &requested_files, &requests)?;
+    let requests: Vec<RequestSource> = if files.len() == 1 && files[0] == "-" {
+        let mut text = String::new();
+        std::io::stdin().read_to_string(&mut text)?;
+        vec![RequestSource::stdin(env::current_dir()?, text)?]
+    } else if files.iter().any(|f| f == "-") {
+        bail!("Cannot mix reading from stdin (-) and file paths.")
+    } else {
+        let requested_files = files
+            .iter()
+            .map(|file| PathBuf::from_str(file).unwrap())
+            .collect::<Vec<_>>();
+
+        let tmp = validate_and_parse_files(&requested_files)?;
+        check_curl_requested_for_dependencies(&config, &requested_files, &tmp)?;
+        tmp
+    };
 
     let mut preprocessor = Requestpreprocessor::new(profile, requests, config)?;
     let client = Client::new();

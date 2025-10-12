@@ -4,7 +4,10 @@ use fhttp_core::Config;
 #[derive(Parser, Debug, Clone, Default)]
 #[command(author, version, about)]
 pub struct Args {
-    #[arg(required = true, help = "the request files to execute")]
+    #[arg(
+        required = true,
+        help = "the request files to execute (or - to read from stdin)"
+    )]
     pub files: Vec<String>,
 
     #[arg(
